@@ -13,6 +13,19 @@ public interface IBroilerRenderer : IDisposable
     IBroilerSurface CreateSurface(BSurfaceDescriptor descriptor);
 
     /// <summary>
+    /// Decodes encoded image bytes (PNG/JPEG/BMP/…) through the active
+    /// <see cref="BImageCodec"/> and uploads them as a backend image resource,
+    /// returning a handle to use in <see cref="BRenderCommand.DrawImage"/>.
+    /// </summary>
+    BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage);
+
+    /// <summary>Uploads an already-decoded pixel buffer as a backend image resource.</summary>
+    BImageHandle CreateImage(BPixelBuffer pixels);
+
+    /// <summary>Releases an image resource created by <see cref="CreateImage(BPixelBuffer)"/>.</summary>
+    void ReleaseImage(BImageHandle image);
+
+    /// <summary>
     /// Replays <paramref name="renderList"/> onto <paramref name="surface"/> using
     /// <paramref name="frameContext"/>. Implementations should call
     /// <see cref="BRenderList.Validate"/> before replay. May throw <see cref="BDeviceLostException"/>

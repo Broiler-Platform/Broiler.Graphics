@@ -14,4 +14,9 @@
     <AssemblyName>Broiler.Graphics</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The test runner reaches a few internals (e.g. Crc32) for unit coverage. -->
+    <InternalsVisibleTo Include="Broiler.Graphics.Tests" />
+  </ItemGroup>
+
 </Project>

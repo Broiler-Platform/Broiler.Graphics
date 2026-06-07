@@ -16,18 +16,45 @@ namespace Broiler.Graphics.Windows;
 public sealed class Direct2DRenderer : IBroilerRenderer
 {
     private readonly Direct2DDevice _device;
+    private readonly Direct2DImageStore _images = new();
     private bool _disposed;
 
     public Direct2DRenderer()
     {
         _device = new Direct2DDevice();
         _device.Initialize();
+
+        // Ensure image bytes can be decoded into pixel buffers (used when materializing
+        // bitmaps for DrawImage). Registering the dependency-free managed codec keeps the
+        // backend self-contained, but never overrides a codec the caller chose explicitly.
+        BImageCodec.UseManagedIfUnset();
     }
 
     public IBroilerSurface CreateSurface(BSurfaceDescriptor descriptor)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new Direct2DSurface(_device, descriptor);
+    }
+
+    public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        // Decode through the active codec, then keep the pixels ready for GPU upload.
+        BPixelBuffer pixels = BImageCodec.Decode(encodedImage);
+        return _images.Add(pixels);
+    }
+
+    public BImageHandle CreateImage(BPixelBuffer pixels)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(pixels);
+        return _images.Add(pixels);
+    }
+
+    public void ReleaseImage(BImageHandle image)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _images.Remove(image);
     }
 
     public void Render(IBroilerSurface surface, BRenderList renderList, BFrameContext frameContext)
@@ -128,11 +155,36 @@ public sealed class Direct2DRenderer : IBroilerRenderer
 
     private void DrawImage(Direct2DSurface surface, BRenderCommand.DrawImage c)
     {
-        // TODO: resolve c.Image.Handle to an ID2D1Bitmap, then
-        //       ID2D1DeviceContext::DrawBitmap(bitmap, dest, (float)c.Opacity, interpMode, source).
-        _ = surface;
-        throw new NotImplementedException("Direct2D DrawBitmap not yet wired up.");
+        // Resolve the handle, upload the pixels on first use, then draw onto the context.
+        Direct2DImage image = _images.Get(c.Image);
+        IntPtr context = surface.Context.Pointer;
+        IntPtr bitmap = image.EnsureBitmap(context);
+
+        DrawBitmap(
+            context, bitmap,
+            ToRectF(c.Destination), (float)c.Opacity,
+            D2DNative.D2D1_BITMAP_INTERPOLATION_MODE.LINEAR, ToRectF(c.Source));
     }
+
+    /// <summary>ID2D1RenderTarget::DrawBitmap via the device-context vtable.</summary>
+    private static unsafe void DrawBitmap(
+        IntPtr context, IntPtr bitmap, D2DNative.D2D1_RECT_F destination, float opacity,
+        D2DNative.D2D1_BITMAP_INTERPOLATION_MODE interpolation, D2DNative.D2D1_RECT_F source)
+    {
+        IntPtr* vtbl = *(IntPtr**)(void*)context;
+        var drawBitmap = (delegate* unmanaged[Stdcall]<
+            IntPtr, IntPtr, D2DNative.D2D1_RECT_F*, float, uint, D2DNative.D2D1_RECT_F*, void>)
+            vtbl[D2DNative.VtblDrawBitmap];
+        drawBitmap(context, bitmap, &destination, opacity, (uint)interpolation, &source);
+    }
+
+    private static D2DNative.D2D1_RECT_F ToRectF(BRect r) => new()
+    {
+        Left = (float)r.Left,
+        Top = (float)r.Top,
+        Right = (float)r.Right,
+        Bottom = (float)r.Bottom,
+    };
 
     private void PushClip(Direct2DSurface surface, BRenderCommand.PushClip c)
     {
@@ -167,6 +219,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         if (_disposed)
             return;
         _disposed = true;
+        _images.Dispose();
         _device.Dispose();
     }
 }

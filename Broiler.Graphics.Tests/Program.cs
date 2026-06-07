@@ -15,6 +15,10 @@ internal static class Program
         var tests = new List<(string Name, Action Body)>();
         RenderListTests.Register(tests);
         LifecycleTests.Register(tests);
+        ImageCodecTests.Register(tests);
+        JpegCodecTests.Register(tests);
+        JpegProgressiveTests.Register(tests);
+        ApngTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();
