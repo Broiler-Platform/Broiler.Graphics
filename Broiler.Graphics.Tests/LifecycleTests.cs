@@ -115,6 +115,23 @@ internal static class LifecycleTests
             // A real backend would replay here; the fake just validates ownership and the list.
         }
 
+        private ulong _nextImageId;
+
+        public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return CreateImage(new BPixelBuffer(1, 1, new byte[4]));
+        }
+
+        public BImageHandle CreateImage(BPixelBuffer pixels)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentNullException.ThrowIfNull(pixels);
+            return BImageHandle.FromId(++_nextImageId, new BSize(pixels.Width, pixels.Height));
+        }
+
+        public void ReleaseImage(BImageHandle image) => ObjectDisposedException.ThrowIf(_disposed, this);
+
         public void Dispose()
         {
             if (_disposed)

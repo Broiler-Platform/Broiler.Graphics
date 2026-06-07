@@ -15,4 +15,9 @@
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The backend test runner reaches a few internals (image store, BGRA conversion). -->
+    <InternalsVisibleTo Include="Broiler.Graphics.Windows.Tests" />
+  </ItemGroup>
+
 </Project>

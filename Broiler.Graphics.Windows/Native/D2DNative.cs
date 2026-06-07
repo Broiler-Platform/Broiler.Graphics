@@ -24,6 +24,16 @@ internal static class D2DNative
     /// <summary>IID_ID2D1DeviceContext.</summary>
     internal static readonly Guid IID_ID2D1DeviceContext = new("e8f7fe7a-191c-466d-ad95-975678bda998");
 
+    // ---- Vtable slots ----------------------------------------------------------------------------
+    // ID2D1DeviceContext inherits ID2D1RenderTarget, which inherits ID2D1Resource (GetFactory) and
+    // IUnknown. Slots: 0-2 IUnknown, 3 GetFactory, then the render-target methods begin at 4.
+
+    /// <summary>ID2D1RenderTarget::CreateBitmap (first render-target method).</summary>
+    internal const int VtblCreateBitmap = 4;
+
+    /// <summary>ID2D1RenderTarget::DrawBitmap.</summary>
+    internal const int VtblDrawBitmap = 26;
+
     // ---- Enums -----------------------------------------------------------------------------------
 
     internal enum D2D1_FACTORY_TYPE : uint
@@ -46,7 +56,36 @@ internal static class D2DNative
         ALIASED = 1,
     }
 
+    internal enum D2D1_BITMAP_INTERPOLATION_MODE : uint
+    {
+        NEAREST_NEIGHBOR = 0,
+        LINEAR = 1,
+    }
+
     // ---- Value structures ------------------------------------------------------------------------
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_SIZE_U
+    {
+        public uint Width;
+        public uint Height;
+    }
+
+    /// <summary>A DXGI format paired with how its alpha channel is interpreted.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_PIXEL_FORMAT
+    {
+        public DxgiNative.DXGI_FORMAT Format;
+        public D2D1_ALPHA_MODE AlphaMode;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_BITMAP_PROPERTIES
+    {
+        public D2D1_PIXEL_FORMAT PixelFormat;
+        public float DpiX;
+        public float DpiY;
+    }
 
     /// <summary>Direct2D uses 32-bit floats and premultiplied colors at the GPU level.</summary>
     [StructLayout(LayoutKind.Sequential)]
