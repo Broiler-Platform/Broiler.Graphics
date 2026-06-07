@@ -10,10 +10,20 @@ namespace Broiler.Graphics.Windows.Native;
 /// </summary>
 /// <remarks>
 /// The IUnknown vtable layout is fixed: slot 0 = QueryInterface, slot 1 = AddRef, slot 2 = Release.
-/// We read the vtable pointer (first machine word of the object) and invoke through it.
+/// Calls go through <see cref="ComVtable"/>, which resolves each slot to a cached managed delegate —
+/// no <c>unsafe</c> context required.
 /// </remarks>
-internal sealed unsafe class ComPtr : IDisposable
+internal sealed class ComPtr : IDisposable
 {
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int QueryInterfaceProc(IntPtr self, ref Guid iid, out IntPtr result);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate uint AddRefProc(IntPtr self);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate uint ReleaseProc(IntPtr self);
+
     private IntPtr _ptr;
 
     public ComPtr(IntPtr ptr) => _ptr = ptr;
@@ -45,9 +55,7 @@ internal sealed unsafe class ComPtr : IDisposable
         if (_ptr == IntPtr.Zero)
             return 0;
 
-        IntPtr* vtbl = *(IntPtr**)(void*)_ptr;
-        var addRef = (delegate* unmanaged[Stdcall]<IntPtr, uint>)vtbl[1];
-        return addRef(_ptr);
+        return ComVtable.Method<AddRefProc>(_ptr, 1)(_ptr);
     }
 
     /// <summary>
@@ -60,15 +68,9 @@ internal sealed unsafe class ComPtr : IDisposable
         if (_ptr == IntPtr.Zero)
             return unchecked((int)0x80004003); // E_POINTER
 
-        IntPtr* vtbl = *(IntPtr**)(void*)_ptr;
-        var queryInterface = (delegate* unmanaged[Stdcall]<IntPtr, Guid*, IntPtr*, int>)vtbl[0];
-
-        // Copy to stack locals so we can take stable addresses without pinning a ref parameter.
+        // Copy to a mutable local so it can be passed by ref (marshalled as the [in] riid pointer).
         Guid localIid = iid;
-        IntPtr local;
-        int hr = queryInterface(_ptr, &localIid, &local);
-        result = local;
-        return hr;
+        return ComVtable.Method<QueryInterfaceProc>(_ptr, 0)(_ptr, ref localIid, out result);
     }
 
     /// <summary>Calls <c>IUnknown::Release</c> and clears the pointer. Returns the new reference count.</summary>
@@ -77,9 +79,7 @@ internal sealed unsafe class ComPtr : IDisposable
         if (_ptr == IntPtr.Zero)
             return 0;
 
-        IntPtr* vtbl = *(IntPtr**)(void*)_ptr;
-        var release = (delegate* unmanaged[Stdcall]<IntPtr, uint>)vtbl[2];
-        uint count = release(_ptr);
+        uint count = ComVtable.Method<ReleaseProc>(_ptr, 2)(_ptr);
         _ptr = IntPtr.Zero;
         return count;
     }

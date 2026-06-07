@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Broiler.Graphics.Windows.Native;
 
 namespace Broiler.Graphics.Windows;
@@ -83,6 +84,15 @@ internal sealed class Direct2DImageStore : IDisposable
 /// <summary>One stored image: its size, premultiplied BGRA pixels, and (once drawn) its D2D bitmap.</summary>
 internal sealed class Direct2DImage : IDisposable
 {
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int CreateBitmapProc(
+        IntPtr self,
+        D2DNative.D2D1_SIZE_U size,
+        IntPtr sourceData,
+        uint pitch,
+        ref D2DNative.D2D1_BITMAP_PROPERTIES properties,
+        out IntPtr bitmap);
+
     private readonly ComPtr _bitmap = new(); // ID2D1Bitmap, created lazily
 
     public Direct2DImage(int width, int height, byte[] bgraPremultiplied)
@@ -100,17 +110,14 @@ internal sealed class Direct2DImage : IDisposable
     /// Returns the image's <c>ID2D1Bitmap</c>, uploading the pixels through
     /// <paramref name="deviceContext"/> (an <c>ID2D1DeviceContext</c>) on first use.
     /// </summary>
-    public unsafe IntPtr EnsureBitmap(IntPtr deviceContext)
+    public IntPtr EnsureBitmap(IntPtr deviceContext)
     {
         if (!_bitmap.IsNull)
             return _bitmap.Pointer;
         if (deviceContext == IntPtr.Zero)
             throw new InvalidOperationException("No Direct2D device context is available to upload the image.");
 
-        IntPtr* vtbl = *(IntPtr**)(void*)deviceContext;
-        var createBitmap = (delegate* unmanaged[Stdcall]<
-            IntPtr, D2DNative.D2D1_SIZE_U, void*, uint, D2DNative.D2D1_BITMAP_PROPERTIES*, IntPtr*, int>)
-            vtbl[D2DNative.VtblCreateBitmap];
+        CreateBitmapProc createBitmap = ComVtable.Method<CreateBitmapProc>(deviceContext, D2DNative.VtblCreateBitmap);
 
         var size = new D2DNative.D2D1_SIZE_U { Width = (uint)Width, Height = (uint)Height };
         var properties = new D2DNative.D2D1_BITMAP_PROPERTIES
@@ -124,14 +131,22 @@ internal sealed class Direct2DImage : IDisposable
             DpiY = 96f,
         };
 
-        IntPtr bitmap;
-        fixed (byte* data = BgraPremultiplied)
+        // Pin the pixels only for the call: CreateBitmap copies the source into device memory, so the
+        // managed buffer need not stay fixed afterwards.
+        GCHandle pin = GCHandle.Alloc(BgraPremultiplied, GCHandleType.Pinned);
+        try
         {
-            int hr = createBitmap(deviceContext, size, data, (uint)(Width * 4), &properties, &bitmap);
+            int hr = createBitmap(
+                deviceContext, size, pin.AddrOfPinnedObject(), (uint)(Width * 4),
+                ref properties, out IntPtr bitmap);
             NativeMethods.ThrowIfFailed(hr, "ID2D1DeviceContext::CreateBitmap");
+            _bitmap.Attach(bitmap);
+            return bitmap;
         }
-        _bitmap.Attach(bitmap);
-        return bitmap;
+        finally
+        {
+            pin.Free();
+        }
     }
 
     public void Dispose() => _bitmap.Dispose();
