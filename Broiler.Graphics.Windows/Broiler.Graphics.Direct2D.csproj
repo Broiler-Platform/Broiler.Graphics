@@ -5,7 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <!-- Native interop lives here. Unsafe is allowed but kept internal & isolated. -->
+    <!-- No hand-written `unsafe` remains: COM vtable calls go through ComVtable
+         (Marshal.GetDelegateForFunctionPointer with cached delegates). This flag stays on
+         only because the [LibraryImport] source generator emits unsafe marshalling stubs. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Windows</RootNamespace>
     <AssemblyName>Broiler.Graphics.Windows</AssemblyName>

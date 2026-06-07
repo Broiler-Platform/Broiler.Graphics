@@ -166,16 +166,19 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             D2DNative.D2D1_BITMAP_INTERPOLATION_MODE.LINEAR, ToRectF(c.Source));
     }
 
+    [System.Runtime.InteropServices.UnmanagedFunctionPointer(
+        System.Runtime.InteropServices.CallingConvention.StdCall)]
+    private delegate void DrawBitmapProc(
+        IntPtr self, IntPtr bitmap, in D2DNative.D2D1_RECT_F destination, float opacity,
+        uint interpolation, in D2DNative.D2D1_RECT_F source);
+
     /// <summary>ID2D1RenderTarget::DrawBitmap via the device-context vtable.</summary>
-    private static unsafe void DrawBitmap(
+    private static void DrawBitmap(
         IntPtr context, IntPtr bitmap, D2DNative.D2D1_RECT_F destination, float opacity,
         D2DNative.D2D1_BITMAP_INTERPOLATION_MODE interpolation, D2DNative.D2D1_RECT_F source)
     {
-        IntPtr* vtbl = *(IntPtr**)(void*)context;
-        var drawBitmap = (delegate* unmanaged[Stdcall]<
-            IntPtr, IntPtr, D2DNative.D2D1_RECT_F*, float, uint, D2DNative.D2D1_RECT_F*, void>)
-            vtbl[D2DNative.VtblDrawBitmap];
-        drawBitmap(context, bitmap, &destination, opacity, (uint)interpolation, &source);
+        DrawBitmapProc drawBitmap = ComVtable.Method<DrawBitmapProc>(context, D2DNative.VtblDrawBitmap);
+        drawBitmap(context, bitmap, in destination, opacity, (uint)interpolation, in source);
     }
 
     private static D2DNative.D2D1_RECT_F ToRectF(BRect r) => new()
