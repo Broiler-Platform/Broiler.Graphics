@@ -12,6 +12,11 @@ internal static class DWriteNative
     /// <summary>IID_IDWriteFactory.</summary>
     internal static readonly Guid IID_IDWriteFactory = new("b859ee5a-d838-4b5b-a2e8-1adc7d93db48");
 
+    // ---- Vtable slots ----------------------------------------------------------------------------
+
+    /// <summary>IDWriteFactory::CreateTextFormat.</summary>
+    internal const int VtblCreateTextFormat = 15;
+
     // ---- Enums -----------------------------------------------------------------------------------
 
     internal enum DWRITE_FACTORY_TYPE : uint
@@ -41,6 +46,13 @@ internal static class DWriteNative
     internal enum DWRITE_FONT_STRETCH : uint
     {
         NORMAL = 5,
+    }
+
+    internal enum DWRITE_MEASURING_MODE : uint
+    {
+        NATURAL = 0,
+        GDI_CLASSIC = 1,
+        GDI_NATURAL = 2,
     }
 
     /// <summary>Maps a Core <see cref="BFontWeight"/> to the DirectWrite enum.</summary>

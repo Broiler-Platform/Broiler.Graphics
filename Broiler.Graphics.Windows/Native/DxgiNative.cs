@@ -21,8 +21,28 @@ internal static class DxgiNative
     /// <summary>IID_IDXGIDevice.</summary>
     internal static readonly Guid IID_IDXGIDevice = new("54ec77fa-1377-44e6-8c32-88fd5f44c84c");
 
+    /// <summary>IID_IDXGISurface.</summary>
+    internal static readonly Guid IID_IDXGISurface = new("cafcb56c-6ac3-4889-bf47-9e23bbd260ec");
+
     /// <summary>IID_IDXGISwapChain1.</summary>
     internal static readonly Guid IID_IDXGISwapChain1 = new("790a45f7-0d42-4876-983a-0a55cfe6f4aa");
+
+    // ---- Vtable slots ----------------------------------------------------------------------------
+
+    /// <summary>IDXGISwapChain::Present.</summary>
+    internal const int VtblPresent = 8;
+
+    /// <summary>IDXGISwapChain::GetBuffer.</summary>
+    internal const int VtblGetBuffer = 9;
+
+    /// <summary>IDXGISwapChain::ResizeBuffers.</summary>
+    internal const int VtblResizeBuffers = 13;
+
+    /// <summary>IDXGIFactory2::CreateSwapChainForHwnd.</summary>
+    internal const int VtblCreateSwapChainForHwnd = 15;
+
+    /// <summary>IDXGIFactory2::CreateSwapChainForComposition.</summary>
+    internal const int VtblCreateSwapChainForComposition = 24;
 
     // ---- Enums -----------------------------------------------------------------------------------
 
@@ -59,6 +79,9 @@ internal static class DxgiNative
     /// <summary>Common DXGI error codes surfaced as HRESULTs.</summary>
     internal const int DXGI_ERROR_DEVICE_REMOVED = unchecked((int)0x887A0005);
     internal const int DXGI_ERROR_DEVICE_RESET = unchecked((int)0x887A0007);
+
+    /// <summary>Swap-chain buffer usage flag used for render-target back buffers.</summary>
+    internal const uint DXGI_USAGE_RENDER_TARGET_OUTPUT = 0x00000020;
 
     // ---- Structures ------------------------------------------------------------------------------
 

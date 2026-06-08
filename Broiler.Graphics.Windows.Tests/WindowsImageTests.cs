@@ -19,6 +19,7 @@ internal static class WindowsImageTests
         tests.Add(("Renderer CreateImage decodes encoded bytes", RendererCreateImageDecodes));
         tests.Add(("Renderer CreateImage rejects garbage bytes", RendererRejectsGarbage));
         tests.Add(("Renderer CreateImage(BPixelBuffer) and release", RendererCreateFromPixels));
+        tests.Add(("Renderer renders a basic Direct2D command list", RendererRendersBasicCommandList));
     }
 
     private static BPixelBuffer Rgba(int w, int h, byte[] data) => new(w, h, data);
@@ -105,6 +106,30 @@ internal static class WindowsImageTests
         Assert.True(handle.IsValid);
         Assert.AreEqual(new BSize(8, 8), handle.PixelSize);
         renderer.ReleaseImage(handle); // must not throw
+    }
+
+    private static void RendererRendersBasicCommandList()
+    {
+        using var renderer = new Direct2DRenderer();
+        using IBroilerSurface surface = renderer.CreateSurface(BSurfaceDescriptor.Default(new BSize(64, 64)));
+
+        BImageHandle image = renderer.CreateImage(Rgba(2, 2, [
+            255, 0, 0, 255,   0, 255, 0, 255,
+            0, 0, 255, 255,   255, 255, 255, 128,
+        ]));
+
+        var list = new BRenderList();
+        list.FillRect(new BRect(0, 0, 64, 64), BColor.White);
+        list.StrokeRect(new BRect(4, 4, 56, 56), BColor.Blue, 2);
+        list.PushClip(new BRect(8, 8, 48, 48));
+        list.PushTransform(BMatrix3x2.Translation(4, 4));
+        list.DrawImage(image, new BRect(0, 0, 2, 2), new BRect(8, 8, 16, 16), 0.85);
+        list.DrawText(new BTextRun("D2D"), new BPoint(8, 32));
+        list.PopTransform();
+        list.PopClip();
+
+        renderer.Render(surface, list, BFrameContext.Default);
+        renderer.ReleaseImage(image);
     }
 
     private static byte[] MakeGradient(int w, int h)

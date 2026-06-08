@@ -4,10 +4,8 @@ using System.Collections.Generic;
 namespace Broiler.Graphics.Windows.Tests;
 
 /// <summary>
-/// Minimal console runner for the Windows/Direct2D backend tests. These exercise the
-/// CPU-side image path (decode-via-codec, BGRA conversion, the image store and the
-/// renderer's image API) which runs without a GPU. The native upload/draw vtable calls
-/// require a live device context and are out of scope for headless CI.
+/// Minimal console runner for the Windows/Direct2D backend tests. These exercise the CPU-side image
+/// path plus a small live Direct2D command-list smoke render.
 /// </summary>
 internal static class Program
 {

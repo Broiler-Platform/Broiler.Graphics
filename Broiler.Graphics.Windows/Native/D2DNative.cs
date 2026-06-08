@@ -31,8 +31,62 @@ internal static class D2DNative
     /// <summary>ID2D1RenderTarget::CreateBitmap (first render-target method).</summary>
     internal const int VtblCreateBitmap = 4;
 
+    /// <summary>ID2D1RenderTarget::CreateSolidColorBrush.</summary>
+    internal const int VtblCreateSolidColorBrush = 8;
+
+    /// <summary>ID2D1RenderTarget::DrawRectangle.</summary>
+    internal const int VtblDrawRectangle = 16;
+
+    /// <summary>ID2D1RenderTarget::FillRectangle.</summary>
+    internal const int VtblFillRectangle = 17;
+
     /// <summary>ID2D1RenderTarget::DrawBitmap.</summary>
     internal const int VtblDrawBitmap = 26;
+
+    /// <summary>ID2D1RenderTarget::DrawText.</summary>
+    internal const int VtblDrawText = 27;
+
+    /// <summary>ID2D1RenderTarget::SetTransform.</summary>
+    internal const int VtblSetTransform = 30;
+
+    /// <summary>ID2D1RenderTarget::SetAntialiasMode.</summary>
+    internal const int VtblSetAntialiasMode = 32;
+
+    /// <summary>ID2D1RenderTarget::SetTextAntialiasMode.</summary>
+    internal const int VtblSetTextAntialiasMode = 34;
+
+    /// <summary>ID2D1RenderTarget::PushAxisAlignedClip.</summary>
+    internal const int VtblPushAxisAlignedClip = 45;
+
+    /// <summary>ID2D1RenderTarget::PopAxisAlignedClip.</summary>
+    internal const int VtblPopAxisAlignedClip = 46;
+
+    /// <summary>ID2D1RenderTarget::Clear.</summary>
+    internal const int VtblClear = 47;
+
+    /// <summary>ID2D1RenderTarget::BeginDraw.</summary>
+    internal const int VtblBeginDraw = 48;
+
+    /// <summary>ID2D1RenderTarget::EndDraw.</summary>
+    internal const int VtblEndDraw = 49;
+
+    /// <summary>ID2D1RenderTarget::SetDpi.</summary>
+    internal const int VtblSetDpi = 51;
+
+    /// <summary>ID2D1DeviceContext::CreateBitmapFromDxgiSurface.</summary>
+    internal const int VtblCreateBitmapFromDxgiSurface = 62;
+
+    /// <summary>ID2D1DeviceContext::SetTarget.</summary>
+    internal const int VtblSetTarget = 74;
+
+    /// <summary>ID2D1Device::CreateDeviceContext.</summary>
+    internal const int VtblCreateDeviceContext = 4;
+
+    /// <summary>ID2D1Factory1::CreateDevice.</summary>
+    internal const int VtblCreateDevice = 17;
+
+    /// <summary>Direct2D signals this from EndDraw when target resources must be recreated.</summary>
+    internal const int D2DERR_RECREATE_TARGET = unchecked((int)0x8899000C);
 
     // ---- Enums -----------------------------------------------------------------------------------
 
@@ -56,10 +110,42 @@ internal static class D2DNative
         ALIASED = 1,
     }
 
+    internal enum D2D1_TEXT_ANTIALIAS_MODE : uint
+    {
+        DEFAULT = 0,
+        CLEARTYPE = 1,
+        GRAYSCALE = 2,
+        ALIASED = 3,
+    }
+
+    [Flags]
+    internal enum D2D1_DRAW_TEXT_OPTIONS : uint
+    {
+        NONE = 0,
+        CLIP = 0x00000002,
+    }
+
     internal enum D2D1_BITMAP_INTERPOLATION_MODE : uint
     {
         NEAREST_NEIGHBOR = 0,
         LINEAR = 1,
+    }
+
+    [Flags]
+    internal enum D2D1_BITMAP_OPTIONS : uint
+    {
+        NONE = 0,
+        TARGET = 0x00000001,
+        CANNOT_DRAW = 0x00000002,
+        CPU_READ = 0x00000004,
+        GDI_COMPATIBLE = 0x00000008,
+    }
+
+    [Flags]
+    internal enum D2D1_DEVICE_CONTEXT_OPTIONS : uint
+    {
+        NONE = 0,
+        ENABLE_MULTITHREADED_OPTIMIZATIONS = 1,
     }
 
     // ---- Value structures ------------------------------------------------------------------------
@@ -85,6 +171,16 @@ internal static class D2DNative
         public D2D1_PIXEL_FORMAT PixelFormat;
         public float DpiX;
         public float DpiY;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_BITMAP_PROPERTIES1
+    {
+        public D2D1_PIXEL_FORMAT PixelFormat;
+        public float DpiX;
+        public float DpiY;
+        public D2D1_BITMAP_OPTIONS BitmapOptions;
+        public IntPtr ColorContext;
     }
 
     /// <summary>Direct2D uses 32-bit floats and premultiplied colors at the GPU level.</summary>

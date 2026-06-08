@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using Broiler.Graphics.Windows.Native;
 
 namespace Broiler.Graphics.Windows;
@@ -8,15 +11,90 @@ namespace Broiler.Graphics.Windows;
 /// <see cref="Direct2DDevice"/> and replays <see cref="BRenderList"/> instances onto
 /// <see cref="Direct2DSurface"/> targets.
 /// </summary>
-/// <remarks>
-/// The drawing translation (Core command → Direct2D vtable call) is laid out here with one method per
-/// command. The methods currently throw <see cref="NotImplementedException"/> but show exactly where
-/// each DirectX call belongs, so the backend can be completed incrementally without restructuring.
-/// </remarks>
 public sealed class Direct2DRenderer : IBroilerRenderer
 {
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void BeginDrawProc(IntPtr self);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int EndDrawProc(IntPtr self, IntPtr tag1, IntPtr tag2);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void ClearProc(IntPtr self, in D2DNative.D2D1_COLOR_F color);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void SetAntialiasModeProc(IntPtr self, D2DNative.D2D1_ANTIALIAS_MODE antialiasMode);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void SetTextAntialiasModeProc(IntPtr self, D2DNative.D2D1_TEXT_ANTIALIAS_MODE textAntialiasMode);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void SetTransformProc(IntPtr self, in D2DNative.D2D1_MATRIX_3X2_F transform);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int CreateSolidColorBrushProc(
+        IntPtr self,
+        in D2DNative.D2D1_COLOR_F color,
+        IntPtr brushProperties,
+        out IntPtr solidColorBrush);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void FillRectangleProc(IntPtr self, in D2DNative.D2D1_RECT_F rect, IntPtr brush);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void DrawRectangleProc(
+        IntPtr self,
+        in D2DNative.D2D1_RECT_F rect,
+        IntPtr brush,
+        float strokeWidth,
+        IntPtr strokeStyle);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+    private delegate int CreateTextFormatProc(
+        IntPtr self,
+        [MarshalAs(UnmanagedType.LPWStr)] string fontFamilyName,
+        IntPtr fontCollection,
+        DWriteNative.DWRITE_FONT_WEIGHT fontWeight,
+        DWriteNative.DWRITE_FONT_STYLE fontStyle,
+        DWriteNative.DWRITE_FONT_STRETCH fontStretch,
+        float fontSize,
+        [MarshalAs(UnmanagedType.LPWStr)] string localeName,
+        out IntPtr textFormat);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+    private delegate void DrawTextProc(
+        IntPtr self,
+        [MarshalAs(UnmanagedType.LPWStr)] string text,
+        uint textLength,
+        IntPtr textFormat,
+        in D2DNative.D2D1_RECT_F layoutRect,
+        IntPtr brush,
+        D2DNative.D2D1_DRAW_TEXT_OPTIONS options,
+        DWriteNative.DWRITE_MEASURING_MODE measuringMode);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void DrawBitmapProc(
+        IntPtr self,
+        IntPtr bitmap,
+        in D2DNative.D2D1_RECT_F destination,
+        float opacity,
+        uint interpolation,
+        in D2DNative.D2D1_RECT_F source);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void PushAxisAlignedClipProc(
+        IntPtr self,
+        in D2DNative.D2D1_RECT_F clipRect,
+        D2DNative.D2D1_ANTIALIAS_MODE antialiasMode);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void PopAxisAlignedClipProc(IntPtr self);
+
     private readonly Direct2DDevice _device;
     private readonly Direct2DImageStore _images = new();
+    private readonly Stack<BMatrix3x2> _transformStack = new();
+
+    private BMatrix3x2 _currentTransform = BMatrix3x2.Identity;
     private bool _disposed;
 
     public Direct2DRenderer()
@@ -34,6 +112,16 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return new Direct2DSurface(_device, descriptor);
+    }
+
+    /// <summary>Creates a swap-chain surface that presents directly to a Win32 window.</summary>
+    public IBroilerSurface CreateHwndSurface(IntPtr hwnd, BSurfaceDescriptor descriptor)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (hwnd == IntPtr.Zero)
+            throw new ArgumentException("A non-zero HWND is required.", nameof(hwnd));
+
+        return new Direct2DSurface(_device, descriptor, hwnd);
     }
 
     public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
@@ -66,8 +154,8 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         if (surface is not Direct2DSurface d2dSurface)
             throw new ArgumentException("Surface was not created by this renderer.", nameof(surface));
 
-        // Guarantee the command stream is well-formed before touching the GPU.
         renderList.Validate();
+        ResetManagedDrawingState();
 
         BeginDraw(d2dSurface, frameContext);
         try
@@ -78,19 +166,36 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         finally
         {
             EndDraw(d2dSurface, frameContext);
+            ResetManagedDrawingState();
         }
     }
 
     private static void BeginDraw(Direct2DSurface surface, BFrameContext frame)
     {
-        // TODO: ID2D1DeviceContext::BeginDraw, then Clear(frame.ClearColor as D2D1_COLOR_F).
-        _ = surface;
-        _ = frame;
+        IntPtr context = surface.Context.Pointer;
+
+        BeginDrawProc beginDraw = ComVtable.Method<BeginDrawProc>(context, D2DNative.VtblBeginDraw);
+        beginDraw(context);
+
+        Direct2DSurface.SetDpi(context, (float)(96.0 * surface.DpiScale));
+        SetAntialiasMode(context, frame.Options.Antialias
+            ? D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE
+            : D2DNative.D2D1_ANTIALIAS_MODE.ALIASED);
+        SetTextAntialiasMode(context, ToTextAntialiasMode(frame.Options));
+        SetTransform(context, BMatrix3x2.Identity);
+        Clear(context, frame.ClearColor);
     }
 
     private static void EndDraw(Direct2DSurface surface, BFrameContext frame)
     {
-        // TODO: ID2D1DeviceContext::EndDraw (inspect HRESULT for device-lost), then surface.Present.
+        IntPtr context = surface.Context.Pointer;
+
+        EndDrawProc endDraw = ComVtable.Method<EndDrawProc>(context, D2DNative.VtblEndDraw);
+        int hr = endDraw(context, IntPtr.Zero, IntPtr.Zero);
+        if (hr == D2DNative.D2DERR_RECREATE_TARGET)
+            throw new BDeviceLostException("Direct2D target resources must be recreated.", hr);
+
+        NativeMethods.ThrowIfFailed(hr, "ID2D1DeviceContext::EndDraw");
         surface.Present(frame.Options.VSync);
     }
 
@@ -128,29 +233,46 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         }
     }
 
-    // --- Per-command translation. Each shows where the Direct2D/DirectWrite call lives. ---
-
     private void FillRect(Direct2DSurface surface, BRenderCommand.FillRect c)
     {
-        // TODO: create/cache an ID2D1SolidColorBrush for c.Color, then
-        //       ID2D1DeviceContext::FillRectangle(ToRectF(c.Rect), brush).
-        _ = surface;
-        throw new NotImplementedException("Direct2D FillRectangle not yet wired up.");
+        IntPtr context = surface.Context.Pointer;
+        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
+
+        FillRectangleProc fill = ComVtable.Method<FillRectangleProc>(context, D2DNative.VtblFillRectangle);
+        fill(context, in rect, brush.Pointer);
     }
 
     private void StrokeRect(Direct2DSurface surface, BRenderCommand.StrokeRect c)
     {
-        // TODO: ID2D1DeviceContext::DrawRectangle(ToRectF(c.Rect), brush, (float)c.Thickness).
-        _ = surface;
-        throw new NotImplementedException("Direct2D DrawRectangle not yet wired up.");
+        IntPtr context = surface.Context.Pointer;
+        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
+
+        DrawRectangleProc draw = ComVtable.Method<DrawRectangleProc>(context, D2DNative.VtblDrawRectangle);
+        draw(context, in rect, brush.Pointer, (float)c.Thickness, IntPtr.Zero);
     }
 
     private void DrawText(Direct2DSurface surface, BRenderCommand.DrawText c)
     {
-        // TODO: build an IDWriteTextFormat from c.Text.Font (DWriteNative.ToDWrite helpers),
-        //       then ID2D1DeviceContext::DrawText with c.Text.Text and a brush for c.Text.Color.
-        _ = surface;
-        throw new NotImplementedException("DirectWrite DrawText not yet wired up.");
+        if (string.IsNullOrEmpty(c.Text.Text))
+            return;
+
+        IntPtr context = surface.Context.Pointer;
+        using ComPtr brush = CreateSolidBrush(context, c.Text.Color);
+        using ComPtr textFormat = CreateTextFormat(c.Text.Font);
+
+        D2DNative.D2D1_RECT_F layoutRect = ToTextLayoutRect(c.Origin);
+        DrawTextProc drawText = ComVtable.Method<DrawTextProc>(context, D2DNative.VtblDrawText);
+        drawText(
+            context,
+            c.Text.Text,
+            checked((uint)c.Text.Text.Length),
+            textFormat.Pointer,
+            in layoutRect,
+            brush.Pointer,
+            D2DNative.D2D1_DRAW_TEXT_OPTIONS.NONE,
+            DWriteNative.DWRITE_MEASURING_MODE.NATURAL);
     }
 
     private void DrawImage(Direct2DSurface surface, BRenderCommand.DrawImage c)
@@ -161,24 +283,126 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         IntPtr bitmap = image.EnsureBitmap(context);
 
         DrawBitmap(
-            context, bitmap,
-            ToRectF(c.Destination), (float)c.Opacity,
-            D2DNative.D2D1_BITMAP_INTERPOLATION_MODE.LINEAR, ToRectF(c.Source));
+            context,
+            bitmap,
+            ToRectF(c.Destination),
+            (float)c.Opacity,
+            D2DNative.D2D1_BITMAP_INTERPOLATION_MODE.LINEAR,
+            ToRectF(c.Source));
     }
-
-    [System.Runtime.InteropServices.UnmanagedFunctionPointer(
-        System.Runtime.InteropServices.CallingConvention.StdCall)]
-    private delegate void DrawBitmapProc(
-        IntPtr self, IntPtr bitmap, in D2DNative.D2D1_RECT_F destination, float opacity,
-        uint interpolation, in D2DNative.D2D1_RECT_F source);
 
     /// <summary>ID2D1RenderTarget::DrawBitmap via the device-context vtable.</summary>
     private static void DrawBitmap(
-        IntPtr context, IntPtr bitmap, D2DNative.D2D1_RECT_F destination, float opacity,
-        D2DNative.D2D1_BITMAP_INTERPOLATION_MODE interpolation, D2DNative.D2D1_RECT_F source)
+        IntPtr context,
+        IntPtr bitmap,
+        D2DNative.D2D1_RECT_F destination,
+        float opacity,
+        D2DNative.D2D1_BITMAP_INTERPOLATION_MODE interpolation,
+        D2DNative.D2D1_RECT_F source)
     {
         DrawBitmapProc drawBitmap = ComVtable.Method<DrawBitmapProc>(context, D2DNative.VtblDrawBitmap);
         drawBitmap(context, bitmap, in destination, opacity, (uint)interpolation, in source);
+    }
+
+    private void PushClip(Direct2DSurface surface, BRenderCommand.PushClip c)
+    {
+        IntPtr context = surface.Context.Pointer;
+        D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
+
+        PushAxisAlignedClipProc pushClip =
+            ComVtable.Method<PushAxisAlignedClipProc>(context, D2DNative.VtblPushAxisAlignedClip);
+        pushClip(context, in rect, D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE);
+    }
+
+    private void PopClip(Direct2DSurface surface)
+    {
+        IntPtr context = surface.Context.Pointer;
+        PopAxisAlignedClipProc popClip = ComVtable.Method<PopAxisAlignedClipProc>(context, D2DNative.VtblPopAxisAlignedClip);
+        popClip(context);
+    }
+
+    private void PushTransform(Direct2DSurface surface, BRenderCommand.PushTransform c)
+    {
+        _transformStack.Push(_currentTransform);
+        _currentTransform = _currentTransform * c.Transform;
+        SetTransform(surface.Context.Pointer, _currentTransform);
+    }
+
+    private void PopTransform(Direct2DSurface surface)
+    {
+        _currentTransform = _transformStack.Pop();
+        SetTransform(surface.Context.Pointer, _currentTransform);
+    }
+
+    private static ComPtr CreateSolidBrush(IntPtr context, BColor color)
+    {
+        CreateSolidColorBrushProc createBrush =
+            ComVtable.Method<CreateSolidColorBrushProc>(context, D2DNative.VtblCreateSolidColorBrush);
+        D2DNative.D2D1_COLOR_F nativeColor = ToColorF(color);
+        int hr = createBrush(context, in nativeColor, IntPtr.Zero, out IntPtr brush);
+        NativeMethods.ThrowIfFailed(hr, "ID2D1DeviceContext::CreateSolidColorBrush");
+        return new ComPtr(brush);
+    }
+
+    private ComPtr CreateTextFormat(BFontStyle font)
+    {
+        CreateTextFormatProc createTextFormat =
+            ComVtable.Method<CreateTextFormatProc>(_device.DWriteFactory.Pointer, DWriteNative.VtblCreateTextFormat);
+        int hr = createTextFormat(
+            _device.DWriteFactory.Pointer,
+            ResolveFontFamily(font.FamilyName),
+            IntPtr.Zero,
+            DWriteNative.ToDWrite(font.Weight),
+            DWriteNative.ToDWrite(font.Slant),
+            DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
+            ToFontSize(font.SizeInPixels),
+            CurrentLocaleName(),
+            out IntPtr textFormat);
+        NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");
+        return new ComPtr(textFormat);
+    }
+
+    private void ResetManagedDrawingState()
+    {
+        _transformStack.Clear();
+        _currentTransform = BMatrix3x2.Identity;
+    }
+
+    private static void Clear(IntPtr context, BColor color)
+    {
+        ClearProc clear = ComVtable.Method<ClearProc>(context, D2DNative.VtblClear);
+        D2DNative.D2D1_COLOR_F nativeColor = ToColorF(color);
+        clear(context, in nativeColor);
+    }
+
+    private static void SetAntialiasMode(IntPtr context, D2DNative.D2D1_ANTIALIAS_MODE mode)
+    {
+        SetAntialiasModeProc setMode = ComVtable.Method<SetAntialiasModeProc>(context, D2DNative.VtblSetAntialiasMode);
+        setMode(context, mode);
+    }
+
+    private static void SetTextAntialiasMode(IntPtr context, D2DNative.D2D1_TEXT_ANTIALIAS_MODE mode)
+    {
+        SetTextAntialiasModeProc setMode =
+            ComVtable.Method<SetTextAntialiasModeProc>(context, D2DNative.VtblSetTextAntialiasMode);
+        setMode(context, mode);
+    }
+
+    private static D2DNative.D2D1_TEXT_ANTIALIAS_MODE ToTextAntialiasMode(BRenderOptions options)
+    {
+        if (!options.Antialias)
+            return D2DNative.D2D1_TEXT_ANTIALIAS_MODE.ALIASED;
+
+        return options.SubpixelText
+            ? D2DNative.D2D1_TEXT_ANTIALIAS_MODE.DEFAULT
+            : D2DNative.D2D1_TEXT_ANTIALIAS_MODE.GRAYSCALE;
+    }
+
+    private static void SetTransform(IntPtr context, BMatrix3x2 transform)
+    {
+        D2DNative.D2D1_MATRIX_3X2_F matrix = ToMatrix(transform);
+        SetTransformProc setTransform = ComVtable.Method<SetTransformProc>(context, D2DNative.VtblSetTransform);
+        setTransform(context, in matrix);
     }
 
     private static D2DNative.D2D1_RECT_F ToRectF(BRect r) => new()
@@ -189,32 +413,66 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Bottom = (float)r.Bottom,
     };
 
-    private void PushClip(Direct2DSurface surface, BRenderCommand.PushClip c)
+    private static D2DNative.D2D1_RECT_F ToTextLayoutRect(BPoint origin)
     {
-        // TODO: ID2D1DeviceContext::PushAxisAlignedClip(ToRectF(c.Rect), antialiasMode).
-        _ = surface;
-        throw new NotImplementedException("Direct2D PushAxisAlignedClip not yet wired up.");
+        const float largeTextLayoutExtent = 1_048_576f;
+        float left = (float)origin.X;
+        float top = (float)origin.Y;
+        return new D2DNative.D2D1_RECT_F
+        {
+            Left = left,
+            Top = top,
+            Right = left + largeTextLayoutExtent,
+            Bottom = top + largeTextLayoutExtent,
+        };
     }
 
-    private void PopClip(Direct2DSurface surface)
+    private static D2DNative.D2D1_COLOR_F ToColorF(BColor color) => new()
     {
-        // TODO: ID2D1DeviceContext::PopAxisAlignedClip().
-        _ = surface;
-        throw new NotImplementedException("Direct2D PopAxisAlignedClip not yet wired up.");
+        R = color.Rf,
+        G = color.Gf,
+        B = color.Bf,
+        A = color.Af,
+    };
+
+    private static D2DNative.D2D1_MATRIX_3X2_F ToMatrix(BMatrix3x2 matrix) => new()
+    {
+        M11 = (float)matrix.M11,
+        M12 = (float)matrix.M12,
+        M21 = (float)matrix.M21,
+        M22 = (float)matrix.M22,
+        Dx = (float)matrix.M31,
+        Dy = (float)matrix.M32,
+    };
+
+    private static float ToFontSize(double sizeInPixels)
+    {
+        if (sizeInPixels <= 0 || double.IsNaN(sizeInPixels) || double.IsInfinity(sizeInPixels))
+            return 1.0f;
+
+        return (float)Math.Min(sizeInPixels, float.MaxValue);
     }
 
-    private void PushTransform(Direct2DSurface surface, BRenderCommand.PushTransform c)
+    private static string ResolveFontFamily(string familyName)
     {
-        // TODO: maintain a managed transform stack, multiply, and ID2D1DeviceContext::SetTransform.
-        _ = surface;
-        throw new NotImplementedException("Direct2D SetTransform (push) not yet wired up.");
+        if (string.IsNullOrWhiteSpace(familyName))
+            return "Segoe UI";
+
+        string trimmed = familyName.Trim();
+        return trimmed.ToLowerInvariant() switch
+        {
+            "sans-serif" => "Segoe UI",
+            "serif" => "Times New Roman",
+            "monospace" => "Consolas",
+            "monospaced" => "Consolas",
+            _ => trimmed,
+        };
     }
 
-    private void PopTransform(Direct2DSurface surface)
+    private static string CurrentLocaleName()
     {
-        // TODO: pop the managed transform stack and ID2D1DeviceContext::SetTransform to the previous.
-        _ = surface;
-        throw new NotImplementedException("Direct2D SetTransform (pop) not yet wired up.");
+        string name = CultureInfo.CurrentUICulture.Name;
+        return string.IsNullOrWhiteSpace(name) ? "en-us" : name;
     }
 
     public void Dispose()

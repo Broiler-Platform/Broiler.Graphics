@@ -14,7 +14,8 @@ internal static partial class NativeMethods
 
     /// <summary>
     /// Creates a Direct3D 11 device used as the backing device for Direct2D interop.
-    /// TODO: pass real feature levels and a DXGI adapter; currently a thin declaration only.
+    /// The backend passes a null adapter and feature-level list so the runtime chooses the default
+    /// hardware/WARP capabilities for the installed Direct3D runtime.
     /// </summary>
     [LibraryImport("d3d11.dll")]
     internal static partial int D3D11CreateDevice(
