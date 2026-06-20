@@ -15,6 +15,10 @@ items move from **Planned** to **Done** as they land.
 - **JPEG** - decode baseline **and** progressive (1/3-component, common subsamplings,
   restart markers); encode baseline 4:2:0 with optimal (per-image) Huffman tables.
 - Animation API: `BImageSequence` / `BImageFrame`, `DecodeAnimation` / `EncodeAnimation`.
+- CPU bitmap/raster canvas: `BBitmap` and `BCanvas` provide dependency-free RGBA
+  pixel storage, encode/decode helpers, clips, opacity/blend layers, gradients,
+  bitmap blits, path strokes, polygons, and glyph contour fills for deterministic
+  off-screen rendering.
 
 ### Direct2D backend (`Broiler.Graphics.Windows`)
 - Registers the managed codec on renderer construction (`UseManagedIfUnset`, non-clobbering).
