@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -13,6 +14,7 @@ namespace Broiler.Graphics.Windows;
 public abstract class Direct2DWindow : BWindow
 {
     private const string WindowClassName = "BroilerGraphicsDirect2DWindow";
+    private const string RenderHostClassName = "BroilerGraphicsDirect2DRenderHost";
 
     private const int ErrorClassAlreadyExists = 1410;
     private const int CwUseDefault = unchecked((int)0x80000000);
@@ -20,12 +22,17 @@ public abstract class Direct2DWindow : BWindow
     private const uint CsHRedraw = 0x0002;
     private const uint CsVRedraw = 0x0001;
     private const uint WsOverlappedWindow = 0x00CF0000;
+    private const uint WsChild = 0x40000000;
+    private const uint WsVisible = 0x10000000;
+    private const uint WsClipChildren = 0x02000000;
+    private const uint WsClipSiblings = 0x04000000;
 
     private const int SwShow = 5;
     private const int SizeMinimized = 1;
     private const int SmCxScreen = 0;
     private const int SmCyScreen = 1;
     private const int GwlUserData = -21;
+    private const int ColorWindow = 5;
     private const int LogPixelsX = 88;
 
     private const uint WmNccreate = 0x0081;
@@ -33,18 +40,24 @@ public abstract class Direct2DWindow : BWindow
     private const uint WmCreate = 0x0001;
     private const uint WmDestroy = 0x0002;
     private const uint WmSize = 0x0005;
+    private const uint WmCommand = 0x0111;
     private const uint WmPaint = 0x000F;
     private const uint WmEraseBkgnd = 0x0014;
     private const uint WmDpiChanged = 0x02E0;
 
     private static readonly WndProc s_wndProc = WindowProc;
+    private static readonly WndProc s_renderHostWndProc = RenderHostWindowProc;
     private static bool s_classRegistered;
+    private static bool s_renderHostClassRegistered;
 
     private IntPtr _hwnd;
+    private IntPtr _renderHwnd;
     private GCHandle _selfHandle;
     private Direct2DRenderer? _renderer;
     private IBroilerSurface? _surface;
+    private readonly Dictionary<int, IDirect2DControl> _controls = new();
     private long _frameIndex;
+    private int _nextControlId = 1000;
     private bool _runStarted;
 
     protected Direct2DWindow(BWindowOptions options)
@@ -83,6 +96,7 @@ public abstract class Direct2DWindow : BWindow
 
         _runStarted = true;
         EnsureWindowClassRegistered();
+        EnsureRenderHostClassRegistered();
         CreateWindow();
 
         ShowWindow(_hwnd, SwShow);
@@ -103,17 +117,53 @@ public abstract class Direct2DWindow : BWindow
 
     protected override void InvalidateCore()
     {
-        if (_hwnd != IntPtr.Zero)
+        if (_renderHwnd != IntPtr.Zero)
+            InvalidateRect(_renderHwnd, IntPtr.Zero, false);
+        else if (_hwnd != IntPtr.Zero)
             InvalidateRect(_hwnd, IntPtr.Zero, false);
+    }
+
+    protected override BEditControl CreateEditControlCore(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        EnsureNativeHandle();
+
+        int id = AllocateControlId();
+        var control = new Direct2DEditControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
+        _controls.Add(id, control);
+        return control;
+    }
+
+    protected override BButtonControl CreateButtonControlCore(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        EnsureNativeHandle();
+
+        int id = AllocateControlId();
+        var control = new Direct2DButtonControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
+        _controls.Add(id, control);
+        return control;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
+        {
+            DisposeControls();
             ReleaseGraphicsResources();
+            DestroyRenderHost();
+        }
 
         if (_selfHandle.IsAllocated)
             _selfHandle.Free();
+    }
+
+    internal IntPtr ModuleHandle => GetModuleHandle(null);
+
+    internal void UnregisterControl(IDirect2DControl control)
+    {
+        if (_controls.TryGetValue(control.Id, out IDirect2DControl? existing) && ReferenceEquals(existing, control))
+            _controls.Remove(control.Id);
     }
 
     private void CreateWindow()
@@ -134,7 +184,7 @@ public abstract class Direct2DWindow : BWindow
             0,
             WindowClassName,
             string.IsNullOrWhiteSpace(Options.Title) ? "Broiler.Graphics" : Options.Title,
-            WsOverlappedWindow,
+            WsOverlappedWindow | WsClipChildren,
             x,
             y,
             width,
@@ -158,6 +208,7 @@ public abstract class Direct2DWindow : BWindow
         switch (message)
         {
             case WmCreate:
+                CreateRenderHost();
                 CreateGraphicsResources();
                 OnCreated();
                 return IntPtr.Zero;
@@ -167,20 +218,25 @@ public abstract class Direct2DWindow : BWindow
                     ResizeSurfaceAndNotify();
                 return IntPtr.Zero;
 
+            case WmCommand:
+                if (HandleCommand(wParam, lParam))
+                    return IntPtr.Zero;
+                return DefWindowProc(_hwnd, message, wParam, lParam);
+
             case WmDpiChanged:
                 ResizeSurfaceAndNotify();
                 return IntPtr.Zero;
 
             case WmEraseBkgnd:
-                return new IntPtr(1);
+                return DefWindowProc(_hwnd, message, wParam, lParam);
 
             case WmPaint:
-                RenderFrame();
                 ValidateRect(_hwnd, IntPtr.Zero);
                 return IntPtr.Zero;
 
             case WmDestroy:
                 ReleaseGraphicsResources();
+                DestroyRenderHost();
                 PostQuitMessage(0);
                 return IntPtr.Zero;
 
@@ -201,13 +257,13 @@ public abstract class Direct2DWindow : BWindow
     {
         ReleaseGraphicsResources();
 
-        if (_hwnd == IntPtr.Zero || !HasDrawableClientArea)
+        if (_renderHwnd == IntPtr.Zero || !HasDrawableRenderArea)
             return;
 
         _renderer = new Direct2DRenderer();
         _surface = _renderer.CreateHwndSurface(
-            _hwnd,
-            new BSurfaceDescriptor(ClientDipSize, DpiScale, BPixelFormat.Bgra8, Options.EnableTransparency));
+            _renderHwnd,
+            new BSurfaceDescriptor(RenderDipSize, DpiScale, BPixelFormat.Bgra8, Options.EnableTransparency));
     }
 
     private void ReleaseGraphicsResources()
@@ -221,9 +277,23 @@ public abstract class Direct2DWindow : BWindow
         _renderer = null;
     }
 
+    private void DisposeControls()
+    {
+        if (_controls.Count == 0)
+            return;
+
+        var controls = new List<IDirect2DControl>(_controls.Values);
+        _controls.Clear();
+
+        foreach (IDirect2DControl control in controls)
+            control.Dispose();
+    }
+
     private void ResizeSurfaceAndNotify()
     {
-        if (!HasDrawableClientArea)
+        MoveRenderHost();
+
+        if (!HasDrawableRenderArea)
             return;
 
         if (_renderer is null || _surface is null)
@@ -236,7 +306,7 @@ public abstract class Direct2DWindow : BWindow
 
         try
         {
-            _surface.Resize(ClientDipSize, DpiScale);
+            _surface.Resize(RenderDipSize, DpiScale);
         }
         catch (BDeviceLostException)
         {
@@ -249,7 +319,7 @@ public abstract class Direct2DWindow : BWindow
 
     private void RenderFrame()
     {
-        if (!HasDrawableClientArea)
+        if (!HasDrawableRenderArea)
             return;
 
         if (_renderer is null || _surface is null)
@@ -260,7 +330,7 @@ public abstract class Direct2DWindow : BWindow
 
         try
         {
-            BRenderList? renderList = BuildRenderList(ClientSize);
+            BRenderList? renderList = BuildRenderList(RenderDipSize);
             if (renderList is null)
                 return;
 
@@ -296,9 +366,104 @@ public abstract class Direct2DWindow : BWindow
         }
     }
 
+    private bool HasDrawableRenderArea => HasDrawableClientArea && !RenderBounds.IsEmpty;
+
+    private BRect RenderBounds => NormalizeRenderBounds(GetRenderBounds(ClientDipSize), ClientDipSize);
+
+    private BSize RenderDipSize => RenderBounds.Size;
+
+    protected virtual BRect GetRenderBounds(BSize clientSize) =>
+        new(0, 0, clientSize.Width, clientSize.Height);
+
+    private static BRect NormalizeRenderBounds(BRect bounds, BSize clientSize)
+    {
+        if (clientSize.IsEmpty || bounds.IsEmpty)
+            return BRect.Empty;
+
+        return bounds.Intersect(new BRect(0, 0, clientSize.Width, clientSize.Height));
+    }
+
     private int EffectiveClientWidth => Math.Max(1, Options.ClientWidth);
 
     private int EffectiveClientHeight => Math.Max(1, Options.ClientHeight);
+
+    private int AllocateControlId() => _nextControlId++;
+
+    private void EnsureNativeHandle()
+    {
+        if (_hwnd == IntPtr.Zero)
+            throw new InvalidOperationException("Controls can only be created after the native window exists.");
+    }
+
+    private void CreateRenderHost()
+    {
+        if (_renderHwnd != IntPtr.Zero)
+            return;
+
+        BRect bounds = RenderBounds;
+        _renderHwnd = CreateWindowEx(
+            0,
+            RenderHostClassName,
+            string.Empty,
+            WsChild | WsVisible | WsClipSiblings,
+            ToPixels(bounds.X),
+            ToPixels(bounds.Y),
+            ToPixels(bounds.Width),
+            ToPixels(bounds.Height),
+            _hwnd,
+            IntPtr.Zero,
+            GetModuleHandle(null),
+            IntPtr.Zero);
+
+        if (_renderHwnd == IntPtr.Zero)
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "CreateWindowEx failed for Direct2D render host.");
+    }
+
+    private void MoveRenderHost()
+    {
+        if (_renderHwnd == IntPtr.Zero)
+            return;
+
+        BRect bounds = RenderBounds;
+        MoveWindow(
+            _renderHwnd,
+            ToPixels(bounds.X),
+            ToPixels(bounds.Y),
+            ToPixels(bounds.Width),
+            ToPixels(bounds.Height),
+            true);
+    }
+
+    private void DestroyRenderHost()
+    {
+        if (_renderHwnd == IntPtr.Zero)
+            return;
+
+        DestroyWindow(_renderHwnd);
+        _renderHwnd = IntPtr.Zero;
+    }
+
+    private int ToPixels(double dip)
+    {
+        if (double.IsNaN(dip) || double.IsInfinity(dip))
+            return 0;
+
+        return (int)Math.Round(dip * DpiScale);
+    }
+
+    private bool HandleCommand(IntPtr wParam, IntPtr lParam)
+    {
+        int id = LowWord(wParam);
+        if (!_controls.TryGetValue(id, out IDirect2DControl? control))
+            return false;
+
+        control.HandleCommand(HighWord(wParam), lParam);
+        return true;
+    }
+
+    private static int LowWord(IntPtr value) => unchecked((ushort)((long)value & 0xFFFF));
+
+    private static int HighWord(IntPtr value) => unchecked((ushort)(((long)value >> 16) & 0xFFFF));
 
     private static int CenteredCoordinate(int screenExtent, int windowExtent)
     {
@@ -337,6 +502,7 @@ public abstract class Direct2DWindow : BWindow
             LpfnWndProc = s_wndProc,
             HInstance = GetModuleHandle(null),
             HCursor = LoadCursor(IntPtr.Zero, new IntPtr(32512)),
+            HbrBackground = GetSysColorBrush(ColorWindow),
             LpszClassName = WindowClassName,
         };
 
@@ -349,6 +515,32 @@ public abstract class Direct2DWindow : BWindow
         }
 
         s_classRegistered = true;
+    }
+
+    private static void EnsureRenderHostClassRegistered()
+    {
+        if (s_renderHostClassRegistered)
+            return;
+
+        var windowClass = new WNDCLASSEX
+        {
+            CbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
+            Style = CsHRedraw | CsVRedraw,
+            LpfnWndProc = s_renderHostWndProc,
+            HInstance = GetModuleHandle(null),
+            HCursor = LoadCursor(IntPtr.Zero, new IntPtr(32512)),
+            LpszClassName = RenderHostClassName,
+        };
+
+        ushort atom = RegisterClassEx(ref windowClass);
+        if (atom == 0)
+        {
+            int error = Marshal.GetLastWin32Error();
+            if (error != ErrorClassAlreadyExists)
+                throw new Win32Exception(error, "RegisterClassEx failed for Direct2D render host.");
+        }
+
+        s_renderHostClassRegistered = true;
     }
 
     private static IntPtr WindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
@@ -373,6 +565,27 @@ public abstract class Direct2DWindow : BWindow
             : instance.HandleMessage(message, wParam, lParam);
     }
 
+    private static IntPtr RenderHostWindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
+    {
+        Direct2DWindow? instance = FromRenderHostHwnd(hwnd);
+        if (instance is null)
+            return DefWindowProc(hwnd, message, wParam, lParam);
+
+        switch (message)
+        {
+            case WmPaint:
+                instance.RenderFrame();
+                ValidateRect(hwnd, IntPtr.Zero);
+                return IntPtr.Zero;
+
+            case WmEraseBkgnd:
+                return new IntPtr(1);
+
+            default:
+                return DefWindowProc(hwnd, message, wParam, lParam);
+        }
+    }
+
     private static Direct2DWindow? FromHwnd(IntPtr hwnd)
     {
         IntPtr userData = GetWindowLongPtr(hwnd, GwlUserData);
@@ -381,6 +594,12 @@ public abstract class Direct2DWindow : BWindow
 
         GCHandle handle = GCHandle.FromIntPtr(userData);
         return handle.Target as Direct2DWindow;
+    }
+
+    private static Direct2DWindow? FromRenderHostHwnd(IntPtr hwnd)
+    {
+        IntPtr parent = GetParent(hwnd);
+        return parent == IntPtr.Zero ? null : FromHwnd(parent);
     }
 
     private static IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value)
@@ -537,6 +756,17 @@ public abstract class Direct2DWindow : BWindow
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool MoveWindow(IntPtr hwnd, int x, int y, int width, int height, [MarshalAs(UnmanagedType.Bool)] bool repaint);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetParent(IntPtr hwnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
 
     [DllImport("user32.dll")]
@@ -553,6 +783,9 @@ public abstract class Direct2DWindow : BWindow
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr LoadCursor(IntPtr instance, IntPtr cursorName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetSysColorBrush(int index);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr64(IntPtr hwnd, int index, IntPtr value);

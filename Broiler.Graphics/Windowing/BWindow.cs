@@ -41,6 +41,18 @@ public abstract class BWindow : IDisposable
         InvalidateCore();
     }
 
+    public BEditControl CreateEditControl(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        return CreateEditControlCore(options);
+    }
+
+    public BButtonControl CreateButtonControl(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        return CreateButtonControlCore(options);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -56,6 +68,10 @@ public abstract class BWindow : IDisposable
     protected abstract int RunCore();
 
     protected abstract void InvalidateCore();
+
+    protected abstract BEditControl CreateEditControlCore(BControlOptions options);
+
+    protected abstract BButtonControl CreateButtonControlCore(BControlOptions options);
 
     protected virtual void OnCreated()
     {
