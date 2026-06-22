@@ -15,6 +15,7 @@ internal static class Program
         var tests = new List<(string Name, Action Body)>();
         RenderListTests.Register(tests);
         BitmapCanvasTests.Register(tests);
+        ImageRendererTests.Register(tests);
         LifecycleTests.Register(tests);
         ImageCodecTests.Register(tests);
         JpegCodecTests.Register(tests);
