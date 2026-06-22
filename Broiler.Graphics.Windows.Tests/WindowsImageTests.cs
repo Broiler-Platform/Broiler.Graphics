@@ -20,6 +20,7 @@ internal static class WindowsImageTests
         tests.Add(("Renderer CreateImage rejects garbage bytes", RendererRejectsGarbage));
         tests.Add(("Renderer CreateImage(BPixelBuffer) and release", RendererCreateFromPixels));
         tests.Add(("Renderer renders a basic Direct2D command list", RendererRendersBasicCommandList));
+        tests.Add(("Renderer renders a Direct2D command list to image", RendererRendersCommandListToImage));
     }
 
     private static BPixelBuffer Rgba(int w, int h, byte[] data) => new(w, h, data);
@@ -130,6 +131,23 @@ internal static class WindowsImageTests
 
         renderer.Render(surface, list, BFrameContext.Default);
         renderer.ReleaseImage(image);
+    }
+
+    private static void RendererRendersCommandListToImage()
+    {
+        using var renderer = new Direct2DRenderer();
+        var list = new BRenderList();
+        list.FillRect(new BRect(2, 2, 4, 4), BColor.Red);
+
+        using BBitmap bitmap = renderer.RenderToImage(
+            list,
+            BSurfaceDescriptor.Default(new BSize(12, 12)),
+            new BFrameContext(BColor.White));
+
+        Assert.AreEqual(12, bitmap.Width, "bitmap width");
+        Assert.AreEqual(12, bitmap.Height, "bitmap height");
+        Assert.AreEqual(BColor.Red, bitmap.GetPixel(3, 3), "filled pixel");
+        Assert.AreEqual(BColor.White, bitmap.GetPixel(0, 0), "background pixel");
     }
 
     private static byte[] MakeGradient(int w, int h)

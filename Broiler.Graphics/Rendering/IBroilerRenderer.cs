@@ -32,4 +32,10 @@ public interface IBroilerRenderer : IDisposable
     /// if the GPU device was reset.
     /// </summary>
     void Render(IBroilerSurface surface, BRenderList renderList, BFrameContext frameContext);
+
+    /// <summary>
+    /// Replays <paramref name="renderList"/> into a backend-owned off-screen surface and returns
+    /// the rendered pixels as a straight-alpha RGBA bitmap.
+    /// </summary>
+    BBitmap RenderToImage(BRenderList renderList, BSurfaceDescriptor descriptor, BFrameContext frameContext);
 }

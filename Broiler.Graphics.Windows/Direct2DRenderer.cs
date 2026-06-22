@@ -9,7 +9,7 @@ namespace Broiler.Graphics.Windows;
 /// <summary>
 /// The Windows / Direct2D implementation of <see cref="IBroilerRenderer"/>. Owns a
 /// <see cref="Direct2DDevice"/> and replays <see cref="BRenderList"/> instances onto
-/// <see cref="Direct2DSurface"/> targets.
+/// Direct2D-backed targets.
 /// </summary>
 public sealed class Direct2DRenderer : IBroilerRenderer
 {
@@ -151,7 +151,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         ArgumentNullException.ThrowIfNull(surface);
         ArgumentNullException.ThrowIfNull(renderList);
 
-        if (surface is not Direct2DSurface d2dSurface)
+        if (surface is not IDirect2DSurface d2dSurface)
             throw new ArgumentException("Surface was not created by this renderer.", nameof(surface));
 
         renderList.Validate();
@@ -170,9 +170,19 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         }
     }
 
-    private static void BeginDraw(Direct2DSurface surface, BFrameContext frame)
+    public BBitmap RenderToImage(BRenderList renderList, BSurfaceDescriptor descriptor, BFrameContext frameContext)
     {
-        IntPtr context = surface.Context.Pointer;
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(renderList);
+
+        using var surface = new Direct2DOffscreenSurface(_device, descriptor);
+        Render(surface, renderList, frameContext);
+        return surface.ReadToBitmap();
+    }
+
+    private static void BeginDraw(IDirect2DSurface surface, BFrameContext frame)
+    {
+        IntPtr context = surface.Context;
 
         BeginDrawProc beginDraw = ComVtable.Method<BeginDrawProc>(context, D2DNative.VtblBeginDraw);
         beginDraw(context);
@@ -186,9 +196,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Clear(context, frame.ClearColor);
     }
 
-    private static void EndDraw(Direct2DSurface surface, BFrameContext frame)
+    private static void EndDraw(IDirect2DSurface surface, BFrameContext frame)
     {
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
 
         EndDrawProc endDraw = ComVtable.Method<EndDrawProc>(context, D2DNative.VtblEndDraw);
         int hr = endDraw(context, IntPtr.Zero, IntPtr.Zero);
@@ -200,7 +210,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     }
 
     /// <summary>Routes a single command to its Direct2D translation. The switch is exhaustive.</summary>
-    private void Dispatch(Direct2DSurface surface, BRenderCommand command)
+    private void Dispatch(IDirect2DSurface surface, BRenderCommand command)
     {
         switch (command)
         {
@@ -233,9 +243,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         }
     }
 
-    private void FillRect(Direct2DSurface surface, BRenderCommand.FillRect c)
+    private void FillRect(IDirect2DSurface surface, BRenderCommand.FillRect c)
     {
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         using ComPtr brush = CreateSolidBrush(context, c.Color);
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
@@ -243,9 +253,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         fill(context, in rect, brush.Pointer);
     }
 
-    private void StrokeRect(Direct2DSurface surface, BRenderCommand.StrokeRect c)
+    private void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
     {
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         using ComPtr brush = CreateSolidBrush(context, c.Color);
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
@@ -253,12 +263,12 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         draw(context, in rect, brush.Pointer, (float)c.Thickness, IntPtr.Zero);
     }
 
-    private void DrawText(Direct2DSurface surface, BRenderCommand.DrawText c)
+    private void DrawText(IDirect2DSurface surface, BRenderCommand.DrawText c)
     {
         if (string.IsNullOrEmpty(c.Text.Text))
             return;
 
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         using ComPtr brush = CreateSolidBrush(context, c.Text.Color);
         using ComPtr textFormat = CreateTextFormat(c.Text.Font);
 
@@ -275,11 +285,11 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             DWriteNative.DWRITE_MEASURING_MODE.NATURAL);
     }
 
-    private void DrawImage(Direct2DSurface surface, BRenderCommand.DrawImage c)
+    private void DrawImage(IDirect2DSurface surface, BRenderCommand.DrawImage c)
     {
         // Resolve the handle, upload the pixels on first use, then draw onto the context.
         Direct2DImage image = _images.Get(c.Image);
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         IntPtr bitmap = image.EnsureBitmap(context);
 
         DrawBitmap(
@@ -304,9 +314,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         drawBitmap(context, bitmap, in destination, opacity, (uint)interpolation, in source);
     }
 
-    private void PushClip(Direct2DSurface surface, BRenderCommand.PushClip c)
+    private void PushClip(IDirect2DSurface surface, BRenderCommand.PushClip c)
     {
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
         PushAxisAlignedClipProc pushClip =
@@ -314,24 +324,24 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         pushClip(context, in rect, D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE);
     }
 
-    private void PopClip(Direct2DSurface surface)
+    private void PopClip(IDirect2DSurface surface)
     {
-        IntPtr context = surface.Context.Pointer;
+        IntPtr context = surface.Context;
         PopAxisAlignedClipProc popClip = ComVtable.Method<PopAxisAlignedClipProc>(context, D2DNative.VtblPopAxisAlignedClip);
         popClip(context);
     }
 
-    private void PushTransform(Direct2DSurface surface, BRenderCommand.PushTransform c)
+    private void PushTransform(IDirect2DSurface surface, BRenderCommand.PushTransform c)
     {
         _transformStack.Push(_currentTransform);
         _currentTransform = _currentTransform * c.Transform;
-        SetTransform(surface.Context.Pointer, _currentTransform);
+        SetTransform(surface.Context, _currentTransform);
     }
 
-    private void PopTransform(Direct2DSurface surface)
+    private void PopTransform(IDirect2DSurface surface)
     {
         _currentTransform = _transformStack.Pop();
-        SetTransform(surface.Context.Pointer, _currentTransform);
+        SetTransform(surface.Context, _currentTransform);
     }
 
     private static ComPtr CreateSolidBrush(IntPtr context, BColor color)

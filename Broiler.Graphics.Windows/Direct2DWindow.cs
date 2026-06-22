@@ -168,8 +168,15 @@ public abstract class Direct2DWindow : BWindow
 
     private void CreateWindow()
     {
-        RECT rect = new(0, 0, EffectiveClientWidth, EffectiveClientHeight);
-        if (!AdjustWindowRectEx(ref rect, WsOverlappedWindow, false, 0))
+        uint initialDpi = GetInitialDpi();
+        double initialDpiScale = initialDpi / 96.0;
+        RECT rect = new(
+            0,
+            0,
+            ToInitialPixels(EffectiveClientWidth, initialDpiScale),
+            ToInitialPixels(EffectiveClientHeight, initialDpiScale));
+
+        if (!AdjustWindowRectForInitialDpi(ref rect, WsOverlappedWindow, false, 0, initialDpi))
             throw new Win32Exception(Marshal.GetLastWin32Error(), "AdjustWindowRectEx failed.");
 
         int width = rect.Width;
@@ -386,6 +393,19 @@ public abstract class Direct2DWindow : BWindow
     private int EffectiveClientWidth => Math.Max(1, Options.ClientWidth);
 
     private int EffectiveClientHeight => Math.Max(1, Options.ClientHeight);
+
+    private static int ToInitialPixels(int dip, double dpiScale) =>
+        Math.Max(1, (int)Math.Round(dip * dpiScale));
+
+    private static uint GetInitialDpi() => GetDeviceDpi(IntPtr.Zero);
+
+    private static bool AdjustWindowRectForInitialDpi(ref RECT rect, uint style, bool menu, uint exStyle, uint dpi)
+    {
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 14393))
+            return AdjustWindowRectExForDpi(ref rect, style, menu, exStyle, dpi);
+
+        return AdjustWindowRectEx(ref rect, style, menu, exStyle);
+    }
 
     private int AllocateControlId() => _nextControlId++;
 
@@ -718,6 +738,10 @@ public abstract class Direct2DWindow : BWindow
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool AdjustWindowRectEx(ref RECT rect, uint style, [MarshalAs(UnmanagedType.Bool)] bool menu, uint exStyle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AdjustWindowRectExForDpi(ref RECT rect, uint style, [MarshalAs(UnmanagedType.Bool)] bool menu, uint exStyle, uint dpi);
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);

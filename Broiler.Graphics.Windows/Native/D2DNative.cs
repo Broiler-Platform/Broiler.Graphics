@@ -79,6 +79,18 @@ internal static class D2DNative
     /// <summary>ID2D1DeviceContext::SetTarget.</summary>
     internal const int VtblSetTarget = 74;
 
+    /// <summary>ID2D1DeviceContext::CreateBitmap overload that returns ID2D1Bitmap1.</summary>
+    internal const int VtblCreateBitmap1 = 57;
+
+    /// <summary>ID2D1Bitmap::CopyFromBitmap.</summary>
+    internal const int VtblBitmapCopyFromBitmap = 8;
+
+    /// <summary>ID2D1Bitmap1::Map.</summary>
+    internal const int VtblBitmap1Map = 14;
+
+    /// <summary>ID2D1Bitmap1::Unmap.</summary>
+    internal const int VtblBitmap1Unmap = 15;
+
     /// <summary>ID2D1Device::CreateDeviceContext.</summary>
     internal const int VtblCreateDeviceContext = 4;
 
@@ -132,6 +144,15 @@ internal static class D2DNative
     }
 
     [Flags]
+    internal enum D2D1_MAP_OPTIONS : uint
+    {
+        NONE = 0,
+        READ = 1,
+        WRITE = 2,
+        DISCARD = 4,
+    }
+
+    [Flags]
     internal enum D2D1_BITMAP_OPTIONS : uint
     {
         NONE = 0,
@@ -155,6 +176,13 @@ internal static class D2DNative
     {
         public uint Width;
         public uint Height;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_MAPPED_RECT
+    {
+        public uint Pitch;
+        public IntPtr Bits;
     }
 
     /// <summary>A DXGI format paired with how its alpha channel is interpreted.</summary>

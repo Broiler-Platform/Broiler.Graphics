@@ -4,11 +4,18 @@ using Broiler.Graphics.Windows.Native;
 
 namespace Broiler.Graphics.Windows;
 
+internal interface IDirect2DSurface : IBroilerSurface
+{
+    IntPtr Context { get; }
+
+    void Present(bool vsync);
+}
+
 /// <summary>
 /// A Direct2D-backed drawable surface. Owns the DXGI swap chain and the Direct2D device-context /
 /// target bitmap derived from it. Public members are safe; native handles stay internal.
 /// </summary>
-internal sealed class Direct2DSurface : IBroilerSurface
+internal sealed class Direct2DSurface : IDirect2DSurface
 {
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate int CreateSwapChainForCompositionProc(
@@ -102,7 +109,7 @@ internal sealed class Direct2DSurface : IBroilerSurface
 
     public double DpiScale => _dpiScale;
 
-    internal ComPtr Context => _d2dContext;
+    public IntPtr Context => _d2dContext.Pointer;
 
     public void Resize(BSize size, double dpiScale)
     {
@@ -240,7 +247,7 @@ internal sealed class Direct2DSurface : IBroilerSurface
     }
 
     /// <summary>Presents the current back buffer. Maps DXGI device-removed errors to a Core exception.</summary>
-    internal void Present(bool vsync)
+    public void Present(bool vsync)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 

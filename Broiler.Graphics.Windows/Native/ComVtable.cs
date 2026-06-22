@@ -19,9 +19,9 @@ namespace Broiler.Graphics.Windows.Native;
 /// </remarks>
 internal static class ComVtable
 {
-    // Keyed by the raw function-pointer value. A method implementation has exactly one signature,
-    // so a given pointer is always requested with the same TDelegate; no type collision is possible.
-    private static readonly ConcurrentDictionary<IntPtr, Delegate> Delegates = new();
+    // Keyed by function pointer and delegate type. Some COM implementations reuse a function pointer
+    // for methods with the same ABI signature, while call sites still ask for distinct delegate types.
+    private static readonly ConcurrentDictionary<(IntPtr Function, Type DelegateType), Delegate> Delegates = new();
 
     /// <summary>
     /// Returns the method at <paramref name="slot"/> in <paramref name="comObject"/>'s vtable as a
@@ -33,7 +33,7 @@ internal static class ComVtable
         IntPtr vtable = Marshal.ReadIntPtr(comObject);
         IntPtr function = Marshal.ReadIntPtr(vtable, slot * IntPtr.Size);
         return (TDelegate)Delegates.GetOrAdd(
-            function,
-            static fn => Marshal.GetDelegateForFunctionPointer<TDelegate>(fn));
+            (function, typeof(TDelegate)),
+            static key => Marshal.GetDelegateForFunctionPointer<TDelegate>(key.Function));
     }
 }

@@ -115,6 +115,17 @@ internal static class LifecycleTests
             // A real backend would replay here; the fake just validates ownership and the list.
         }
 
+        public BBitmap RenderToImage(BRenderList renderList, BSurfaceDescriptor descriptor, BFrameContext frameContext)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentNullException.ThrowIfNull(renderList);
+            renderList.Validate();
+
+            return new BBitmap(
+                Math.Max(1, (int)Math.Ceiling(descriptor.Size.Width * descriptor.DpiScale)),
+                Math.Max(1, (int)Math.Ceiling(descriptor.Size.Height * descriptor.DpiScale)));
+        }
+
         private ulong _nextImageId;
 
         public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
