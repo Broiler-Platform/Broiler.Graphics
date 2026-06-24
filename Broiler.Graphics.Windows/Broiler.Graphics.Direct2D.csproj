@@ -14,12 +14,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <!-- The backend test runner reaches a few internals (image store, BGRA conversion). -->
+    <InternalsVisibleTo Include="Broiler.Graphics.Windows.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The backend test runner reaches a few internals (image store, BGRA conversion). -->
-    <InternalsVisibleTo Include="Broiler.Graphics.Windows.Tests" />
+    <ProjectReference Include="..\..\..\Broiler.HTML\Broiler.Graphics\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>
