@@ -53,6 +53,25 @@ public abstract class BWindow : IDisposable
         return CreateButtonControlCore(options);
     }
 
+    /// <summary>
+    /// Starts (or restarts) a repeating timer that drives <see cref="OnAnimationTick"/> on the UI
+    /// thread roughly every <paramref name="intervalMilliseconds"/>. Used to step animations.
+    /// </summary>
+    public void StartAnimationTimer(double intervalMilliseconds)
+    {
+        ThrowIfDisposed();
+        if (intervalMilliseconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(intervalMilliseconds));
+        StartAnimationTimerCore(intervalMilliseconds);
+    }
+
+    /// <summary>Stops the timer previously started with <see cref="StartAnimationTimer"/>.</summary>
+    public void StopAnimationTimer()
+    {
+        ThrowIfDisposed();
+        StopAnimationTimerCore();
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -89,6 +108,60 @@ public abstract class BWindow : IDisposable
         new(Options.ClearColor, frameIndex, Options.RenderOptions);
 
     protected abstract BRenderList? BuildRenderList(BSize clientSize);
+
+    /// <summary>Called when a mouse button is pressed over the render content area.</summary>
+    protected virtual void OnPointerDown(BPointerEventArgs e)
+    {
+    }
+
+    /// <summary>Called when the mouse moves over the render content area.</summary>
+    protected virtual void OnPointerMove(BPointerEventArgs e)
+    {
+    }
+
+    /// <summary>Called when a mouse button is released over the render content area.</summary>
+    protected virtual void OnPointerUp(BPointerEventArgs e)
+    {
+    }
+
+    /// <summary>Called when the mouse leaves the render content area.</summary>
+    protected virtual void OnPointerLeave()
+    {
+    }
+
+    /// <summary>Called when the mouse wheel is rotated over the render content area.</summary>
+    protected virtual void OnMouseWheel(BMouseWheelEventArgs e)
+    {
+    }
+
+    /// <summary>Called when a key is pressed while the render content area has focus.</summary>
+    protected virtual void OnKeyDown(BKeyEventArgs e)
+    {
+    }
+
+    /// <summary>Called when a key is released while the render content area has focus.</summary>
+    protected virtual void OnKeyUp(BKeyEventArgs e)
+    {
+    }
+
+    /// <summary>Called when a character is typed while the render content area has focus.</summary>
+    protected virtual void OnTextInput(BTextInputEventArgs e)
+    {
+    }
+
+    /// <summary>Called on each tick of the animation timer started with <see cref="StartAnimationTimer"/>.</summary>
+    protected virtual void OnAnimationTick()
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="StartAnimationTimer"/>. Default implementation is unsupported.</summary>
+    protected virtual void StartAnimationTimerCore(double intervalMilliseconds) =>
+        throw new NotSupportedException("This window backend does not support animation timers.");
+
+    /// <summary>Backend hook for <see cref="StopAnimationTimer"/>. Default implementation is a no-op.</summary>
+    protected virtual void StopAnimationTimerCore()
+    {
+    }
 
     protected abstract void Dispose(bool disposing);
 }

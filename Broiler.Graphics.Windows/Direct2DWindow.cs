@@ -44,6 +44,33 @@ public abstract class Direct2DWindow : BWindow
     private const uint WmPaint = 0x000F;
     private const uint WmEraseBkgnd = 0x0014;
     private const uint WmDpiChanged = 0x02E0;
+    private const uint WmTimer = 0x0113;
+    private const uint WmMouseMove = 0x0200;
+    private const uint WmLButtonDown = 0x0201;
+    private const uint WmLButtonUp = 0x0202;
+    private const uint WmRButtonDown = 0x0204;
+    private const uint WmRButtonUp = 0x0205;
+    private const uint WmMButtonDown = 0x0207;
+    private const uint WmMButtonUp = 0x0208;
+    private const uint WmMouseWheel = 0x020A;
+    private const uint WmMouseLeave = 0x02A3;
+    private const uint WmKeyDown = 0x0100;
+    private const uint WmKeyUp = 0x0101;
+    private const uint WmChar = 0x0102;
+    private const uint WmSysKeyDown = 0x0104;
+    private const uint WmSetFocus = 0x0007;
+
+    private const int MkLButton = 0x0001;
+    private const int MkRButton = 0x0002;
+    private const int MkMButton = 0x0010;
+
+    private const int VkControl = 0x11;
+    private const int VkShift = 0x10;
+    private const int VkMenu = 0x12;
+
+    private const int WheelDelta = 120;
+    private const uint TmeLeave = 0x00000002;
+    private const nuint AnimationTimerId = 1;
 
     private static readonly WndProc s_wndProc = WindowProc;
     private static readonly WndProc s_renderHostWndProc = RenderHostWindowProc;
@@ -59,6 +86,8 @@ public abstract class Direct2DWindow : BWindow
     private long _frameIndex;
     private int _nextControlId = 1000;
     private bool _runStarted;
+    private bool _trackingMouse;
+    private bool _animationTimerRunning;
 
     protected Direct2DWindow(BWindowOptions options)
         : base(options)
@@ -123,6 +152,24 @@ public abstract class Direct2DWindow : BWindow
             InvalidateRect(_hwnd, IntPtr.Zero, false);
     }
 
+    protected override void StartAnimationTimerCore(double intervalMilliseconds)
+    {
+        EnsureNativeHandle();
+        uint interval = (uint)Math.Max(1, Math.Round(intervalMilliseconds));
+        if (SetTimer(_hwnd, AnimationTimerId, interval, IntPtr.Zero) == UIntPtr.Zero)
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "SetTimer failed.");
+        _animationTimerRunning = true;
+    }
+
+    protected override void StopAnimationTimerCore()
+    {
+        if (!_animationTimerRunning || _hwnd == IntPtr.Zero)
+            return;
+
+        KillTimer(_hwnd, AnimationTimerId);
+        _animationTimerRunning = false;
+    }
+
     protected override BEditControl CreateEditControlCore(BControlOptions options)
     {
         ThrowIfDisposed();
@@ -149,6 +196,7 @@ public abstract class Direct2DWindow : BWindow
     {
         if (disposing)
         {
+            StopAnimationTimerCore();
             DisposeControls();
             ReleaseGraphicsResources();
             DestroyRenderHost();
@@ -233,6 +281,14 @@ public abstract class Direct2DWindow : BWindow
             case WmDpiChanged:
                 ResizeSurfaceAndNotify();
                 return IntPtr.Zero;
+
+            case WmTimer:
+                if ((nuint)wParam == AnimationTimerId)
+                {
+                    OnAnimationTick();
+                    return IntPtr.Zero;
+                }
+                return DefWindowProc(_hwnd, message, wParam, lParam);
 
             case WmEraseBkgnd:
                 return DefWindowProc(_hwnd, message, wParam, lParam);
@@ -601,10 +657,107 @@ public abstract class Direct2DWindow : BWindow
             case WmEraseBkgnd:
                 return new IntPtr(1);
 
+            case WmMouseMove:
+                instance.EnsureMouseTracking(hwnd);
+                instance.OnPointerMove(new BPointerEventArgs(instance.LParamToDip(lParam), ButtonsFromWParam(wParam)));
+                return IntPtr.Zero;
+
+            case WmMouseLeave:
+                instance._trackingMouse = false;
+                instance.OnPointerLeave();
+                return IntPtr.Zero;
+
+            case WmLButtonDown:
+            case WmRButtonDown:
+            case WmMButtonDown:
+                SetFocus(hwnd);
+                instance.OnPointerDown(new BPointerEventArgs(instance.LParamToDip(lParam), ButtonsFromWParam(wParam)));
+                return IntPtr.Zero;
+
+            case WmLButtonUp:
+            case WmRButtonUp:
+            case WmMButtonUp:
+                instance.OnPointerUp(new BPointerEventArgs(instance.LParamToDip(lParam), ButtonsFromWParam(wParam)));
+                return IntPtr.Zero;
+
+            case WmMouseWheel:
+                instance.DispatchMouseWheel(hwnd, wParam, lParam);
+                return IntPtr.Zero;
+
+            case WmKeyDown:
+            case WmSysKeyDown:
+                instance.OnKeyDown(KeyArgsFromWParam(wParam));
+                return DefWindowProc(hwnd, message, wParam, lParam);
+
+            case WmKeyUp:
+                instance.OnKeyUp(KeyArgsFromWParam(wParam));
+                return IntPtr.Zero;
+
+            case WmChar:
+                instance.OnTextInput(new BTextInputEventArgs((char)(ushort)(long)wParam));
+                return IntPtr.Zero;
+
             default:
                 return DefWindowProc(hwnd, message, wParam, lParam);
         }
     }
+
+    private void EnsureMouseTracking(IntPtr hwnd)
+    {
+        if (_trackingMouse)
+            return;
+
+        var tme = new TRACKMOUSEEVENT
+        {
+            CbSize = (uint)Marshal.SizeOf<TRACKMOUSEEVENT>(),
+            DwFlags = TmeLeave,
+            HwndTrack = hwnd,
+            DwHoverTime = 0,
+        };
+        if (TrackMouseEvent(ref tme))
+            _trackingMouse = true;
+    }
+
+    private void DispatchMouseWheel(IntPtr hwnd, IntPtr wParam, IntPtr lParam)
+    {
+        // WM_MOUSEWHEEL reports the cursor position in screen coordinates; map it into the render host.
+        var point = new POINT { X = SignedLowWord(lParam), Y = SignedHighWord(lParam) };
+        ScreenToClient(hwnd, ref point);
+        double delta = SignedHighWord(wParam) / (double)WheelDelta;
+        OnMouseWheel(new BMouseWheelEventArgs(PixelsToDip(point.X, point.Y), delta, ButtonsFromWParam(wParam)));
+    }
+
+    private BPoint LParamToDip(IntPtr lParam) => PixelsToDip(SignedLowWord(lParam), SignedHighWord(lParam));
+
+    private BPoint PixelsToDip(int x, int y)
+    {
+        double scale = DpiScale;
+        return new BPoint(x / scale, y / scale);
+    }
+
+    private static BMouseButtons ButtonsFromWParam(IntPtr wParam)
+    {
+        int keys = LowWord(wParam);
+        BMouseButtons buttons = BMouseButtons.None;
+        if ((keys & MkLButton) != 0)
+            buttons |= BMouseButtons.Left;
+        if ((keys & MkRButton) != 0)
+            buttons |= BMouseButtons.Right;
+        if ((keys & MkMButton) != 0)
+            buttons |= BMouseButtons.Middle;
+        return buttons;
+    }
+
+    private static BKeyEventArgs KeyArgsFromWParam(IntPtr wParam) =>
+        new(
+            (int)(long)wParam,
+            (GetKeyState(VkControl) & 0x8000) != 0,
+            (GetKeyState(VkShift) & 0x8000) != 0,
+            (GetKeyState(VkMenu) & 0x8000) != 0);
+
+    private static int SignedLowWord(IntPtr value) => unchecked((short)((long)value & 0xFFFF));
+
+    private static int SignedHighWord(IntPtr value) => unchecked((short)(((long)value >> 16) & 0xFFFF));
 
     private static Direct2DWindow? FromHwnd(IntPtr hwnd)
     {
@@ -684,6 +837,15 @@ public abstract class Direct2DWindow : BWindow
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TRACKMOUSEEVENT
+    {
+        public uint CbSize;
+        public uint DwFlags;
+        public IntPtr HwndTrack;
+        public uint DwHoverTime;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -788,6 +950,27 @@ public abstract class Direct2DWindow : BWindow
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetParent(IntPtr hwnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern UIntPtr SetTimer(IntPtr hwnd, nuint eventId, uint elapseMs, IntPtr timerFunc);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool KillTimer(IntPtr hwnd, nuint eventId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetFocus(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern short GetKeyState(int virtualKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ScreenToClient(IntPtr hwnd, ref POINT point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool TrackMouseEvent(ref TRACKMOUSEEVENT trackMouseEvent);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
