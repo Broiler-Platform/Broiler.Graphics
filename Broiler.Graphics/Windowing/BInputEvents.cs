@@ -18,15 +18,19 @@ public enum BMouseButtons
 /// </summary>
 public readonly struct BPointerEventArgs
 {
-    public BPointerEventArgs(BPoint position, BMouseButtons buttons)
+    public BPointerEventArgs(BPoint position, BMouseButtons buttons, BMouseButtons changedButton = BMouseButtons.None)
     {
         Position = position;
         Buttons = buttons;
+        ChangedButton = changedButton;
     }
 
     public BPoint Position { get; }
 
     public BMouseButtons Buttons { get; }
+
+    /// <summary>The mouse button that caused a button down/up event, or <see cref="BMouseButtons.None"/> otherwise.</summary>
+    public BMouseButtons ChangedButton { get; }
 
     public bool LeftButton => (Buttons & BMouseButtons.Left) != 0;
 
@@ -94,6 +98,8 @@ public static class BVirtualKey
     public const int Enter = 0x0D;
     public const int Escape = 0x1B;
     public const int Space = 0x20;
+    public const int A = 0x41;
+    public const int C = 0x43;
     public const int PageUp = 0x21;
     public const int PageDown = 0x22;
     public const int End = 0x23;

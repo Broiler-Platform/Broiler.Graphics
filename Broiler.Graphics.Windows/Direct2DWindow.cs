@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
@@ -59,6 +60,7 @@ public abstract class Direct2DWindow : BWindow
     private const uint WmChar = 0x0102;
     private const uint WmSysKeyDown = 0x0104;
     private const uint WmSetFocus = 0x0007;
+    private const uint WmInvoke = 0x8001;
 
     private const int MkLButton = 0x0001;
     private const int MkRButton = 0x0002;
@@ -83,11 +85,13 @@ public abstract class Direct2DWindow : BWindow
     private Direct2DRenderer? _renderer;
     private IBroilerSurface? _surface;
     private readonly Dictionary<int, IDirect2DControl> _controls = new();
+    private readonly Queue<Action> _postedCallbacks = new();
     private long _frameIndex;
     private int _nextControlId = 1000;
     private bool _runStarted;
     private bool _trackingMouse;
     private bool _animationTimerRunning;
+    private bool _closing;
 
     protected Direct2DWindow(BWindowOptions options)
         : base(options)
@@ -170,6 +174,25 @@ public abstract class Direct2DWindow : BWindow
         _animationTimerRunning = false;
     }
 
+    protected bool PostToUiThread(Action callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+
+        if (_closing || _hwnd == IntPtr.Zero || IsDisposed)
+            return false;
+
+        lock (_postedCallbacks)
+            _postedCallbacks.Enqueue(callback);
+
+        if (PostMessage(_hwnd, WmInvoke, IntPtr.Zero, IntPtr.Zero))
+            return true;
+
+        lock (_postedCallbacks)
+            RemovePostedCallback(callback);
+
+        return false;
+    }
+
     protected override BEditControl CreateEditControlCore(BControlOptions options)
     {
         ThrowIfDisposed();
@@ -192,10 +215,22 @@ public abstract class Direct2DWindow : BWindow
         return control;
     }
 
+    protected override BLabelControl CreateLabelControlCore(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        EnsureNativeHandle();
+
+        int id = AllocateControlId();
+        var control = new Direct2DLabelControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
+        _controls.Add(id, control);
+        return control;
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            BeginClosing();
             StopAnimationTimerCore();
             DisposeControls();
             ReleaseGraphicsResources();
@@ -274,6 +309,9 @@ public abstract class Direct2DWindow : BWindow
                 return IntPtr.Zero;
 
             case WmCommand:
+                if (_closing)
+                    return IntPtr.Zero;
+
                 if (HandleCommand(wParam, lParam))
                     return IntPtr.Zero;
                 return DefWindowProc(_hwnd, message, wParam, lParam);
@@ -283,12 +321,19 @@ public abstract class Direct2DWindow : BWindow
                 return IntPtr.Zero;
 
             case WmTimer:
+                if (_closing)
+                    return IntPtr.Zero;
+
                 if ((nuint)wParam == AnimationTimerId)
                 {
                     OnAnimationTick();
                     return IntPtr.Zero;
                 }
                 return DefWindowProc(_hwnd, message, wParam, lParam);
+
+            case WmInvoke:
+                DrainPostedCallbacks();
+                return IntPtr.Zero;
 
             case WmEraseBkgnd:
                 return DefWindowProc(_hwnd, message, wParam, lParam);
@@ -298,6 +343,8 @@ public abstract class Direct2DWindow : BWindow
                 return IntPtr.Zero;
 
             case WmDestroy:
+                BeginClosing();
+                StopAnimationTimerCore();
                 ReleaseGraphicsResources();
                 DestroyRenderHost();
                 PostQuitMessage(0);
@@ -318,6 +365,9 @@ public abstract class Direct2DWindow : BWindow
 
     private void CreateGraphicsResources()
     {
+        if (_closing)
+            return;
+
         ReleaseGraphicsResources();
 
         if (_renderHwnd == IntPtr.Zero || !HasDrawableRenderArea)
@@ -354,6 +404,9 @@ public abstract class Direct2DWindow : BWindow
 
     private void ResizeSurfaceAndNotify()
     {
+        if (_closing)
+            return;
+
         MoveRenderHost();
 
         if (!HasDrawableRenderArea)
@@ -382,6 +435,9 @@ public abstract class Direct2DWindow : BWindow
 
     private void RenderFrame()
     {
+        if (_closing)
+            return;
+
         if (!HasDrawableRenderArea)
             return;
 
@@ -517,6 +573,61 @@ public abstract class Direct2DWindow : BWindow
 
         DestroyWindow(_renderHwnd);
         _renderHwnd = IntPtr.Zero;
+    }
+
+    private void BeginClosing()
+    {
+        if (_closing)
+            return;
+
+        _closing = true;
+        OnClosing();
+        DrainPostedCallbacks();
+    }
+
+    private void DrainPostedCallbacks()
+    {
+        while (true)
+        {
+            Action[] callbacks;
+            lock (_postedCallbacks)
+            {
+                if (_postedCallbacks.Count == 0)
+                    return;
+
+                callbacks = _postedCallbacks.ToArray();
+                _postedCallbacks.Clear();
+            }
+
+            foreach (Action callback in callbacks)
+            {
+                try
+                {
+                    callback();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
+            }
+        }
+    }
+
+    private void RemovePostedCallback(Action callback)
+    {
+        if (_postedCallbacks.Count == 0)
+            return;
+
+        var retained = new Queue<Action>(_postedCallbacks.Count);
+        while (_postedCallbacks.Count > 0)
+        {
+            Action pending = _postedCallbacks.Dequeue();
+            if (!ReferenceEquals(pending, callback))
+                retained.Enqueue(pending);
+        }
+
+        while (retained.Count > 0)
+            _postedCallbacks.Enqueue(retained.Dequeue());
     }
 
     private int ToPixels(double dip)
@@ -671,13 +782,19 @@ public abstract class Direct2DWindow : BWindow
             case WmRButtonDown:
             case WmMButtonDown:
                 SetFocus(hwnd);
-                instance.OnPointerDown(new BPointerEventArgs(instance.LParamToDip(lParam), ButtonsFromWParam(wParam)));
+                instance.OnPointerDown(new BPointerEventArgs(
+                    instance.LParamToDip(lParam),
+                    ButtonsFromWParam(wParam),
+                    ButtonFromMouseMessage(message)));
                 return IntPtr.Zero;
 
             case WmLButtonUp:
             case WmRButtonUp:
             case WmMButtonUp:
-                instance.OnPointerUp(new BPointerEventArgs(instance.LParamToDip(lParam), ButtonsFromWParam(wParam)));
+                instance.OnPointerUp(new BPointerEventArgs(
+                    instance.LParamToDip(lParam),
+                    ButtonsFromWParam(wParam),
+                    ButtonFromMouseMessage(message)));
                 return IntPtr.Zero;
 
             case WmMouseWheel:
@@ -747,6 +864,14 @@ public abstract class Direct2DWindow : BWindow
             buttons |= BMouseButtons.Middle;
         return buttons;
     }
+
+    private static BMouseButtons ButtonFromMouseMessage(uint message) => message switch
+    {
+        WmLButtonDown or WmLButtonUp => BMouseButtons.Left,
+        WmRButtonDown or WmRButtonUp => BMouseButtons.Right,
+        WmMButtonDown or WmMButtonUp => BMouseButtons.Middle,
+        _ => BMouseButtons.None,
+    };
 
     private static BKeyEventArgs KeyArgsFromWParam(IntPtr wParam) =>
         new(
@@ -931,6 +1056,10 @@ public abstract class Direct2DWindow : BWindow
 
     [DllImport("user32.dll")]
     private static extern void PostQuitMessage(int exitCode);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

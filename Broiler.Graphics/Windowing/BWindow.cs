@@ -53,6 +53,12 @@ public abstract class BWindow : IDisposable
         return CreateButtonControlCore(options);
     }
 
+    public BLabelControl CreateLabelControl(BControlOptions options)
+    {
+        ThrowIfDisposed();
+        return CreateLabelControlCore(options);
+    }
+
     /// <summary>
     /// Starts (or restarts) a repeating timer that drives <see cref="OnAnimationTick"/> on the UI
     /// thread roughly every <paramref name="intervalMilliseconds"/>. Used to step animations.
@@ -92,6 +98,8 @@ public abstract class BWindow : IDisposable
 
     protected abstract BButtonControl CreateButtonControlCore(BControlOptions options);
 
+    protected abstract BLabelControl CreateLabelControlCore(BControlOptions options);
+
     protected virtual void OnCreated()
     {
     }
@@ -101,6 +109,11 @@ public abstract class BWindow : IDisposable
     }
 
     protected virtual void OnGraphicsResourcesReleasing()
+    {
+    }
+
+    /// <summary>Called when the native window is beginning final teardown.</summary>
+    protected virtual void OnClosing()
     {
     }
 

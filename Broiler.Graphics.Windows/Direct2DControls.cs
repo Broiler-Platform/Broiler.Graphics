@@ -108,13 +108,14 @@ internal sealed class Direct2DButtonControl : BButtonControl, IDirect2DControl
 {
     private const uint WsTabstop = 0x00010000;
     private const uint BsPushButton = 0x00000000;
+    private const uint BsFlat = 0x00008000;
     private const int BnClicked = 0;
 
     private readonly Direct2DControlPeer _peer;
 
     public Direct2DButtonControl(Direct2DWindow owner, int id, BControlOptions options)
     {
-        _peer = new Direct2DControlPeer(owner, this, id, "BUTTON", 0, WsTabstop | BsPushButton, options);
+        _peer = new Direct2DControlPeer(owner, this, id, "BUTTON", 0, WsTabstop | BsPushButton | BsFlat, options);
     }
 
     public int Id => _peer.Id;
@@ -153,6 +154,57 @@ internal sealed class Direct2DButtonControl : BButtonControl, IDirect2DControl
     {
         if (sourceHwnd == NativeHandle && notificationCode == BnClicked)
             OnClicked();
+    }
+}
+
+[SupportedOSPlatform("windows7.0")]
+internal sealed class Direct2DLabelControl : BLabelControl, IDirect2DControl
+{
+    private const uint SsNoPrefix = 0x00000080;
+
+    private readonly Direct2DControlPeer _peer;
+
+    public Direct2DLabelControl(Direct2DWindow owner, int id, BControlOptions options)
+    {
+        _peer = new Direct2DControlPeer(owner, this, id, "STATIC", 0, SsNoPrefix, options);
+    }
+
+    public int Id => _peer.Id;
+
+    public override IntPtr NativeHandle => _peer.NativeHandle;
+
+    public override BRect Bounds
+    {
+        get => _peer.Bounds;
+        set => _peer.Bounds = value;
+    }
+
+    public override string Text
+    {
+        get => _peer.Text;
+        set => _peer.Text = value;
+    }
+
+    public override bool Enabled
+    {
+        get => _peer.Enabled;
+        set => _peer.Enabled = value;
+    }
+
+    public override bool Visible
+    {
+        get => _peer.Visible;
+        set => _peer.Visible = value;
+    }
+
+    public override void Focus()
+    {
+    }
+
+    public override void Dispose() => _peer.Dispose();
+
+    public void HandleCommand(int notificationCode, IntPtr sourceHwnd)
+    {
     }
 }
 

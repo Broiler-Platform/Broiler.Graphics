@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Broiler.HTML\Broiler.Graphics\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
 </Project>
