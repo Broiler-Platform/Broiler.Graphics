@@ -31,7 +31,6 @@ internal sealed class Direct2DDevice : IDisposable
     private bool _initialized;
     private bool _disposed;
 
-    internal ComPtr D2DFactory => _d2dFactory;
     internal ComPtr D2DDevice => _d2dDevice;
     internal ComPtr DxgiFactory => _dxgiFactory;
     internal ComPtr DWriteFactory => _dwriteFactory;
@@ -88,8 +87,6 @@ internal sealed class Direct2DDevice : IDisposable
             throw;
         }
     }
-
-    internal bool IsInitialized => _initialized;
 
     private void CreateD3DDevice()
     {

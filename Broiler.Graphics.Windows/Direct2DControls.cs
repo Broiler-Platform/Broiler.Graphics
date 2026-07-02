@@ -254,7 +254,7 @@ internal sealed class Direct2DControlPeer : IDisposable
             ToPixels(_bounds.Height),
             owner.NativeHandle,
             new IntPtr(id),
-            owner.ModuleHandle,
+            Direct2DWindow.ModuleHandle,
             IntPtr.Zero);
 
         if (_hwnd == IntPtr.Zero)

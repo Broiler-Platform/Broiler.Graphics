@@ -82,7 +82,7 @@ internal sealed class Direct2DImageStore : IDisposable
 }
 
 /// <summary>One stored image: its size, premultiplied BGRA pixels, and (once drawn) its D2D bitmap.</summary>
-internal sealed class Direct2DImage : IDisposable
+internal sealed class Direct2DImage(int width, int height, byte[] bgraPremultiplied) : IDisposable
 {
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate int CreateBitmapProc(
@@ -95,16 +95,9 @@ internal sealed class Direct2DImage : IDisposable
 
     private readonly ComPtr _bitmap = new(); // ID2D1Bitmap, created lazily
 
-    public Direct2DImage(int width, int height, byte[] bgraPremultiplied)
-    {
-        Width = width;
-        Height = height;
-        BgraPremultiplied = bgraPremultiplied;
-    }
-
-    public int Width { get; }
-    public int Height { get; }
-    public byte[] BgraPremultiplied { get; }
+    public int Width { get; } = width;
+    public int Height { get; } = height;
+    public byte[] BgraPremultiplied { get; } = bgraPremultiplied;
 
     /// <summary>
     /// Returns the image's <c>ID2D1Bitmap</c>, uploading the pixels through

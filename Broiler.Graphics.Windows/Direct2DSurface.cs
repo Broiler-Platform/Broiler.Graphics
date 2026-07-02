@@ -81,8 +81,8 @@ internal sealed class Direct2DSurface : IDirect2DSurface
 
     private BSize _size;
     private double _dpiScale;
-    private BPixelFormat _pixelFormat;
-    private bool _enableTransparency;
+    private readonly BPixelFormat _pixelFormat;
+    private readonly bool _enableTransparency;
     private bool _disposed;
 
     internal Direct2DSurface(Direct2DDevice device, BSurfaceDescriptor descriptor, IntPtr hwnd = default)

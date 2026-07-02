@@ -243,7 +243,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         }
     }
 
-    private void FillRect(IDirect2DSurface surface, BRenderCommand.FillRect c)
+    private static void FillRect(IDirect2DSurface surface, BRenderCommand.FillRect c)
     {
         IntPtr context = surface.Context;
         using ComPtr brush = CreateSolidBrush(context, c.Color);
@@ -253,7 +253,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         fill(context, in rect, brush.Pointer);
     }
 
-    private void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
+    private static void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
     {
         IntPtr context = surface.Context;
         using ComPtr brush = CreateSolidBrush(context, c.Color);
@@ -314,7 +314,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         drawBitmap(context, bitmap, in destination, opacity, (uint)interpolation, in source);
     }
 
-    private void PushClip(IDirect2DSurface surface, BRenderCommand.PushClip c)
+    private static void PushClip(IDirect2DSurface surface, BRenderCommand.PushClip c)
     {
         IntPtr context = surface.Context;
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
@@ -324,7 +324,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         pushClip(context, in rect, D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE);
     }
 
-    private void PopClip(IDirect2DSurface surface)
+    private static void PopClip(IDirect2DSurface surface)
     {
         IntPtr context = surface.Context;
         PopAxisAlignedClipProc popClip = ComVtable.Method<PopAxisAlignedClipProc>(context, D2DNative.VtblPopAxisAlignedClip);
@@ -334,7 +334,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     private void PushTransform(IDirect2DSurface surface, BRenderCommand.PushTransform c)
     {
         _transformStack.Push(_currentTransform);
-        _currentTransform = _currentTransform * c.Transform;
+        _currentTransform *= c.Transform;
         SetTransform(surface.Context, _currentTransform);
     }
 
