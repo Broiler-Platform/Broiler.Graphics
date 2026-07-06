@@ -106,6 +106,12 @@ public sealed class BImageRenderer : IBroilerRenderer
             case BRenderCommand.StrokeRect c:
                 StrokeRect(canvas, c);
                 break;
+            case BRenderCommand.FillRoundedRect c:
+                FillRoundedRect(canvas, c);
+                break;
+            case BRenderCommand.StrokeRoundedRect c:
+                StrokeRoundedRect(canvas, c);
+                break;
             case BRenderCommand.DrawText c:
                 DrawText(canvas, c);
                 break;
@@ -150,6 +156,37 @@ public sealed class BImageRenderer : IBroilerRenderer
             return;
 
         canvas.DrawRectangleStroke(rect, command.Color, (float)Math.Max(1.0, command.Thickness * CurrentAverageScale()));
+    }
+
+    private void FillRoundedRect(BCanvas canvas, BRenderCommand.FillRoundedRect command)
+    {
+        if (command.Color.A == 0)
+            return;
+
+        RectangleF rect = TransformRect(command.Rect);
+        if (!IsDrawable(rect))
+            return;
+
+        float scale = (float)CurrentAverageScale();
+        canvas.FillRoundedRect(rect, command.Color, (float)(command.RadiusX * scale), (float)(command.RadiusY * scale));
+    }
+
+    private void StrokeRoundedRect(BCanvas canvas, BRenderCommand.StrokeRoundedRect command)
+    {
+        if (command.Color.A == 0 || command.Thickness <= 0)
+            return;
+
+        RectangleF rect = TransformRect(command.Rect);
+        if (!IsDrawable(rect))
+            return;
+
+        float scale = (float)CurrentAverageScale();
+        canvas.DrawRoundedRectangleStroke(
+            rect,
+            command.Color,
+            (float)(command.RadiusX * scale),
+            (float)(command.RadiusY * scale),
+            (float)Math.Max(1.0, command.Thickness * scale));
     }
 
     private void DrawImage(BCanvas canvas, BRenderCommand.DrawImage command)

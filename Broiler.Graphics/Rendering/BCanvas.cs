@@ -64,6 +64,27 @@ public sealed class BCanvas : IDisposable
             (float)cornerSw,
             (float)cornerSwY));
 
+    public void PushClipExcludeRounded(
+        RectangleF rect,
+        double cornerNw,
+        double cornerNwY,
+        double cornerNe,
+        double cornerNeY,
+        double cornerSe,
+        double cornerSeY,
+        double cornerSw,
+        double cornerSwY) =>
+        _clipOperations.Add(ClipOperation.ExcludeRounded(
+            Translate(rect),
+            (float)cornerNw,
+            (float)cornerNwY,
+            (float)cornerNe,
+            (float)cornerNeY,
+            (float)cornerSe,
+            (float)cornerSeY,
+            (float)cornerSw,
+            (float)cornerSwY));
+
     public void PopClip()
     {
         if (_clipOperations.Count > 0)
@@ -120,6 +141,53 @@ public sealed class BCanvas : IDisposable
         FillRect(new RectangleF(rect.X, rect.Bottom - strokeWidth, rect.Width, strokeWidth), color);
         FillRect(new RectangleF(rect.X, rect.Y, strokeWidth, rect.Height), color);
         FillRect(new RectangleF(rect.Right - strokeWidth, rect.Y, strokeWidth, rect.Height), color);
+    }
+
+    public void FillRoundedRect(RectangleF rect, BColor color, float radiusX, float radiusY)
+    {
+        if (rect.Width <= 0 || rect.Height <= 0 || color.A == 0)
+            return;
+
+        radiusX = Math.Clamp(radiusX, 0f, rect.Width / 2f);
+        radiusY = Math.Clamp(radiusY, 0f, rect.Height / 2f);
+        if (radiusX <= 0 || radiusY <= 0)
+        {
+            FillRect(rect, color);
+            return;
+        }
+
+        Save();
+        PushClipRounded(rect, radiusX, radiusY, radiusX, radiusY, radiusX, radiusY, radiusX, radiusY);
+        FillRect(rect, color);
+        Restore();
+    }
+
+    public void DrawRoundedRectangleStroke(RectangleF rect, BColor color, float radiusX, float radiusY, float strokeWidth = 1f)
+    {
+        if (rect.Width <= 0 || rect.Height <= 0 || color.A == 0 || strokeWidth <= 0)
+            return;
+
+        strokeWidth = Math.Max(1f, strokeWidth);
+        radiusX = Math.Clamp(radiusX, 0f, rect.Width / 2f);
+        radiusY = Math.Clamp(radiusY, 0f, rect.Height / 2f);
+        if (radiusX <= 0 || radiusY <= 0)
+        {
+            DrawRectangleStroke(rect, color, strokeWidth);
+            return;
+        }
+
+        Save();
+        PushClipRounded(rect, radiusX, radiusY, radiusX, radiusY, radiusX, radiusY, radiusX, radiusY);
+        RectangleF inner = Inset(rect, strokeWidth);
+        if (inner.Width > 0 && inner.Height > 0)
+        {
+            float innerRadiusX = Math.Max(0f, radiusX - strokeWidth);
+            float innerRadiusY = Math.Max(0f, radiusY - strokeWidth);
+            PushClipExcludeRounded(inner, innerRadiusX, innerRadiusY, innerRadiusX, innerRadiusY, innerRadiusX, innerRadiusY, innerRadiusX, innerRadiusY);
+        }
+
+        FillRect(rect, color);
+        Restore();
     }
 
     public void FillPolygon(PointF[] points, BColor color)
@@ -499,6 +567,9 @@ public sealed class BCanvas : IDisposable
     private PointF Translate(PointF point) =>
         new(point.X + _translation.X, point.Y + _translation.Y);
 
+    private static RectangleF Inset(RectangleF rect, float amount) =>
+        new(rect.X + amount, rect.Y + amount, Math.Max(0, rect.Width - amount * 2), Math.Max(0, rect.Height - amount * 2));
+
     private bool IsVisible(int x, int y)
     {
         float sampleX = x + 0.5f;
@@ -800,6 +871,18 @@ public sealed class BCanvas : IDisposable
             float cornerSw,
             float cornerSwY) =>
             new(rect, false, true, cornerNw, cornerNwY, cornerNe, cornerNeY, cornerSe, cornerSeY, cornerSw, cornerSwY);
+
+        public static ClipOperation ExcludeRounded(
+            RectangleF rect,
+            float cornerNw,
+            float cornerNwY,
+            float cornerNe,
+            float cornerNeY,
+            float cornerSe,
+            float cornerSeY,
+            float cornerSw,
+            float cornerSwY) =>
+            new(rect, true, true, cornerNw, cornerNwY, cornerNe, cornerNeY, cornerSe, cornerSeY, cornerSw, cornerSwY);
 
         public bool Contains(float x, float y)
         {

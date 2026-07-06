@@ -18,6 +18,17 @@ public abstract record BRenderCommand
     /// <summary>Strokes a rectangle outline with a solid color and the given thickness.</summary>
     public sealed record StrokeRect(BRect Rect, BColor Color, double Thickness) : BRenderCommand;
 
+    /// <summary>Fills a rounded rectangle with a solid color.</summary>
+    public sealed record FillRoundedRect(BRect Rect, BColor Color, double RadiusX, double RadiusY) : BRenderCommand;
+
+    /// <summary>Strokes a rounded rectangle outline with a solid color and the given thickness.</summary>
+    public sealed record StrokeRoundedRect(
+        BRect Rect,
+        BColor Color,
+        double RadiusX,
+        double RadiusY,
+        double Thickness) : BRenderCommand;
+
     /// <summary>Draws a text run with its top-left origin at <paramref name="Origin"/>.</summary>
     public sealed record DrawText(BTextRun Text, BPoint Origin) : BRenderCommand;
 

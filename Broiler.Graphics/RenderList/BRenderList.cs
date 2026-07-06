@@ -34,6 +34,40 @@ public sealed class BRenderList
         _commands.Add(new BRenderCommand.StrokeRect(rect, color, thickness));
     }
 
+    public void FillRoundedRect(BRect rect, BColor color, double radiusX, double radiusY)
+    {
+        if (radiusX < 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusX), "Corner radius must be non-negative.");
+        if (radiusY < 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusY), "Corner radius must be non-negative.");
+
+        if (radiusX == 0 || radiusY == 0)
+        {
+            FillRect(rect, color);
+            return;
+        }
+
+        _commands.Add(new BRenderCommand.FillRoundedRect(rect, color, radiusX, radiusY));
+    }
+
+    public void StrokeRoundedRect(BRect rect, BColor color, double radiusX, double radiusY, double thickness)
+    {
+        if (radiusX < 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusX), "Corner radius must be non-negative.");
+        if (radiusY < 0)
+            throw new ArgumentOutOfRangeException(nameof(radiusY), "Corner radius must be non-negative.");
+        if (thickness < 0)
+            throw new ArgumentOutOfRangeException(nameof(thickness), "Stroke thickness must be non-negative.");
+
+        if (radiusX == 0 || radiusY == 0)
+        {
+            StrokeRect(rect, color, thickness);
+            return;
+        }
+
+        _commands.Add(new BRenderCommand.StrokeRoundedRect(rect, color, radiusX, radiusY, thickness));
+    }
+
     public void DrawText(BTextRun text, BPoint origin)
     {
         ArgumentNullException.ThrowIfNull(text);

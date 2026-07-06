@@ -49,6 +49,20 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         float strokeWidth,
         IntPtr strokeStyle);
 
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void FillRoundedRectangleProc(
+        IntPtr self,
+        in D2DNative.D2D1_ROUNDED_RECT roundedRect,
+        IntPtr brush);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void DrawRoundedRectangleProc(
+        IntPtr self,
+        in D2DNative.D2D1_ROUNDED_RECT roundedRect,
+        IntPtr brush,
+        float strokeWidth,
+        IntPtr strokeStyle);
+
     [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
     private delegate int CreateTextFormatProc(
         IntPtr self,
@@ -220,6 +234,12 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             case BRenderCommand.StrokeRect c:
                 StrokeRect(surface, c);
                 break;
+            case BRenderCommand.FillRoundedRect c:
+                FillRoundedRect(surface, c);
+                break;
+            case BRenderCommand.StrokeRoundedRect c:
+                StrokeRoundedRect(surface, c);
+                break;
             case BRenderCommand.DrawText c:
                 DrawText(surface, c);
                 break;
@@ -260,6 +280,26 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
         DrawRectangleProc draw = ComVtable.Method<DrawRectangleProc>(context, D2DNative.VtblDrawRectangle);
+        draw(context, in rect, brush.Pointer, (float)c.Thickness, IntPtr.Zero);
+    }
+
+    private static void FillRoundedRect(IDirect2DSurface surface, BRenderCommand.FillRoundedRect c)
+    {
+        IntPtr context = surface.Context;
+        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        D2DNative.D2D1_ROUNDED_RECT rect = ToRoundedRect(c.Rect, c.RadiusX, c.RadiusY);
+
+        FillRoundedRectangleProc fill = ComVtable.Method<FillRoundedRectangleProc>(context, D2DNative.VtblFillRoundedRectangle);
+        fill(context, in rect, brush.Pointer);
+    }
+
+    private static void StrokeRoundedRect(IDirect2DSurface surface, BRenderCommand.StrokeRoundedRect c)
+    {
+        IntPtr context = surface.Context;
+        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        D2DNative.D2D1_ROUNDED_RECT rect = ToRoundedRect(c.Rect, c.RadiusX, c.RadiusY);
+
+        DrawRoundedRectangleProc draw = ComVtable.Method<DrawRoundedRectangleProc>(context, D2DNative.VtblDrawRoundedRectangle);
         draw(context, in rect, brush.Pointer, (float)c.Thickness, IntPtr.Zero);
     }
 
@@ -421,6 +461,13 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Top = (float)r.Top,
         Right = (float)r.Right,
         Bottom = (float)r.Bottom,
+    };
+
+    private static D2DNative.D2D1_ROUNDED_RECT ToRoundedRect(BRect rect, double radiusX, double radiusY) => new()
+    {
+        Rect = ToRectF(rect),
+        RadiusX = (float)Math.Min(Math.Max(0, radiusX), Math.Max(0, rect.Width / 2)),
+        RadiusY = (float)Math.Min(Math.Max(0, radiusY), Math.Max(0, rect.Height / 2)),
     };
 
     private static D2DNative.D2D1_RECT_F ToTextLayoutRect(BPoint origin)

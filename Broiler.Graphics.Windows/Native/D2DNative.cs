@@ -40,6 +40,12 @@ internal static class D2DNative
     /// <summary>ID2D1RenderTarget::FillRectangle.</summary>
     internal const int VtblFillRectangle = 17;
 
+    /// <summary>ID2D1RenderTarget::DrawRoundedRectangle.</summary>
+    internal const int VtblDrawRoundedRectangle = 18;
+
+    /// <summary>ID2D1RenderTarget::FillRoundedRectangle.</summary>
+    internal const int VtblFillRoundedRectangle = 19;
+
     /// <summary>ID2D1RenderTarget::DrawBitmap.</summary>
     internal const int VtblDrawBitmap = 26;
 
@@ -235,6 +241,14 @@ internal static class D2DNative
         public float Top;
         public float Right;
         public float Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct D2D1_ROUNDED_RECT
+    {
+        public D2D1_RECT_F Rect;
+        public float RadiusX;
+        public float RadiusY;
     }
 
     /// <summary>Direct2D's 3x2 transform (row-major, translation in the last row).</summary>
