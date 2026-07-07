@@ -214,6 +214,9 @@ public sealed class BImageRenderer : IBroilerRenderer
             canvas.RestoreOpacityLayer();
     }
 
+    /// <summary>Reports which real font (if any) backs text rendering; for host diagnostics.</summary>
+    public static string DescribeSystemTextFont() => FallbackSystemFont.Describe();
+
     private void DrawText(BCanvas canvas, BRenderCommand.DrawText command)
     {
         BTextRun run = command.Text;
@@ -221,16 +224,29 @@ public sealed class BImageRenderer : IBroilerRenderer
             return;
 
         double fontSize = Math.Max(1.0, run.Font.SizeInPixels);
+        bool bold = run.Font.Weight >= BFontWeight.Bold;
+
+        // Prefer a real host font when one was discovered; otherwise fall back to
+        // the built-in block font so text still renders on a font-less system.
+        FallbackSystemFont? font = FallbackSystemFont.Shared;
+        if (font is not null)
+            DrawTextWithSystemFont(canvas, run, command.Origin, fontSize, bold, font);
+        else
+            DrawTextWithBlockFont(canvas, run, command.Origin, fontSize, bold);
+    }
+
+    private void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold)
+    {
         double advance = Math.Max(1.0, fontSize * 0.62);
         double glyphHeight = fontSize;
         double glyphWidth = Math.Max(1.0, fontSize * 0.54);
-        double penX = command.Origin.X;
+        double penX = origin.X;
 
         foreach (char ch in run.Text)
         {
             if (ch is '\r' or '\n')
             {
-                penX = command.Origin.X;
+                penX = origin.X;
                 continue;
             }
 
@@ -240,18 +256,74 @@ public sealed class BImageRenderer : IBroilerRenderer
                 continue;
             }
 
-            DrawFallbackGlyph(
-                canvas,
-                char.ToUpperInvariant(ch),
-                penX,
-                command.Origin.Y,
-                glyphWidth,
-                glyphHeight,
-                run.Color,
-                run.Font.Weight >= BFontWeight.Bold);
-
+            DrawFallbackGlyph(canvas, ch, penX, origin.Y, glyphWidth, glyphHeight, run.Color, bold);
             penX += advance;
         }
+    }
+
+    private void DrawTextWithSystemFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, FallbackSystemFont font)
+    {
+        double blockAdvance = Math.Max(1.0, fontSize * 0.62);
+        double glyphHeight = fontSize;
+        double glyphWidth = Math.Max(1.0, fontSize * 0.54);
+        // Match BTextMeasurer's baseline assumption so real glyphs sit where the
+        // UI layout expects text to be.
+        double baseline = origin.Y + (fontSize * 0.8);
+        double penX = origin.X;
+
+        foreach (char ch in run.Text)
+        {
+            if (ch is '\r' or '\n')
+            {
+                penX = origin.X;
+                continue;
+            }
+
+            if (font.TryGetGlyph(ch, bold, out IReadOnlyList<PointF[]> contours, out int advanceWidth, out int unitsPerEm))
+            {
+                double scale = fontSize / unitsPerEm;
+                double step = advanceWidth > 0 ? advanceWidth * scale : blockAdvance;
+                if (!char.IsWhiteSpace(ch) && contours.Count > 0)
+                    FillScaledGlyph(canvas, contours, penX, baseline, scale, run.Color);
+
+                penX += step;
+                continue;
+            }
+
+            // The real font has no glyph for this codepoint: use the block glyph.
+            if (char.IsWhiteSpace(ch))
+            {
+                penX += blockAdvance;
+                continue;
+            }
+
+            DrawFallbackGlyph(canvas, ch, penX, origin.Y, glyphWidth, glyphHeight, run.Color, bold);
+            penX += blockAdvance;
+        }
+    }
+
+    private void FillScaledGlyph(BCanvas canvas, IReadOnlyList<PointF[]> contours, double penX, double baseline, double scale, BColor color)
+    {
+        BMatrix3x2 transform = _currentTransform * _pixelScaleTransform;
+        var device = new PointF[contours.Count][];
+        for (int c = 0; c < contours.Count; c++)
+        {
+            PointF[] source = contours[c];
+            var destination = new PointF[source.Length];
+            for (int i = 0; i < source.Length; i++)
+            {
+                // Font outlines are y-up; the surface is y-down, so mirror around
+                // the baseline before applying the render transform.
+                double lx = penX + (source[i].X * scale);
+                double ly = baseline - (source[i].Y * scale);
+                BPoint transformed = transform.Transform(new BPoint(lx, ly));
+                destination[i] = new PointF((float)transformed.X, (float)transformed.Y);
+            }
+
+            device[c] = destination;
+        }
+
+        canvas.FillGlyphContours(device, color);
     }
 
     private void DrawFallbackGlyph(
@@ -390,6 +462,32 @@ public sealed class BImageRenderer : IBroilerRenderer
         '"' => [" # # ", " # # ", " # # ", "     ", "     ", "     ", "     "],
         '\'' => ["  #  ", "  #  ", "  #  ", "     ", "     ", "     ", "     "],
         '#' => [" # # ", " # # ", "#####", " # # ", "#####", " # # ", " # # "],
+        'a' => ["     ", "     ", " ### ", "    #", " ####", "#   #", " ####"],
+        'b' => ["#    ", "#    ", "#### ", "#   #", "#   #", "#   #", "#### "],
+        'c' => ["     ", "     ", " ####", "#    ", "#    ", "#    ", " ####"],
+        'd' => ["    #", "    #", " ####", "#   #", "#   #", "#   #", " ####"],
+        'e' => ["     ", "     ", " ### ", "#   #", "#####", "#    ", " ### "],
+        'f' => ["  ## ", " #   ", "#### ", " #   ", " #   ", " #   ", " #   "],
+        'g' => ["     ", "     ", " ### ", "#   #", " ####", "    #", " ### "],
+        'h' => ["#    ", "#    ", "#### ", "#   #", "#   #", "#   #", "#   #"],
+        'i' => ["  #  ", "     ", " ##  ", "  #  ", "  #  ", "  #  ", " ### "],
+        'j' => ["   # ", "     ", "  ## ", "   # ", "   # ", "#  # ", " ##  "],
+        'k' => ["#    ", "#    ", "#  # ", "# #  ", "##   ", "# #  ", "#  # "],
+        'l' => [" ##  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "],
+        'm' => ["     ", "     ", "## # ", "# # #", "# # #", "# # #", "# # #"],
+        'n' => ["     ", "     ", "#### ", "#   #", "#   #", "#   #", "#   #"],
+        'o' => ["     ", "     ", " ### ", "#   #", "#   #", "#   #", " ### "],
+        'p' => ["     ", "     ", "#### ", "#   #", "#### ", "#    ", "#    "],
+        'q' => ["     ", "     ", " ####", "#   #", " ####", "    #", "    #"],
+        'r' => ["     ", "     ", "# ## ", "##   ", "#    ", "#    ", "#    "],
+        's' => ["     ", "     ", " ####", "#    ", " ### ", "    #", "#### "],
+        't' => [" #   ", " #   ", "#### ", " #   ", " #   ", " #  #", "  ## "],
+        'u' => ["     ", "     ", "#   #", "#   #", "#   #", "#   #", " ####"],
+        'v' => ["     ", "     ", "#   #", "#   #", "#   #", " # # ", "  #  "],
+        'w' => ["     ", "     ", "#   #", "# # #", "# # #", "# # #", " # # "],
+        'x' => ["     ", "     ", "#   #", " # # ", "  #  ", " # # ", "#   #"],
+        'y' => ["     ", "     ", "#   #", "#   #", " ####", "    #", " ### "],
+        'z' => ["     ", "     ", "#####", "   # ", "  #  ", " #   ", "#####"],
         _ => ["#####", "#   #", "   # ", "  #  ", " #   ", "     ", "  #  "],
     };
 }

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <RootNamespace>Broiler.Graphics.Linux.Vulkan</RootNamespace>
+    <AssemblyName>Broiler.Graphics.Linux.Vulkan</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj" />
+  </ItemGroup>
+
+</Project>

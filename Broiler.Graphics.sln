@@ -13,6 +13,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Windows.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Windows.Demo", "Broiler.Graphics.Windows.Demo\Broiler.Graphics.Windows.Demo.csproj", "{0FA9CC7B-C98F-4DC3-876D-39DBDE89BEE2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Linux", "Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj", "{44444444-4444-4444-4444-444444444444}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Linux.OpenGL", "Broiler.Graphics.Linux.OpenGL\Broiler.Graphics.Linux.OpenGL.csproj", "{55555555-5555-5555-5555-555555555555}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Linux.Vulkan", "Broiler.Graphics.Linux.Vulkan\Broiler.Graphics.Linux.Vulkan.csproj", "{66666666-6666-6666-6666-666666666666}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Linux.Tests", "Broiler.Graphics.Linux.Tests\Broiler.Graphics.Linux.Tests.csproj", "{77777777-7777-7777-7777-777777777777}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Broiler.Graphics.Linux.Demo", "Broiler.Graphics.Linux.Demo\Broiler.Graphics.Linux.Demo.csproj", "{88888888-8888-8888-8888-888888888888}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +93,66 @@ Global
 		{0FA9CC7B-C98F-4DC3-876D-39DBDE89BEE2}.Release|x64.Build.0 = Release|Any CPU
 		{0FA9CC7B-C98F-4DC3-876D-39DBDE89BEE2}.Release|x86.ActiveCfg = Release|Any CPU
 		{0FA9CC7B-C98F-4DC3-876D-39DBDE89BEE2}.Release|x86.Build.0 = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|x64.Build.0 = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Debug|x86.Build.0 = Debug|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|x64.ActiveCfg = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|x64.Build.0 = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|x86.ActiveCfg = Release|Any CPU
+		{44444444-4444-4444-4444-444444444444}.Release|x86.Build.0 = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|x64.Build.0 = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Debug|x86.Build.0 = Debug|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|Any CPU.Build.0 = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|x64.ActiveCfg = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|x64.Build.0 = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|x86.ActiveCfg = Release|Any CPU
+		{55555555-5555-5555-5555-555555555555}.Release|x86.Build.0 = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|x64.Build.0 = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Debug|x86.Build.0 = Debug|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|x64.ActiveCfg = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|x64.Build.0 = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|x86.ActiveCfg = Release|Any CPU
+		{66666666-6666-6666-6666-666666666666}.Release|x86.Build.0 = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|x64.Build.0 = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Debug|x86.Build.0 = Debug|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|x64.ActiveCfg = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|x64.Build.0 = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|x86.ActiveCfg = Release|Any CPU
+		{77777777-7777-7777-7777-777777777777}.Release|x86.Build.0 = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|x64.Build.0 = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Debug|x86.Build.0 = Debug|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|x64.ActiveCfg = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|x64.Build.0 = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|x86.ActiveCfg = Release|Any CPU
+		{88888888-8888-8888-8888-888888888888}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -78,12 +78,16 @@ internal static class ImageRendererTests
             BSurfaceDescriptor.Default(new BSize(30, 20)),
             new BFrameContext(BColor.White));
 
+        // Text may render through a real anti-aliased host font (blended edges,
+        // not pure black) or the block fallback (solid black); either way it must
+        // darken the white background somewhere.
         bool foundInk = false;
         for (int y = 0; y < bitmap.Height && !foundInk; y++)
         {
             for (int x = 0; x < bitmap.Width; x++)
             {
-                if (bitmap.GetPixel(x, y) == BColor.Black)
+                BColor pixel = bitmap.GetPixel(x, y);
+                if (pixel.R < 240 || pixel.G < 240 || pixel.B < 240)
                 {
                     foundInk = true;
                     break;
@@ -91,6 +95,6 @@ internal static class ImageRendererTests
             }
         }
 
-        AssertEx.IsTrue(foundInk, "Expected fallback text drawing to emit at least one black pixel.");
+        AssertEx.IsTrue(foundInk, "Expected text drawing to emit ink darker than the white background.");
     }
 }
