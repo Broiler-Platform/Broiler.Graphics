@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Broiler.Graphics.Linux;
 using Broiler.Graphics.Linux.OpenGL;
 using Broiler.Graphics.Linux.Vulkan;
 

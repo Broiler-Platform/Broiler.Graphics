@@ -152,8 +152,8 @@ public sealed class FontsHandler
             // handle possibility of no requested style exists for the font, use regular then
             System.Diagnostics.Debug.WriteLine($"[HtmlRenderer] FontsHandler.GetCachedFont style fallback for '{family}': {ex.Message}");
             return _existingFontFamilies.TryGetValue(family, out fontFamily)
-                ? _fontCreator.CreateFont(fontFamily, size, Graphics.FontStyle.Regular)
-                : _fontCreator.CreateFont(family, size, Graphics.FontStyle.Regular);
+                ? _fontCreator.CreateFont(fontFamily, size, FontStyle.Regular)
+                : _fontCreator.CreateFont(family, size, FontStyle.Regular);
         }
     }
 }

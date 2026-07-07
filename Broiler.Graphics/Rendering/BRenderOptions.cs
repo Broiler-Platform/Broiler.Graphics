@@ -1,5 +1,3 @@
-using System;
-
 namespace Broiler.Graphics;
 
 /// <summary>Pixel layout of a surface's backing buffer.</summary>

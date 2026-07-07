@@ -260,7 +260,7 @@ public static class ComplexTextShaper
 
     // ── Ligatures ───────────────────────────────────────────────────────────
 
-    private static readonly string[] LigatureFeatures = { "rlig", "calt", "liga" };
+    private static readonly string[] LigatureFeatures = ["rlig", "calt", "liga"];
 
     private static void ApplyLigatures(TrueTypeFont font, List<int> glyphs, List<int> levels)
     {

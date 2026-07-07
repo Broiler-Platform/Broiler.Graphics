@@ -143,7 +143,7 @@ public sealed class TrueTypeFont
         }
 
         var cff = GetCff();
-        return cff != null ? cff.GetGlyphOutline(glyphIndex) : new List<PointF[]>();
+        return cff != null ? cff.GetGlyphOutline(glyphIndex) : [];
     }
 
     private CffFont? GetCff()
@@ -660,13 +660,13 @@ public sealed class TrueTypeFont
             uint featOff = featureListOff + (uint)ReadUInt16(frec + 4);
             int lookupCount = ReadUInt16(featOff + 2);
             if (!table.FeatureLookups.TryGetValue(tag, out var list))
-                table.FeatureLookups[tag] = list = new List<int>();
+                table.FeatureLookups[tag] = list = [];
             for (int k = 0; k < lookupCount; k++)
                 list.Add(ReadUInt16(featOff + 4 + (uint)(k * 2)));
         }
 
         int lookupCountTotal = ReadUInt16(lookupListOff);
-        table.Lookups = new List<object?>(new object?[lookupCountTotal]);
+        table.Lookups = [.. new object?[lookupCountTotal]];
         var needed = new HashSet<int>();
         foreach (var kv in table.FeatureLookups)
             foreach (int li in kv.Value)
@@ -746,9 +746,9 @@ public sealed class TrueTypeFont
                 int extType = ReadUInt16(sub + 2);
                 uint extOff = sub + ReadU32(_data, (int)sub + 4);
                 if (extType == 1)
-                    ParseSingleSubst(extOff, singleMap ??= new Dictionary<int, int>());
+                    ParseSingleSubst(extOff, singleMap ??= []);
                 else if (extType == 4)
-                    ParseLigatureSubst(extOff, ligSets ??= new Dictionary<int, List<(int[], int)>>());
+                    ParseLigatureSubst(extOff, ligSets ??= []);
             }
             if (singleMap != null)
                 return new SingleSubst(singleMap);
@@ -791,7 +791,7 @@ public sealed class TrueTypeFont
             int ligCount = ReadUInt16(ligSetOff);
             int firstGlyph = coverage[i];
             if (!sets.TryGetValue(firstGlyph, out var lst))
-                sets[firstGlyph] = lst = new List<(int[], int)>();
+                sets[firstGlyph] = lst = [];
             for (int j = 0; j < ligCount; j++)
             {
                 uint ligOff = ligSetOff + (uint)ReadUInt16(ligSetOff + 2 + (uint)(j * 2));
@@ -1054,8 +1054,8 @@ public sealed class TrueTypeFont
 
     private sealed class GposTable
     {
-        public List<MarkBasePos> MarkBase { get; } = new();
-        public List<MarkMarkPos> MarkMark { get; } = new();
+        public List<MarkBasePos> MarkBase { get; } = [];
+        public List<MarkMarkPos> MarkMark { get; } = [];
 
         public bool TryMarkBase(int baseGlyph, int markGlyph, out int dx, out int dy)
         {
@@ -1129,7 +1129,7 @@ public sealed class TrueTypeFont
     private sealed class GsubTable
     {
         public Dictionary<string, List<int>> FeatureLookups { get; } = new(StringComparer.Ordinal);
-        public List<object?> Lookups { get; set; } = new();
+        public List<object?> Lookups { get; set; } = [];
 
         public int ApplySingle(string tag, int glyph)
         {

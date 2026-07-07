@@ -303,7 +303,7 @@ public sealed class CffFont
         private bool _haveWidth;
         private bool _open;
 
-        public List<List<PointF>> Contours { get; } = new();
+        public List<List<PointF>> Contours { get; } = [];
         private List<PointF> _current;
 
         public Type2Interpreter(CffFont font, Range[] localSubrs, int localBias)
@@ -480,7 +480,7 @@ public sealed class CffFont
             Finish();
             _x = x;
             _y = y;
-            _current = new List<PointF> { Pt(x, y) };
+            _current = [Pt(x, y)];
             _open = true;
         }
 

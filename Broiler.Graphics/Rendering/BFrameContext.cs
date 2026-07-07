@@ -1,5 +1,3 @@
-using System;
-
 namespace Broiler.Graphics;
 
 /// <summary>

@@ -13,7 +13,7 @@ public sealed class BRenderList
 
     public BRenderList(int capacity = 0)
     {
-        _commands = capacity > 0 ? new List<BRenderCommand>(capacity) : new List<BRenderCommand>();
+        _commands = capacity > 0 ? new List<BRenderCommand>(capacity) : [];
     }
 
     /// <summary>The recorded commands in the exact order they were issued.</summary>

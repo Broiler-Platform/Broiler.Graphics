@@ -12,7 +12,7 @@ public sealed class BCanvas : IDisposable
     private readonly BBitmap _rootBitmap;
     private readonly Stack<CanvasState> _stateStack = new();
     private readonly Stack<LayerState> _layerStack = new();
-    private readonly List<ClipOperation> _clipOperations = new();
+    private readonly List<ClipOperation> _clipOperations = [];
     private PointF _translation;
 
     public BCanvas(BBitmap bitmap)

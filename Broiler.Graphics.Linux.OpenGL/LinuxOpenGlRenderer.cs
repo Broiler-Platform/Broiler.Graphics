@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Broiler.Graphics.Linux;
 
 namespace Broiler.Graphics.Linux.OpenGL;
 
