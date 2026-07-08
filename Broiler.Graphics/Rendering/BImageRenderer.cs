@@ -26,8 +26,7 @@ public sealed class BImageRenderer : IBroilerRenderer
     public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        BImageCodec.UseManagedIfUnset();
-        return CreateImage(BImageCodec.Decode(encodedImage));
+        return CreateImage(MediaImageBridge.Decode(encodedImage));
     }
 
     public BImageHandle CreateImage(BPixelBuffer pixels)

@@ -21,8 +21,7 @@ items move from **Planned** to **Done** as they land.
   off-screen rendering.
 
 ### Direct2D backend (`Broiler.Graphics.Windows`)
-- Registers the managed codec on renderer construction (`UseManagedIfUnset`, non-clobbering).
-- Image resource path: `CreateImage` decodes via `BImageCodec`, converts to D2D-native
+- Image resource path: `CreateImage` decodes through `Broiler.Media`, converts to D2D-native
   BGRA premultiplied, and stores it; `DrawImage` resolves the handle, lazily uploads an
   `ID2D1Bitmap` (`CreateBitmap`), and issues `DrawBitmap`.
 - Native GPU bootstrap: `D3D11CreateDevice` with BGRA support (hardware first, WARP

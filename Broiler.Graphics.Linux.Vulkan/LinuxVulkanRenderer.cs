@@ -17,7 +17,6 @@ public sealed class LinuxVulkanRenderer : IBroilerRenderer
     public LinuxVulkanRenderer(LinuxVulkanRendererOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        BImageCodec.UseManagedIfUnset();
     }
 
     public static IReadOnlyList<LinuxNativeLibraryStatus> CheckDependencies() =>

@@ -200,8 +200,8 @@ internal static class PngFormatBuilder
         for (int i = 0; i < 4; i++)
             lengthAndType[4 + i] = (byte)type[i];
 
-        uint crc = Crc32.Update(0xFFFFFFFFu, lengthAndType[4..8]);
-        crc = Crc32.Update(crc, data) ^ 0xFFFFFFFFu;
+        uint crc = UpdateCrc(0xFFFFFFFFu, lengthAndType[4..8]);
+        crc = UpdateCrc(crc, data) ^ 0xFFFFFFFFu;
 
         stream.Write(lengthAndType);
         stream.Write(data);
@@ -209,5 +209,28 @@ internal static class PngFormatBuilder
         Span<byte> crcBytes = stackalloc byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(crcBytes, crc);
         stream.Write(crcBytes);
+    }
+
+    private static uint UpdateCrc(uint crc, ReadOnlySpan<byte> data)
+    {
+        foreach (byte value in data)
+            crc = CrcTable[(crc ^ value) & 0xFF] ^ (crc >> 8);
+        return crc;
+    }
+
+    private static readonly uint[] CrcTable = BuildCrcTable();
+
+    private static uint[] BuildCrcTable()
+    {
+        var table = new uint[256];
+        for (uint n = 0; n < table.Length; n++)
+        {
+            uint c = n;
+            for (int k = 0; k < 8; k++)
+                c = (c & 1) != 0 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+            table[n] = c;
+        }
+
+        return table;
     }
 }

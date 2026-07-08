@@ -15,8 +15,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The test runner reaches a few internals (e.g. Crc32) for unit coverage. -->
+    <!-- The test runner reaches selected internals for core graphics coverage. -->
     <InternalsVisibleTo Include="Broiler.Graphics.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
   </ItemGroup>
 
 </Project>

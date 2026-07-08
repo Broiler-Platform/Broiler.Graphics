@@ -17,7 +17,6 @@ public sealed class LinuxOpenGlRenderer : IBroilerRenderer
     public LinuxOpenGlRenderer(LinuxOpenGlRendererOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        BImageCodec.UseManagedIfUnset();
     }
 
     public static IReadOnlyList<LinuxNativeLibraryStatus> CheckDependencies() =>

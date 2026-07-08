@@ -115,10 +115,6 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         _device = new Direct2DDevice();
         _device.Initialize();
 
-        // Ensure image bytes can be decoded into pixel buffers (used when materializing
-        // bitmaps for DrawImage). Registering the dependency-free managed codec keeps the
-        // backend self-contained, but never overrides a codec the caller chose explicitly.
-        BImageCodec.UseManagedIfUnset();
         DirectWriteTextMetricsProvider.UseIfUnset();
     }
 
@@ -141,9 +137,8 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        // Decode through the active codec, then keep the pixels ready for GPU upload.
-        BPixelBuffer pixels = BImageCodec.Decode(encodedImage);
-        return _images.Add(pixels);
+        using BBitmap bitmap = BBitmap.Decode(encodedImage);
+        return _images.Add(bitmap.ToPixelBuffer(copy: true));
     }
 
     public BImageHandle CreateImage(BPixelBuffer pixels)

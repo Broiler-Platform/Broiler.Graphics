@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using Broiler.Media.Image;
 
 namespace Broiler.Graphics.Windows.Tests;
 
 /// <summary>
 /// Tests for the Direct2D backend's CPU-side image path: the BGRA-premultiplied
 /// conversion, the image store's handle lifecycle, and the renderer's
-/// <c>CreateImage</c>/<c>ReleaseImage</c> (which decode through <see cref="BImageCodec"/>).
+/// <c>CreateImage</c>/<c>ReleaseImage</c> media decode path.
 /// </summary>
 internal static class WindowsImageTests
 {
@@ -95,9 +96,10 @@ internal static class WindowsImageTests
 
     private static void RendererCreateImageDecodes()
     {
-        // A real PNG produced by the managed encoder; the renderer must decode it via BImageCodec.
+        // A real PNG produced by Broiler.Media; the renderer must decode it before upload.
         var pixels = Rgba(5, 4, MakeGradient(5, 4));
-        byte[] png = ManagedImageCodec.Instance.Encode(pixels, BImageEncodeFormat.Png);
+        using var bitmap = new BBitmap(pixels);
+        byte[] png = bitmap.Encode(ImageEncodeFormat.Png);
 
         using var renderer = new Direct2DRenderer();
         BImageHandle handle = renderer.CreateImage(png);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Broiler.Media.Image;
 using Spec = Broiler.Graphics.Tests.PngFormatBuilder.ApngFrameSpec;
 
 namespace Broiler.Graphics.Tests;
@@ -77,7 +78,7 @@ internal static class ApngTests
             new(4, 4, 0, 0, 1, 10, 0, 0, Fill(4, 4, 0, 255, 0, 255)),
         };
         byte[] apng = PngFormatBuilder.BuildApng(4, 4, numPlays: 0, frames);
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(apng);
+        var seq = MediaImageBridge.DecodeAnimation(apng);
 
         AssertEx.IsTrue(seq.IsAnimated, "should be animated");
         AssertEx.AreEqual(2, seq.Frames.Count);
@@ -95,7 +96,7 @@ internal static class ApngTests
             new(4, 4, 0, 0, 1, 10, 0, 0, Fill(4, 4, 255, 0, 0, 255)),           // full red
             new(2, 2, 1, 1, 1, 10, 0, 0, Fill(2, 2, 0, 0, 255, 255)),           // blue 2x2 at (1,1), SOURCE
         };
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
+        var seq = MediaImageBridge.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
 
         AssertPixel(seq.Frames[1].Pixels, 0, 0, 255, 0, 0, 255, "outside region stays red");
         AssertPixel(seq.Frames[1].Pixels, 1, 1, 0, 0, 255, 255, "region overwritten blue");
@@ -110,7 +111,7 @@ internal static class ApngTests
             new(2, 2, 0, 0, 1, 10, 0, 0, Fill(2, 2, 255, 0, 0, 255)),           // opaque red
             new(2, 2, 0, 0, 1, 10, 0, 1, Fill(2, 2, 0, 255, 0, 128)),           // green @ a=128, OVER
         };
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(PngFormatBuilder.BuildApng(2, 2, 1, frames));
+        var seq = MediaImageBridge.DecodeAnimation(PngFormatBuilder.BuildApng(2, 2, 1, frames));
 
         // over(src=(0,255,0,128), dst=(255,0,0,255)): a=255, r=127, g=128, b=0.
         AssertPixel(seq.Frames[1].Pixels, 0, 0, 127, 128, 0, 255, "over-blended");
@@ -125,7 +126,7 @@ internal static class ApngTests
             new(2, 2, 0, 0, 1, 10, 1, 0, Fill(2, 2, 0, 0, 255, 255)),           // blue at (0,0), dispose BACKGROUND
             new(2, 2, 2, 2, 1, 10, 0, 0, Fill(2, 2, 0, 255, 0, 255)),           // green at (2,2)
         };
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
+        var seq = MediaImageBridge.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
 
         // After frame1's BACKGROUND dispose, its region is cleared to transparent before frame2.
         AssertPixel(seq.Frames[2].Pixels, 0, 0, 0, 0, 0, 0, "disposed-to-background region is transparent");
@@ -141,7 +142,7 @@ internal static class ApngTests
             new(2, 2, 1, 1, 1, 10, 2, 0, Fill(2, 2, 0, 0, 255, 255)),           // blue at (1,1), dispose PREVIOUS
             new(1, 1, 0, 0, 1, 10, 0, 0, Fill(1, 1, 0, 255, 0, 255)),           // green at (0,0)
         };
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
+        var seq = MediaImageBridge.DecodeAnimation(PngFormatBuilder.BuildApng(4, 4, 1, frames));
 
         AssertPixel(seq.Frames[1].Pixels, 1, 1, 0, 0, 255, 255, "frame1 shows blue");
         // PREVIOUS reverts the blue region back to what it was (red) before frame2.
@@ -156,7 +157,7 @@ internal static class ApngTests
             new(1, 1, 0, 0, 1, 10, 0, 0, Fill(1, 1, 10, 20, 30, 255)),
             new(1, 1, 0, 0, 3, 0, 0, 0, Fill(1, 1, 40, 50, 60, 255)),  // den 0 ⇒ 1/100s
         };
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(PngFormatBuilder.BuildApng(1, 1, 5, frames));
+        var seq = MediaImageBridge.DecodeAnimation(PngFormatBuilder.BuildApng(1, 1, 5, frames));
 
         AssertEx.AreEqual(5, seq.LoopCount);
         AssertEx.AreEqual(1, seq.Frames[0].DelayNumerator);
@@ -175,7 +176,7 @@ internal static class ApngTests
         byte[] apng = PngFormatBuilder.BuildApng(2, 2, 1, frames);
 
         // Plain Decode returns the default image (the IDAT = first frame).
-        var still = ManagedImageCodec.Instance.Decode(apng);
+        var still = MediaImageBridge.Decode(apng);
         AssertEx.AreEqual(2, still.Width);
         AssertPixel(still, 0, 0, 1, 2, 3, 255, "default image is frame 0");
     }
@@ -183,8 +184,8 @@ internal static class ApngTests
     private static void PlainPngSingleFrame()
     {
         var src = new BPixelBuffer(3, 3, FillBuf(3, 3));
-        byte[] png = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Png);
-        var seq = ManagedImageCodec.Instance.DecodeAnimation(png);
+        byte[] png = MediaImageBridge.Encode(src, ImageEncodeFormat.Png);
+        var seq = MediaImageBridge.DecodeAnimation(png);
 
         AssertEx.IsFalse(seq.IsAnimated, "plain PNG is not animated");
         AssertEx.AreEqual(1, seq.Frames.Count);
@@ -209,9 +210,9 @@ internal static class ApngTests
     private static void ApngEncodeRoundTrip()
     {
         var src = MakeSequence(6, 5, loop: 3, (1, 10), (2, 10), (5, 100));
-        byte[] apng = ManagedImageCodec.Instance.EncodeAnimation(src);
+        byte[] apng = MediaImageBridge.EncodeAnimation(src);
 
-        var decoded = ManagedImageCodec.Instance.DecodeAnimation(apng);
+        var decoded = MediaImageBridge.DecodeAnimation(apng);
         AssertEx.IsTrue(decoded.IsAnimated, "round-tripped APNG is animated");
         AssertEx.AreEqual(src.Frames.Count, decoded.Frames.Count);
         AssertEx.AreEqual(src.Width, decoded.Width);
@@ -233,10 +234,10 @@ internal static class ApngTests
     private static void ApngEncodeDefaultImage()
     {
         var src = MakeSequence(4, 4, loop: 0, (1, 10), (1, 10));
-        byte[] apng = ManagedImageCodec.Instance.EncodeAnimation(src);
+        byte[] apng = MediaImageBridge.EncodeAnimation(src);
 
         // A plain (non-animated) decode must return frame 0 from IDAT.
-        var still = ManagedImageCodec.Instance.Decode(apng);
+        var still = MediaImageBridge.Decode(apng);
         for (int i = 0; i < still.Rgba.Length; i++)
             AssertEx.AreEqual(src.Frames[0].Pixels.Rgba[i], still.Rgba[i]);
     }
@@ -249,13 +250,13 @@ internal static class ApngTests
             new(new BPixelBuffer(3, 4, new byte[3 * 4 * 4]), 1, 10), // wrong width
         };
         var seq = new BImageSequence(frames, 4, 4, 0);
-        AssertEx.Throws<ArgumentException>(() => ManagedImageCodec.Instance.EncodeAnimation(seq));
+        AssertEx.Throws<ArgumentException>(() => MediaImageBridge.EncodeAnimation(seq));
     }
 
     private static void ApngEncodeRejectsNonPng()
     {
         var seq = MakeSequence(2, 2, 1, (1, 10));
         AssertEx.Throws<NotSupportedException>(
-            () => ManagedImageCodec.Instance.EncodeAnimation(seq, BImageEncodeFormat.Jpeg));
+            () => MediaImageBridge.EncodeAnimation(seq, ImageEncodeFormat.Jpeg));
     }
 }

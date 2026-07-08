@@ -1,11 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using Broiler.Media.Image;
 
 namespace Broiler.Graphics.Tests;
 
 /// <summary>
-/// Tests for the dependency-free <see cref="ManagedImageCodec"/>: PNG/BMP
-/// round-trips, format detection, and CRC integrity.
+/// Tests for the Broiler.Media-backed image bridge used by Broiler.Graphics:
+/// round-trips, format detection, and animated image handling.
 /// </summary>
 internal static class ImageCodecTests
 {
@@ -13,13 +14,13 @@ internal static class ImageCodecTests
     {
         tests.Add(("PNG round-trips RGBA pixels exactly", PngRoundTrips));
         tests.Add(("BMP round-trips RGBA pixels exactly", BmpRoundTrips));
+        tests.Add(("GIF round-trips palette pixels exactly", GifRoundTrips));
+        tests.Add(("WebP round-trips RGBA pixels exactly", WebpRoundTrips));
+        tests.Add(("GIF and WebP animations round-trip through managed codec", GifAndWebpAnimationRoundTrip));
         tests.Add(("PNG decodes a single pixel", PngSinglePixel));
         tests.Add(("Decoded PNG carries a valid CRC", PngHasValidCrc));
-        tests.Add(("Codec detects PNG vs BMP on decode", FormatAutoDetect));
+        tests.Add(("Codec detects PNG, BMP, GIF and WebP on decode", FormatAutoDetect));
         tests.Add(("Decode rejects unknown signatures", UnknownSignatureRejected));
-        tests.Add(("UseManaged registers the managed codec", UseManagedRegisters));
-        tests.Add(("UseManagedIfUnset guards an explicit codec", CodecRegistrationGuard));
-        tests.Add(("Crc32 matches the known IEND vector", Crc32KnownVector));
         tests.Add(("Decodes 8-bit grayscale PNG", PngDecodesGrayscale8));
         tests.Add(("Decodes 1-bit grayscale PNG", PngDecodesGrayscale1));
         tests.Add(("Decodes 8-bit palette PNG with tRNS", PngDecodesPaletteWithTrns));
@@ -62,27 +63,95 @@ internal static class ImageCodecTests
         }
     }
 
+    private static void AssertSequencesEqual(BImageSequence expected, BImageSequence actual)
+    {
+        AssertEx.AreEqual(expected.Width, actual.Width, "sequence width mismatch");
+        AssertEx.AreEqual(expected.Height, actual.Height, "sequence height mismatch");
+        AssertEx.AreEqual(expected.LoopCount, actual.LoopCount, "sequence loop count mismatch");
+        AssertEx.AreEqual(expected.Frames.Count, actual.Frames.Count, "sequence frame count mismatch");
+
+        for (int i = 0; i < expected.Frames.Count; i++)
+        {
+            BImageFrame expectedFrame = expected.Frames[i];
+            BImageFrame actualFrame = actual.Frames[i];
+            double expectedDelay = expectedFrame.Delay.TotalSeconds;
+            double actualDelay = actualFrame.Delay.TotalSeconds;
+            AssertEx.IsTrue(Math.Abs(expectedDelay - actualDelay) < 1e-9, $"frame {i} delay mismatch");
+            AssertPixelsEqual(expectedFrame.Pixels, actualFrame.Pixels);
+        }
+    }
+
+    private static BPixelBuffer MakePaletteSafeImage() => new(2, 2,
+    [
+        255, 0, 0, 255, 0, 255, 0, 255,
+        0, 0, 255, 255, 255, 255, 255, 255,
+    ]);
+
+    private static BImageSequence MakePaletteSafeSequence() => new(
+        [
+            new BImageFrame(new BPixelBuffer(2, 2,
+            [
+                255, 0, 0, 255, 255, 0, 0, 255,
+                255, 0, 0, 255, 255, 0, 0, 255,
+            ]), 100, 1000),
+            new BImageFrame(new BPixelBuffer(2, 2,
+            [
+                0, 0, 255, 255, 0, 0, 255, 255,
+                0, 0, 255, 255, 0, 0, 255, 255,
+            ]), 70, 1000),
+        ],
+        2,
+        2,
+        loopCount: 0);
+
     private static void PngRoundTrips()
     {
         var src = MakeGradient(37, 19);
-        byte[] encoded = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Png);
-        var decoded = ManagedImageCodec.Instance.Decode(encoded);
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.Png);
+        var decoded = MediaImageBridge.Decode(encoded);
         AssertPixelsEqual(src, decoded);
     }
 
     private static void BmpRoundTrips()
     {
         var src = MakeGradient(40, 24);
-        byte[] encoded = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Bmp);
-        var decoded = ManagedImageCodec.Instance.Decode(encoded);
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.Bmp);
+        var decoded = MediaImageBridge.Decode(encoded);
         AssertPixelsEqual(src, decoded);
+    }
+
+    private static void GifRoundTrips()
+    {
+        var src = MakePaletteSafeImage();
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.Gif);
+        var decoded = MediaImageBridge.Decode(encoded);
+        AssertPixelsEqual(src, decoded);
+    }
+
+    private static void WebpRoundTrips()
+    {
+        var src = MakeGradient(8, 8);
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.WebP);
+        var decoded = MediaImageBridge.Decode(encoded);
+        AssertPixelsEqual(src, decoded);
+    }
+
+    private static void GifAndWebpAnimationRoundTrip()
+    {
+        BImageSequence src = MakePaletteSafeSequence();
+
+        byte[] gif = MediaImageBridge.EncodeAnimation(src, ImageEncodeFormat.Gif);
+        AssertSequencesEqual(src, MediaImageBridge.DecodeAnimation(gif));
+
+        byte[] webp = MediaImageBridge.EncodeAnimation(src, ImageEncodeFormat.WebP);
+        AssertSequencesEqual(src, MediaImageBridge.DecodeAnimation(webp));
     }
 
     private static void PngSinglePixel()
     {
         var src = new BPixelBuffer(1, 1, [10, 20, 30, 40]);
-        byte[] encoded = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Png);
-        var decoded = ManagedImageCodec.Instance.Decode(encoded);
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.Png);
+        var decoded = MediaImageBridge.Decode(encoded);
         AssertPixelsEqual(src, decoded);
     }
 
@@ -90,70 +159,30 @@ internal static class ImageCodecTests
     {
         // A corrupted byte in the IDAT/CRC region must be rejected.
         var src = MakeGradient(8, 8);
-        byte[] encoded = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Png);
+        byte[] encoded = MediaImageBridge.Encode(src, ImageEncodeFormat.Png);
         encoded[encoded.Length - 6] ^= 0xFF; // flip a byte inside the IEND chunk's data/crc area
-        AssertEx.Throws<FormatException>(() => ManagedImageCodec.Instance.Decode(encoded));
+        AssertEx.Throws<FormatException>(() => MediaImageBridge.Decode(encoded));
     }
 
     private static void FormatAutoDetect()
     {
-        var src = MakeGradient(5, 5);
-        byte[] png = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Png);
-        byte[] bmp = ManagedImageCodec.Instance.Encode(src, BImageEncodeFormat.Bmp);
+        var src = MakePaletteSafeImage();
+        byte[] png = MediaImageBridge.Encode(src, ImageEncodeFormat.Png);
+        byte[] bmp = MediaImageBridge.Encode(src, ImageEncodeFormat.Bmp);
+        byte[] gif = MediaImageBridge.Encode(src, ImageEncodeFormat.Gif);
+        byte[] webp = MediaImageBridge.Encode(src, ImageEncodeFormat.WebP);
 
-        AssertPixelsEqual(src, ManagedImageCodec.Instance.Decode(png));
-        AssertPixelsEqual(src, ManagedImageCodec.Instance.Decode(bmp));
+        AssertPixelsEqual(src, MediaImageBridge.Decode(png));
+        AssertPixelsEqual(src, MediaImageBridge.Decode(bmp));
+        AssertPixelsEqual(src, MediaImageBridge.Decode(gif));
+        AssertPixelsEqual(src, MediaImageBridge.Decode(webp));
     }
 
     private static void UnknownSignatureRejected()
     {
         byte[] junk = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07];
-        AssertEx.Throws<NotSupportedException>(() => ManagedImageCodec.Instance.Decode(junk));
+        AssertEx.Throws<NotSupportedException>(() => MediaImageBridge.Decode(junk));
     }
-
-    private static void UseManagedRegisters()
-    {
-        BImageCodec.UseManaged();
-        AssertEx.IsInstanceOf<ManagedImageCodec>(BImageCodec.Current);
-
-        var src = MakeGradient(6, 6);
-        byte[] encoded = BImageCodec.Encode(src, BImageEncodeFormat.Png);
-        AssertPixelsEqual(src, BImageCodec.Decode(encoded));
-    }
-
-    private sealed class DummyCodec : IBImageCodec
-    {
-        public BPixelBuffer Decode(ReadOnlySpan<byte> data) => throw new NotImplementedException();
-        public byte[] Encode(BPixelBuffer buffer, BImageEncodeFormat format, int quality = 100) =>
-            throw new NotImplementedException();
-    }
-
-    private static void CodecRegistrationGuard()
-    {
-        BImageCodec.ResetToDefault();
-        AssertEx.IsFalse(BImageCodec.IsRegistered, "default stub is not a registered codec");
-
-        AssertEx.IsTrue(BImageCodec.UseManagedIfUnset(), "installs the managed codec when unset");
-        AssertEx.IsTrue(BImageCodec.IsRegistered);
-        AssertEx.IsInstanceOf<ManagedImageCodec>(BImageCodec.Current);
-
-        var dummy = new DummyCodec();
-        BImageCodec.Register(dummy);
-        AssertEx.IsFalse(BImageCodec.UseManagedIfUnset(), "must not override an explicitly registered codec");
-        AssertEx.IsTrue(ReferenceEquals(dummy, BImageCodec.Current), "the explicit codec is preserved");
-
-        BImageCodec.UseManaged(); // leave a usable codec installed for any later test
-    }
-
-    private static void Crc32KnownVector()
-    {
-        // CRC-32 of the bytes "IEND" is the well-known 0xAE426082.
-        byte[] iend = [(byte)'I', (byte)'E', (byte)'N', (byte)'D'];
-        AssertEx.AreEqual(0xAE426082u, Crc32Probe(iend));
-    }
-
-    // Crc32 is internal to Broiler.Graphics; the test assembly sees it via InternalsVisibleTo.
-    private static uint Crc32Probe(byte[] data) => Crc32.Compute(data);
 
     private static void AssertRgba(BPixelBuffer buf, int x, int y, byte r, byte g, byte b, byte a)
     {
@@ -169,7 +198,7 @@ internal static class ImageCodecTests
         // 2x2 grayscale: 0, 128, 255, 64.
         byte[][] rows = [[0, 128], [255, 64]];
         byte[] png = PngFormatBuilder.Build(2, 2, 8, 0, rows);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertRgba(img, 0, 0, 0, 0, 0, 255);
         AssertRgba(img, 1, 0, 128, 128, 128, 255);
         AssertRgba(img, 0, 1, 255, 255, 255, 255);
@@ -181,7 +210,7 @@ internal static class ImageCodecTests
         // 8x1 1-bit row: bits 1010_0001 -> packed into one byte 0xA1.
         byte[][] rows = [[0xA1]];
         byte[] png = PngFormatBuilder.Build(8, 1, 1, 0, rows);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         // 1-bit samples scale to 0 or 255.
         byte[] expected = [255, 0, 255, 0, 0, 0, 0, 255];
         for (int x = 0; x < 8; x++)
@@ -195,7 +224,7 @@ internal static class ImageCodecTests
         byte[] trns = [0, 128]; // index 0 fully transparent, index 1 half, index 2 defaults opaque
         byte[][] rows = [[0, 1, 2]];
         byte[] png = PngFormatBuilder.Build(3, 1, 8, 3, rows, palette, trns);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertRgba(img, 0, 0, 10, 20, 30, 0);
         AssertRgba(img, 1, 0, 40, 50, 60, 128);
         AssertRgba(img, 2, 0, 70, 80, 90, 255);
@@ -206,7 +235,7 @@ internal static class ImageCodecTests
         // 2x1 grayscale+alpha: (gray=100,a=50), (gray=200,a=255).
         byte[][] rows = [[100, 50, 200, 255]];
         byte[] png = PngFormatBuilder.Build(2, 1, 8, 4, rows);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertRgba(img, 0, 0, 100, 100, 100, 50);
         AssertRgba(img, 1, 0, 200, 200, 200, 255);
     }
@@ -217,7 +246,7 @@ internal static class ImageCodecTests
         byte[] trns = [0, 255, 0, 0, 0, 255]; // 16-bit-per-sample key: R=255,G=0,B=255
         byte[][] rows = [[255, 0, 255, 1, 2, 3]];
         byte[] png = PngFormatBuilder.Build(2, 1, 8, 2, rows, palette: null, trns: trns);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertRgba(img, 0, 0, 255, 0, 255, 0);   // keyed transparent
         AssertRgba(img, 1, 0, 1, 2, 3, 255);     // opaque
     }
@@ -227,7 +256,7 @@ internal static class ImageCodecTests
         // 1x1 16-bit RGB: R=0x1234, G=0x5678, B=0x9ABC -> high bytes 0x12,0x56,0x9A.
         byte[][] rows = [[0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC]];
         byte[] png = PngFormatBuilder.Build(1, 1, 16, 2, rows);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertRgba(img, 0, 0, 0x12, 0x56, 0x9A, 255);
     }
 
@@ -236,7 +265,7 @@ internal static class ImageCodecTests
         // PNG is lossless, so an interlaced encode must de-interlace back exactly.
         var src = MakeGradient(33, 21); // odd size to span partial passes
         byte[] png = PngFormatBuilder.BuildInterlacedRgba(src.Width, src.Height, src.Rgba);
-        var decoded = ManagedImageCodec.Instance.Decode(png);
+        var decoded = MediaImageBridge.Decode(png);
         AssertPixelsEqual(src, decoded);
     }
 
@@ -247,7 +276,7 @@ internal static class ImageCodecTests
         {
             var src = MakeGradient(w, h);
             byte[] png = PngFormatBuilder.BuildInterlacedRgba(w, h, src.Rgba);
-            AssertPixelsEqual(src, ManagedImageCodec.Instance.Decode(png));
+            AssertPixelsEqual(src, MediaImageBridge.Decode(png));
         }
     }
 
@@ -258,7 +287,7 @@ internal static class ImageCodecTests
     private static void PngDecodesFrozenAdam7()
     {
         byte[] png = Convert.FromBase64String(FrozenAdam7Base64);
-        var img = ManagedImageCodec.Instance.Decode(png);
+        var img = MediaImageBridge.Decode(png);
         AssertEx.AreEqual(16, img.Width);
         AssertEx.AreEqual(16, img.Height);
 

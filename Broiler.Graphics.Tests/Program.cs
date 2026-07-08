@@ -18,8 +18,6 @@ internal static class Program
         ImageRendererTests.Register(tests);
         LifecycleTests.Register(tests);
         ImageCodecTests.Register(tests);
-        JpegCodecTests.Register(tests);
-        JpegProgressiveTests.Register(tests);
         ApngTests.Register(tests);
 
         int passed = 0;

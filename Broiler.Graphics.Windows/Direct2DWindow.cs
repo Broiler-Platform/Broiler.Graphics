@@ -117,6 +117,8 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     public override IBroilerSurface? Surface => _surface;
 
+    protected IntPtr RenderNativeHandle => _renderHwnd;
+
     protected override int RunCore()
     {
         if (_runStarted)
@@ -290,6 +292,8 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     private IntPtr HandleMessage(uint message, IntPtr wParam, IntPtr lParam)
     {
+        OnNativeWindowMessage(_hwnd, message, wParam, lParam);
+
         switch (message)
         {
             case WmCreate:
@@ -488,6 +492,10 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     protected virtual BRect GetRenderBounds(BSize clientSize) =>
         new(0, 0, clientSize.Width, clientSize.Height);
+
+    protected virtual void OnNativeWindowMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
+    {
+    }
 
     private static BRect NormalizeRenderBounds(BRect bounds, BSize clientSize)
     {
@@ -752,6 +760,8 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         Direct2DWindow? instance = FromRenderHostHwnd(hwnd);
         if (instance is null)
             return DefWindowProc(hwnd, message, wParam, lParam);
+
+        instance.OnNativeWindowMessage(hwnd, message, wParam, lParam);
 
         switch (message)
         {

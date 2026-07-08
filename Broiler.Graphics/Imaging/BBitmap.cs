@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Broiler.Media.Image;
 
 namespace Broiler.Graphics;
 
@@ -115,14 +116,13 @@ public sealed class BBitmap : IDisposable
         return resized;
     }
 
-    public byte[] Encode(BImageEncodeFormat format = BImageEncodeFormat.Png, int quality = 100)
+    public byte[] Encode(ImageEncodeFormat format = ImageEncodeFormat.Png, int quality = 100)
     {
         ThrowIfDisposed();
-        EnsureImageCodec();
-        return BImageCodec.Encode(ToPixelBuffer(copy: true), format, quality);
+        return MediaImageBridge.Encode(ToPixelBuffer(copy: true), format, quality);
     }
 
-    public void Save(string filePath, BImageEncodeFormat format = BImageEncodeFormat.Png, int quality = 100)
+    public void Save(string filePath, ImageEncodeFormat format = ImageEncodeFormat.Png, int quality = 100)
     {
         ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrEmpty(filePath);
@@ -133,14 +133,12 @@ public sealed class BBitmap : IDisposable
     public static BBitmap Decode(byte[] data)
     {
         ArgumentNullException.ThrowIfNull(data);
-        EnsureImageCodec();
-        return new BBitmap(BImageCodec.Decode(data));
+        return new BBitmap(MediaImageBridge.Decode(data));
     }
 
     public static BBitmap Decode(ReadOnlySpan<byte> data)
     {
-        EnsureImageCodec();
-        return new BBitmap(BImageCodec.Decode(data));
+        return new BBitmap(MediaImageBridge.Decode(data));
     }
 
     public static BBitmap Decode(Stream stream)
@@ -212,6 +210,4 @@ public sealed class BBitmap : IDisposable
         if (height <= 0)
             throw new ArgumentOutOfRangeException(nameof(height));
     }
-
-    private static void EnsureImageCodec() => BImageCodec.UseManagedIfUnset();
 }
