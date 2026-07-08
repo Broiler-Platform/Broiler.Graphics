@@ -12,6 +12,7 @@ internal static class WindowsImageTests
 {
     internal static void Register(List<(string Name, Action Body)> tests)
     {
+        tests.Add(("DirectWrite text metrics vary by font family", DirectWriteTextMetricsVaryByFontFamily));
         tests.Add(("BGRA conversion premultiplies and swaps channels", BgraConversion));
         tests.Add(("BGRA conversion zeroes fully transparent pixels", BgraConversionTransparent));
         tests.Add(("Image store add/get/remove lifecycle", StoreLifecycle));
@@ -21,6 +22,18 @@ internal static class WindowsImageTests
         tests.Add(("Renderer CreateImage(BPixelBuffer) and release", RendererCreateFromPixels));
         tests.Add(("Renderer renders a basic Direct2D command list", RendererRendersBasicCommandList));
         tests.Add(("Renderer renders a Direct2D command list to image", RendererRendersCommandListToImage));
+    }
+
+    private static void DirectWriteTextMetricsVaryByFontFamily()
+    {
+        using var renderer = new Direct2DRenderer();
+
+        double proportional = BTextMeasurer.MeasureAdvance("iiiiiiii", new BFontStyle("Segoe UI", 16));
+        double monospace = BTextMeasurer.MeasureAdvance("iiiiiiii", new BFontStyle("Consolas", 16));
+
+        Assert.True(proportional > 0, "proportional advance");
+        Assert.True(monospace > 0, "monospace advance");
+        Assert.True(Math.Abs(proportional - monospace) > 1, "DirectWrite metrics should preserve family-specific glyph advances.");
     }
 
     private static BPixelBuffer Rgba(int w, int h, byte[] data) => new(w, h, data);

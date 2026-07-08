@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 
 namespace Broiler.Graphics.Windows.Native;
 
@@ -16,6 +17,12 @@ internal static class DWriteNative
 
     /// <summary>IDWriteFactory::CreateTextFormat.</summary>
     internal const int VtblCreateTextFormat = 15;
+
+    /// <summary>IDWriteFactory::CreateTextLayout.</summary>
+    internal const int VtblCreateTextLayout = 18;
+
+    /// <summary>IDWriteTextLayout::GetMetrics.</summary>
+    internal const int VtblGetMetrics = 60;
 
     // ---- Enums -----------------------------------------------------------------------------------
 
@@ -53,6 +60,20 @@ internal static class DWriteNative
         NATURAL = 0,
         GDI_CLASSIC = 1,
         GDI_NATURAL = 2,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct DWRITE_TEXT_METRICS
+    {
+        public float Left;
+        public float Top;
+        public float Width;
+        public float WidthIncludingTrailingWhitespace;
+        public float Height;
+        public float LayoutWidth;
+        public float LayoutHeight;
+        public uint MaxBidiReorderingDepth;
+        public uint LineCount;
     }
 
     /// <summary>Maps a Core <see cref="BFontWeight"/> to the DirectWrite enum.</summary>

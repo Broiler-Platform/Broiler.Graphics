@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -8,6 +8,10 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Linux.Vulkan</RootNamespace>
     <AssemblyName>Broiler.Graphics.Linux.Vulkan</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Configurations>Debug;Release;Debug-Linux;Release-Linux</Configurations>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Broiler.Graphics.Windows.Native;
 
@@ -120,6 +119,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         // bitmaps for DrawImage). Registering the dependency-free managed codec keeps the
         // backend self-contained, but never overrides a codec the caller chose explicitly.
         BImageCodec.UseManagedIfUnset();
+        DirectWriteTextMetricsProvider.UseIfUnset();
     }
 
     public IBroilerSurface CreateSurface(BSurfaceDescriptor descriptor)
@@ -400,13 +400,13 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             ComVtable.Method<CreateTextFormatProc>(_device.DWriteFactory.Pointer, DWriteNative.VtblCreateTextFormat);
         int hr = createTextFormat(
             _device.DWriteFactory.Pointer,
-            ResolveFontFamily(font.FamilyName),
+            DirectWriteText.ResolveFontFamily(font.FamilyName),
             IntPtr.Zero,
             DWriteNative.ToDWrite(font.Weight),
             DWriteNative.ToDWrite(font.Slant),
             DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
-            ToFontSize(font.SizeInPixels),
-            CurrentLocaleName(),
+            DirectWriteText.ToFontSize(font.SizeInPixels),
+            DirectWriteText.CurrentLocaleName(),
             out IntPtr textFormat);
         NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");
         return new ComPtr(textFormat);
@@ -472,15 +472,14 @@ public sealed class Direct2DRenderer : IBroilerRenderer
 
     private static D2DNative.D2D1_RECT_F ToTextLayoutRect(BPoint origin)
     {
-        const float largeTextLayoutExtent = 1_048_576f;
         float left = (float)origin.X;
         float top = (float)origin.Y;
         return new D2DNative.D2D1_RECT_F
         {
             Left = left,
             Top = top,
-            Right = left + largeTextLayoutExtent,
-            Bottom = top + largeTextLayoutExtent,
+            Right = left + DirectWriteText.LargeTextLayoutExtent,
+            Bottom = top + DirectWriteText.LargeTextLayoutExtent,
         };
     }
 
@@ -501,36 +500,6 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Dx = (float)matrix.M31,
         Dy = (float)matrix.M32,
     };
-
-    private static float ToFontSize(double sizeInPixels)
-    {
-        if (sizeInPixels <= 0 || double.IsNaN(sizeInPixels) || double.IsInfinity(sizeInPixels))
-            return 1.0f;
-
-        return (float)Math.Min(sizeInPixels, float.MaxValue);
-    }
-
-    private static string ResolveFontFamily(string familyName)
-    {
-        if (string.IsNullOrWhiteSpace(familyName))
-            return "Segoe UI";
-
-        string trimmed = familyName.Trim();
-        return trimmed.ToLowerInvariant() switch
-        {
-            "sans-serif" => "Segoe UI",
-            "serif" => "Times New Roman",
-            "monospace" => "Consolas",
-            "monospaced" => "Consolas",
-            _ => trimmed,
-        };
-    }
-
-    private static string CurrentLocaleName()
-    {
-        string name = CultureInfo.CurrentUICulture.Name;
-        return string.IsNullOrWhiteSpace(name) ? "en-us" : name;
-    }
 
     public void Dispose()
     {

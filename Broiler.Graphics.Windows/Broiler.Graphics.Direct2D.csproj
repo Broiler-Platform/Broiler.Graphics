@@ -13,6 +13,10 @@
     <AssemblyName>Broiler.Graphics.Windows</AssemblyName>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Configurations>Debug;Release;Debug-Windows;Release-Windows</Configurations>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- The backend test runner reaches a few internals (image store, BGRA conversion). -->
     <InternalsVisibleTo Include="Broiler.Graphics.Windows.Tests" />
