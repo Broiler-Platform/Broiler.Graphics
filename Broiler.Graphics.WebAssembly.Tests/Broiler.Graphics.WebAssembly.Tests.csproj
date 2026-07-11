@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Broiler.Graphics.WebAssembly.Tests</RootNamespace>
+    <AssemblyName>Broiler.Graphics.WebAssembly.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Tests exercise the platform-neutral planner and the CPU oracle; the browser
+         interop is not compiled here (no browser-wasm RID). -->
+    <ProjectReference Include="..\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
+  </ItemGroup>
+
+</Project>
