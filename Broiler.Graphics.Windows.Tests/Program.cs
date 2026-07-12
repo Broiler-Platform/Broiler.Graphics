@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Broiler.Media;
+using Broiler.Media.Image.Managed;
 
 namespace Broiler.Graphics.Windows.Tests;
 
@@ -11,6 +13,9 @@ internal static class Program
 {
     private static int Main()
     {
+        // Composition root: register the concrete image codecs Broiler.Graphics decodes/encodes with.
+        BImageCodecs.Use(new MediaCodecCatalog(ManagedImageCodecs.CreateCodecs()));
+
         var tests = new List<(string Name, Action Body)>();
         WindowsImageTests.Register(tests);
 

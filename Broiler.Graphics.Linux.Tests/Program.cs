@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using Broiler.Graphics.Linux.OpenGL;
 using Broiler.Graphics.Linux.Vulkan;
+using Broiler.Media;
+using Broiler.Media.Image.Managed;
 
 namespace Broiler.Graphics.Linux.Tests;
 
@@ -11,6 +13,9 @@ internal static class Program
 {
     private static int Main()
     {
+        // Composition root: register the concrete image codecs Broiler.Graphics decodes/encodes with.
+        BImageCodecs.Use(new MediaCodecCatalog(ManagedImageCodecs.CreateCodecs()));
+
         var tests = new List<(string Name, Action Body)>
         {
             ("linux graphics baseline dependency probe is stable", BaselineDependencyProbeIsStable),

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using Broiler.Media;
 using Broiler.Media.Image;
-using Broiler.Media.Image.Managed;
 using MediaImageBuffer = Broiler.Media.Image.ImageBuffer;
 using MediaImageFrame = Broiler.Media.Image.ImageFrame;
 using MediaImageSequence = Broiler.Media.Image.ImageSequence;
@@ -12,7 +11,9 @@ namespace Broiler.Graphics;
 
 internal static class MediaImageBridge
 {
-    private static readonly MediaCodecCatalog Catalog = new(ManagedImageCodecs.CreateCodecs());
+    // The catalog is supplied by the application composition root via BImageCodecs.Use(...);
+    // Graphics no longer constructs or selects concrete codecs itself.
+    private static MediaCodecCatalog Catalog => BImageCodecs.Catalog;
 
     public static BPixelBuffer Decode(ReadOnlySpan<byte> data) =>
         ToGraphics(DecodeMedia(data, preserveAnimation: false).FirstFrame);
@@ -74,15 +75,10 @@ internal static class MediaImageBridge
         return output.ToArray();
     }
 
-    private static ImageCodec CodecFor(ImageEncodeFormat format) => format switch
-    {
-        ImageEncodeFormat.Png => (ImageCodec)Catalog.FindById(PngImageCodec.CodecDescriptor.Id)!,
-        ImageEncodeFormat.Jpeg => (ImageCodec)Catalog.FindById(JpegImageCodec.CodecDescriptor.Id)!,
-        ImageEncodeFormat.Bmp => (ImageCodec)Catalog.FindById(BmpImageCodec.CodecDescriptor.Id)!,
-        ImageEncodeFormat.Gif => (ImageCodec)Catalog.FindById(GifImageCodec.CodecDescriptor.Id)!,
-        ImageEncodeFormat.WebP => (ImageCodec)Catalog.FindById(WebpImageCodec.CodecDescriptor.Id)!,
-        _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unknown image encode format."),
-    };
+    private static ImageCodec CodecFor(ImageEncodeFormat format) =>
+        Catalog.FindEncoder(format)
+            ?? throw new NotSupportedException(
+                $"The registered image codec catalog has no codec able to encode {format}.");
 
     private static MediaImageBuffer ToMedia(BPixelBuffer buffer) =>
         new(buffer.Width, buffer.Height, (byte[])buffer.Rgba.Clone());
