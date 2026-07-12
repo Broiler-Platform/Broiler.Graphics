@@ -24,6 +24,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <!-- Graphics.Windows declares the HWND-backed video presentation target
+         (HwndVideoOutput) implementing the Broiler.Media.Video output lifecycle, per the
+         media roadmap §6.6/§7.5. It references only the Video ABSTRACTION, never a codec
+         implementation. -->
+    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Video\Broiler.Media.Video.csproj" />
   </ItemGroup>
 
 </Project>

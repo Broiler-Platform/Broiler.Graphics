@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <!-- Composition root: supplies the concrete image codecs to Broiler.Graphics via BImageCodecs.Use(...). -->
+    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
     <ProjectReference Include="..\Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj" />
     <ProjectReference Include="..\Broiler.Graphics.Linux.OpenGL\Broiler.Graphics.Linux.OpenGL.csproj" />
     <ProjectReference Include="..\Broiler.Graphics.Linux.Vulkan\Broiler.Graphics.Linux.Vulkan.csproj" />

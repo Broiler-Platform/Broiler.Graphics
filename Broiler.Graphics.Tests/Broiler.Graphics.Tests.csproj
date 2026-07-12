@@ -11,8 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Tests only depend on the platform-neutral Core. -->
+    <!-- Tests depend on the platform-neutral Core, and — acting as the composition
+         root — on the concrete managed codecs to register via BImageCodecs.Use(...). -->
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
   </ItemGroup>
 
 </Project>
