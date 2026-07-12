@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- The JSImport/JSExport source generator emits unsafe marshalling stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The neutral frame planner is trimming/AOT friendly; the browser interop
+         is platform-gated with [SupportedOSPlatform("browser")]. -->
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Broiler.Graphics.WebAssembly</RootNamespace>
+    <AssemblyName>Broiler.Graphics.WebAssembly</AssemblyName>
+    <!-- Advertise browser as a supported platform so the compatibility analyzer
+         does not flag the gated interop when this builds without a RID. -->
+    <SupportedPlatform>browser</SupportedPlatform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The test runner reaches selected internals for planner/oracle conformance. -->
+    <InternalsVisibleTo Include="Broiler.Graphics.WebAssembly.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
+  </ItemGroup>
+
+  <!-- The browser interop under Browser/ compiles for every target: the JS interop types
+       resolve from the shared framework and browser-only APIs are gated with
+       [SupportedOSPlatform("browser")], so the library sits in the default solution while its
+       DOM/Canvas code only runs on the browser-wasm runtime. -->
+
+</Project>
