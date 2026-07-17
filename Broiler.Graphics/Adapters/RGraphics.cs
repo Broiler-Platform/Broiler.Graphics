@@ -101,6 +101,14 @@ public abstract class RGraphics : IDisposable
     /// </summary>
     public virtual void RestoreTransformLayer() { }
 
+    /// <summary>Uniform document-root viewport scale about the surface origin; paired with
+    /// <see cref="PopViewportScale"/>. Pushed after the device-space viewport clip so content scales
+    /// while the clip stays in device pixels. Default no-op.</summary>
+    public virtual void PushViewportScale(float scale) { }
+
+    /// <summary>Restores the state saved by <see cref="PushViewportScale"/>. Default no-op.</summary>
+    public virtual void PopViewportScale() { }
+
     /// <summary>
     /// Creates an off-screen gradient image tile.  The returned <see cref="RImage"/>
     /// can be used with <see cref="GetTextureBrush"/> for tiled gradient rendering.

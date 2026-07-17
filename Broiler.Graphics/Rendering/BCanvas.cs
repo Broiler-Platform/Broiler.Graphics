@@ -14,13 +14,14 @@ public sealed class BCanvas : IDisposable
     private readonly Stack<LayerState> _layerStack = new();
     private readonly List<ClipOperation> _clipOperations = [];
     private PointF _translation;
+    private float _scale = 1f;
 
     public BCanvas(BBitmap bitmap)
     {
         _rootBitmap = bitmap ?? throw new ArgumentNullException(nameof(bitmap));
     }
 
-    public void Save() => _stateStack.Push(new CanvasState(_translation, _clipOperations.Count));
+    public void Save() => _stateStack.Push(new CanvasState(_translation, _scale, _clipOperations.Count));
 
     public void Restore()
     {
@@ -29,6 +30,7 @@ public sealed class BCanvas : IDisposable
 
         CanvasState state = _stateStack.Pop();
         _translation = state.Translation;
+        _scale = state.Scale;
 
         while (_clipOperations.Count > state.ClipOperationCount)
             _clipOperations.RemoveAt(_clipOperations.Count - 1);
@@ -36,6 +38,16 @@ public sealed class BCanvas : IDisposable
 
     public void Translate(float dx, float dy) =>
         _translation = new PointF(_translation.X + dx, _translation.Y + dy);
+
+    /// <summary>
+    /// Composes a uniform scale about the surface origin onto the current transform, so subsequent
+    /// draws map <c>point → point * scale + translation</c> (a document-root viewport zoom, e.g. a
+    /// pinch-zoom or <c>html { zoom }</c>). Uniform-only: <see cref="Broiler.Graphics.BCanvas"/> is a
+    /// translate+uniform-scale rasterizer, not a full affine surface, which is exact for a viewport
+    /// zoom. At scale <c>1</c> (the default) every draw path is byte-identical to the translate-only
+    /// behaviour. Saved/restored with <see cref="Save"/>/<see cref="Restore"/>.
+    /// </summary>
+    public void Scale(float scale) => _scale *= scale;
 
     public void Clear(BColor color) => CurrentTarget.ErasePixels(color);
 
@@ -55,14 +67,14 @@ public sealed class BCanvas : IDisposable
         double cornerSwY) =>
         _clipOperations.Add(ClipOperation.IncludeRounded(
             Translate(rect),
-            (float)cornerNw,
-            (float)cornerNwY,
-            (float)cornerNe,
-            (float)cornerNeY,
-            (float)cornerSe,
-            (float)cornerSeY,
-            (float)cornerSw,
-            (float)cornerSwY));
+            (float)cornerNw * _scale,
+            (float)cornerNwY * _scale,
+            (float)cornerNe * _scale,
+            (float)cornerNeY * _scale,
+            (float)cornerSe * _scale,
+            (float)cornerSeY * _scale,
+            (float)cornerSw * _scale,
+            (float)cornerSwY * _scale));
 
     public void PushClipExcludeRounded(
         RectangleF rect,
@@ -76,14 +88,14 @@ public sealed class BCanvas : IDisposable
         double cornerSwY) =>
         _clipOperations.Add(ClipOperation.ExcludeRounded(
             Translate(rect),
-            (float)cornerNw,
-            (float)cornerNwY,
-            (float)cornerNe,
-            (float)cornerNeY,
-            (float)cornerSe,
-            (float)cornerSeY,
-            (float)cornerSw,
-            (float)cornerSwY));
+            (float)cornerNw * _scale,
+            (float)cornerNwY * _scale,
+            (float)cornerNe * _scale,
+            (float)cornerNeY * _scale,
+            (float)cornerSe * _scale,
+            (float)cornerSeY * _scale,
+            (float)cornerSw * _scale,
+            (float)cornerSwY * _scale));
 
     public void PopClip()
     {
@@ -113,7 +125,7 @@ public sealed class BCanvas : IDisposable
     {
         PointF p1 = Translate(start);
         PointF p2 = Translate(end);
-        float radius = Math.Max(0.5f, strokeWidth / 2f);
+        float radius = Math.Max(0.5f, strokeWidth * _scale / 2f);
 
         int minX = Math.Max(0, (int)Math.Floor(Math.Min(p1.X, p2.X) - radius));
         int minY = Math.Max(0, (int)Math.Floor(Math.Min(p1.Y, p2.Y) - radius));
@@ -561,11 +573,13 @@ public sealed class BCanvas : IDisposable
 
     private BBitmap CurrentTarget => _layerStack.Count > 0 ? _layerStack.Peek().Bitmap : _rootBitmap;
 
+    // Map a layout-space rect/point to device space: point * _scale + _translation. At _scale == 1
+    // this is the original translate-only mapping (rect size and position unchanged but for the pan).
     private RectangleF Translate(RectangleF rect) =>
-        new(rect.X + _translation.X, rect.Y + _translation.Y, rect.Width, rect.Height);
+        new(rect.X * _scale + _translation.X, rect.Y * _scale + _translation.Y, rect.Width * _scale, rect.Height * _scale);
 
     private PointF Translate(PointF point) =>
-        new(point.X + _translation.X, point.Y + _translation.Y);
+        new(point.X * _scale + _translation.X, point.Y * _scale + _translation.Y);
 
     private static RectangleF Inset(RectangleF rect, float amount) =>
         new(rect.X + amount, rect.Y + amount, Math.Max(0, rect.Width - amount * 2), Math.Max(0, rect.Height - amount * 2));
@@ -839,7 +853,7 @@ public sealed class BCanvas : IDisposable
         return inside;
     }
 
-    private readonly record struct CanvasState(PointF Translation, int ClipOperationCount);
+    private readonly record struct CanvasState(PointF Translation, float Scale, int ClipOperationCount);
 
     private sealed record LayerState(BBitmap Bitmap, float Opacity, string BlendMode);
 

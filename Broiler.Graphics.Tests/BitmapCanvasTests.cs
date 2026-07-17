@@ -10,6 +10,7 @@ internal static class BitmapCanvasTests
     {
         tests.Add(("BBitmap stores and copies RGBA pixels", BitmapStoresPixels));
         tests.Add(("BCanvas fills and clips rectangles", CanvasFillRespectsClip));
+        tests.Add(("BCanvas scales draws about the origin", CanvasScaleMagnifiesDraws));
         tests.Add(("BCanvas composites opacity layers", CanvasOpacityLayerComposites));
         tests.Add(("BCanvas fills gradients", CanvasGradientFills));
         tests.Add(("BCanvas draws bitmap regions", CanvasDrawsBitmapRegions));
@@ -44,6 +45,27 @@ internal static class BitmapCanvasTests
         AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(1, 1));
         AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(2, 2));
         AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(3, 3));
+    }
+
+    private static void CanvasScaleMagnifiesDraws()
+    {
+        using var bitmap = new BBitmap(8, 8);
+        using BCanvas canvas = bitmap.OpenCanvas();
+
+        // A uniform 2× scale maps the layout rect (1,1,2,2) to device (2,2,4,4): pixels x,y in [2,5].
+        canvas.Save();
+        canvas.Scale(2f);
+        canvas.FillRect(new RectangleF(1, 1, 2, 2), BColor.Green);
+        canvas.Restore();
+
+        AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(1, 1)); // above/left of the scaled rect
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(2, 2));       // scaled top-left
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(5, 5));       // scaled bottom-right
+        AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(6, 6)); // just past the scaled rect
+
+        // Restore() returned the scale to 1, so a subsequent draw is unscaled again.
+        canvas.FillRect(new RectangleF(0, 0, 1, 1), BColor.Blue);
+        AssertEx.AreEqual(BColor.Blue, bitmap.GetPixel(0, 0));
     }
 
     private static void CanvasOpacityLayerComposites()
