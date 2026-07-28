@@ -89,6 +89,19 @@ public abstract class RGraphics : IDisposable
     public virtual void RestoreBlendLayer() { }
 
     /// <summary>
+    /// Saves the canvas state and begins a new compositing layer whose pixels the CSS
+    /// <c>filter</c> function list is applied to on <see cref="RestoreFilterLayer"/> (the
+    /// colour-matrix functions). Default implementation is a no-op (content renders unfiltered).
+    /// </summary>
+    public virtual void SaveFilterLayer(string filter) { }
+
+    /// <summary>
+    /// Restores the canvas state from a previous <see cref="SaveFilterLayer"/> call, applying the
+    /// filter to the layer. Default is a no-op.
+    /// </summary>
+    public virtual void RestoreFilterLayer() { }
+
+    /// <summary>
     /// Saves the canvas state and applies a 2D affine transform around the given origin.
     /// The matrix elements are [a, b, c, d, e, f] matching the CSS matrix(a,b,c,d,e,f) function.
     /// Default implementation is a no-op.
