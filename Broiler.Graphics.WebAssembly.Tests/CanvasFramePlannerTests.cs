@@ -172,9 +172,11 @@ internal static class CanvasFramePlannerTests
         AssertEx.AreClose(10, text.Operands[2], message: "Font px.");
         AssertEx.AreClose(700, text.Operands[3], message: "Bold weight.");
         AssertEx.AreClose(0, text.Operands[4], message: "Not italic.");
-        AssertEx.AreEqual(1, frame.Strings.Count);
+        AssertEx.AreEqual(2, frame.Strings.Count);
         AssertEx.AreEqual("Hi", frame.Strings[0]);
-        AssertEx.AreEqual(0, (int)text.Operands[6], message: "String index 0.");
+        AssertEx.AreEqual("sans-serif", frame.Strings[1]);
+        AssertEx.AreEqual(0, (int)text.Operands[6], message: "Text string index 0.");
+        AssertEx.AreEqual(1, (int)text.Operands[7], message: "Font-family string index 1.");
     }
 
     private static void DrawImageEncodes()

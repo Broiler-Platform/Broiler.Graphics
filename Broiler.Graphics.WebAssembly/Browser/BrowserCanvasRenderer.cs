@@ -43,6 +43,10 @@ public sealed class BrowserCanvasRenderer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         CanvasInterop.Initialize(canvasSelector);
+
+        // Route managed text measurement through the same canvas that paints, so caret/selection/
+        // wrapping/format-grid layout matches the drawn glyphs (the host-font-less fallback cannot).
+        BTextMeasurer.Register(new CanvasTextMetricsProvider());
     }
 
     /// <summary>Total frames presented (native path or fallback), for diagnostics.</summary>

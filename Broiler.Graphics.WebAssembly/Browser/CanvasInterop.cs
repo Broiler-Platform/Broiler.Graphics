@@ -48,6 +48,14 @@ internal static partial class CanvasInterop
         double cssWidth,
         double cssHeight);
 
+    /// <summary>
+    /// Horizontal advance (logical CSS px) of <paramref name="text"/> in the same font the replay draws
+    /// with, via the browser's <c>measureText</c>. Backs <see cref="CanvasTextMetricsProvider"/> so
+    /// managed text layout matches the painted glyphs. <paramref name="italic"/> is 0 or 1.
+    /// </summary>
+    [JSImport("measureAdvance", ModuleName)]
+    internal static partial double MeasureAdvance(string text, double fontPx, int weight, int italic, string family);
+
     /// <summary>Uploads a decoded RGBA image as a reusable resource canvas keyed by <paramref name="id"/>.</summary>
     [JSImport("uploadImage", ModuleName)]
     internal static partial void UploadImage(double id, int width, int height, byte[] rgba);

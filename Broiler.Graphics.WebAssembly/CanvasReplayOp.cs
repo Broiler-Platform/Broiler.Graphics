@@ -42,9 +42,10 @@ internal static class CanvasReplayOp
     internal const int DrawImage = 7;
 
     /// <summary>
-    /// Fill text: <c>baselineX, baselineY, fontPx, weight, italic, argb, stringIndex</c>.
-    /// The string is carried out of band in the plan's string table. <c>italic</c> is
-    /// 0 or 1; <c>weight</c> is the CSS numeric weight.
+    /// Fill text: <c>baselineX, baselineY, fontPx, weight, italic, argb, stringIndex, familyIndex</c>.
+    /// The text string and the CSS font-family string are both carried out of band in the plan's
+    /// string table, referenced by their indices. <c>italic</c> is 0 or 1; <c>weight</c> is the CSS
+    /// numeric weight.
     /// </summary>
     internal const int DrawText = 8;
 
@@ -58,7 +59,7 @@ internal static class CanvasReplayOp
         FillRoundedRect => 7,
         StrokeRoundedRect => 8,
         DrawImage => 10,
-        DrawText => 7,
+        DrawText => 8,
         _ => -1,
     };
 }

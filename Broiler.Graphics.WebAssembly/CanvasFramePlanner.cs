@@ -216,6 +216,8 @@ public sealed class CanvasFramePlanner
 
         int stringIndex = _strings.Count;
         _strings.Add(run.Text);
+        int familyIndex = _strings.Count;
+        _strings.Add(run.Font.FamilyName ?? string.Empty);
 
         EnsureClip();
         EmitOp(CanvasReplayOp.DrawText);
@@ -226,6 +228,7 @@ public sealed class CanvasFramePlanner
         Emit(run.Font.Slant == BFontSlant.Normal ? 0.0 : 1.0);
         EmitColor(run.Color);
         Emit(stringIndex);
+        Emit(familyIndex);
     }
 
     private void PlanDrawImage(BRenderCommand.DrawImage command)
