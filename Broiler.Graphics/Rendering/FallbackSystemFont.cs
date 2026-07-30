@@ -179,12 +179,22 @@ internal sealed class FallbackSystemFont
         // macOS
         ("/System/Library/Fonts/Supplemental/Arial.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
         ("/Library/Fonts/Arial.ttf", "/Library/Fonts/Arial Bold.ttf"),
+        // Android. Roboto is the system face on every device; the Noto entries cover images that
+        // ship Noto as the roman default. Without these an Android build finds no font at all,
+        // because /system/fonts is not reachable from any of the roots above.
+        ("/system/fonts/Roboto-Regular.ttf", "/system/fonts/Roboto-Bold.ttf"),
+        ("/system/fonts/NotoSans-Regular.ttf", "/system/fonts/NotoSans-Bold.ttf"),
+        ("/system/fonts/DroidSans.ttf", "/system/fonts/DroidSans-Bold.ttf"),
     ];
 
     private static IEnumerable<string> FontRoots()
     {
         yield return "/usr/share/fonts";
         yield return "/usr/local/share/fonts";
+
+        // Android keeps every system face here and has none of the roots above. The directory does
+        // not exist elsewhere, so probing it unconditionally costs nothing on other platforms.
+        yield return "/system/fonts";
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrEmpty(home))
         {
