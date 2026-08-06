@@ -906,32 +906,37 @@ public sealed class BCanvas : IDisposable
             return !IsRounded || ContainsRounded(x, y);
         }
 
+        /// <summary>
+        /// Whether a point inside the clip's bounding rect is inside its rounded shape.
+        /// <para>
+        /// Only the four corner boxes are curved — a corner box spanning that corner's two radii —
+        /// and a point inside one is inside the shape only if it is inside that corner's ellipse.
+        /// Everything else within the rect is simply inside. A zero radius makes its corner box
+        /// empty, so that corner stays square with no special case.
+        /// </para>
+        /// <para>
+        /// This replaces a test that asked whether the point lay in a horizontal or vertical band
+        /// between opposing radii. Those bands span the whole box as soon as the opposing corner is
+        /// square: with only a top-left radius set, the "between the bottom corners" band covered
+        /// every row, so the shape reported itself as the full rectangle and a single rounded corner
+        /// clipped nothing. It only clipped correctly when all four corners were rounded.
+        /// </para>
+        /// </summary>
         private bool ContainsRounded(float x, float y)
         {
-            float left = Rect.Left;
-            float right = Rect.Right;
-            float top = Rect.Top;
-            float bottom = Rect.Bottom;
+            if (x < Rect.Left + CornerNw && y < Rect.Top + CornerNwY)
+                return InEllipse(x, y, Rect.Left + CornerNw, Rect.Top + CornerNwY, CornerNw, CornerNwY);
 
-            if (x >= left + CornerNw && x <= right - CornerNe)
-                return true;
-            if (x >= left + CornerSw && x <= right - CornerSe)
-                return true;
-            if (y >= top + CornerNwY && y <= bottom - CornerSwY)
-                return true;
-            if (y >= top + CornerNeY && y <= bottom - CornerSeY)
-                return true;
+            if (x > Rect.Right - CornerNe && y < Rect.Top + CornerNeY)
+                return InEllipse(x, y, Rect.Right - CornerNe, Rect.Top + CornerNeY, CornerNe, CornerNeY);
 
-            if (CornerNw > 0 && CornerNwY > 0 && InEllipse(x, y, left + CornerNw, top + CornerNwY, CornerNw, CornerNwY))
-                return true;
-            if (CornerNe > 0 && CornerNeY > 0 && InEllipse(x, y, right - CornerNe, top + CornerNeY, CornerNe, CornerNeY))
-                return true;
-            if (CornerSe > 0 && CornerSeY > 0 && InEllipse(x, y, right - CornerSe, bottom - CornerSeY, CornerSe, CornerSeY))
-                return true;
-            if (CornerSw > 0 && CornerSwY > 0 && InEllipse(x, y, left + CornerSw, bottom - CornerSwY, CornerSw, CornerSwY))
-                return true;
+            if (x > Rect.Right - CornerSe && y > Rect.Bottom - CornerSeY)
+                return InEllipse(x, y, Rect.Right - CornerSe, Rect.Bottom - CornerSeY, CornerSe, CornerSeY);
 
-            return false;
+            if (x < Rect.Left + CornerSw && y > Rect.Bottom - CornerSwY)
+                return InEllipse(x, y, Rect.Left + CornerSw, Rect.Bottom - CornerSwY, CornerSw, CornerSwY);
+
+            return true;
         }
 
         private static bool InEllipse(float x, float y, float centerX, float centerY, float radiusX, float radiusY)
