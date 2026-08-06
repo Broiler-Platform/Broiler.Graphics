@@ -38,6 +38,16 @@ public abstract class RGraphics : IDisposable
         PushClip(rect);
     }
 
+    /// <summary>
+    /// Pushes an arbitrary closed polygon clip onto the clip stack (CSS <c>clip-path: polygon()</c>).
+    /// <paramref name="bounds"/> is the polygon's bounding box; the default implementation clips to
+    /// it, which is what backends that cannot express a non-rectangular clip fall back to.
+    /// </summary>
+    public virtual void PushClipPolygon(PointF[] points, RectangleF bounds)
+    {
+        PushClip(bounds);
+    }
+
     public abstract object SetAntiAliasSmoothingMode();
     public abstract void ReturnPreviousSmoothingMode(object prevMode);
     public abstract RBrush GetTextureBrush(RImage image, RectangleF dstRect, PointF translateTransformLocation);
