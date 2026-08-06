@@ -14,6 +14,7 @@ internal static class BitmapCanvasTests
         tests.Add(("BCanvas composites opacity layers", CanvasOpacityLayerComposites));
         tests.Add(("BCanvas fills gradients", CanvasGradientFills));
         tests.Add(("BCanvas draws bitmap regions", CanvasDrawsBitmapRegions));
+        tests.Add(("BCanvas rounds one corner without squaring the rest", CanvasRoundsASingleCorner));
     }
 
     private static void BitmapStoresPixels()
@@ -111,5 +112,31 @@ internal static class BitmapCanvasTests
 
         AssertEx.AreEqual(BColor.Red, destination.GetPixel(0, 0));
         AssertEx.AreEqual(BColor.Blue, destination.GetPixel(1, 0));
+    }
+
+    /// <summary>
+    /// A rounded clip with only one non-zero corner must cut that corner and leave the other three
+    /// square. The containment test used to answer "in the band between two opposing radii?", and a
+    /// band spans the whole box once its opposing corner is square — so a lone rounded corner
+    /// clipped nothing at all and the shape came out a plain rectangle.
+    /// </summary>
+    private static void CanvasRoundsASingleCorner()
+    {
+        using var bitmap = new BBitmap(10, 10);
+        using BCanvas canvas = bitmap.OpenCanvas();
+
+        // Top-left corner rounded by 6px; the other three square.
+        canvas.PushClipRounded(new RectangleF(0, 0, 10, 10), 6, 6, 0, 0, 0, 0, 0, 0);
+        canvas.FillRect(new RectangleF(0, 0, 10, 10), BColor.Green);
+        canvas.PopClip();
+
+        // (0,0) is 8.0 from the corner arc's centre (6,6) — outside it, so cut away.
+        AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(0, 0));
+
+        // The three square corners, and the middle, all survive.
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(9, 0));
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(9, 9));
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(0, 9));
+        AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(5, 5));
     }
 }
