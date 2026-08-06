@@ -24,6 +24,7 @@ internal static class Program
         LifecycleTests.Register(tests);
         ImageCodecTests.Register(tests);
         ApngTests.Register(tests);
+        TextMeasurementConcurrencyTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

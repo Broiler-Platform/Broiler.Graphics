@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -18,10 +19,14 @@ internal sealed class FallbackSystemFont
     private readonly TrueTypeFont _bold;
     private readonly Dictionary<int, IReadOnlyList<PointF[]>> _regularContours = [];
     private readonly Dictionary<int, IReadOnlyList<PointF[]>> _boldContours = [];
-    private readonly Dictionary<int, int> _regularGlyphIndex = [];
-    private readonly Dictionary<int, int> _boldGlyphIndex = [];
-    private readonly Dictionary<int, int> _regularAdvance = [];
-    private readonly Dictionary<int, int> _boldAdvance = [];
+    // Concurrent because the instance is a process-wide singleton (see LazyShared)
+    // and text measurement is not confined to one thread: two threads measuring at
+    // once through a plain Dictionary tore its buckets and threw
+    // IndexOutOfRangeException from inside TryInsert.
+    private readonly ConcurrentDictionary<int, int> _regularGlyphIndex = new();
+    private readonly ConcurrentDictionary<int, int> _boldGlyphIndex = new();
+    private readonly ConcurrentDictionary<int, int> _regularAdvance = new();
+    private readonly ConcurrentDictionary<int, int> _boldAdvance = new();
 
     private FallbackSystemFont(TrueTypeFont regular, string regularPath, TrueTypeFont? bold, string? boldPath)
     {
@@ -92,8 +97,8 @@ internal sealed class FallbackSystemFont
     private (int GlyphIndex, int Advance, int UnitsPerEm) Resolve(int codepoint, bool bold)
     {
         TrueTypeFont face = bold ? _bold : _regular;
-        Dictionary<int, int> glyphCache = bold ? _boldGlyphIndex : _regularGlyphIndex;
-        Dictionary<int, int> advanceCache = bold ? _boldAdvance : _regularAdvance;
+        ConcurrentDictionary<int, int> glyphCache = bold ? _boldGlyphIndex : _regularGlyphIndex;
+        ConcurrentDictionary<int, int> advanceCache = bold ? _boldAdvance : _regularAdvance;
 
         int unitsPerEm = face.UnitsPerEm > 0 ? face.UnitsPerEm : 1000;
         if (!glyphCache.TryGetValue(codepoint, out int glyphIndex))
