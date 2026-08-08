@@ -25,6 +25,7 @@ internal static class Program
         ImageCodecTests.Register(tests);
         ApngTests.Register(tests);
         TextMeasurementConcurrencyTests.Register(tests);
+        RenderPathConcurrencyTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

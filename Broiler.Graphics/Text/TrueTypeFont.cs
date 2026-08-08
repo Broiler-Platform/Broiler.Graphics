@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 
 namespace Broiler.Graphics;
 
@@ -25,15 +26,22 @@ public sealed class TrueTypeFont
     private readonly int _numGlyphs;
     private readonly int _numHMetrics;
     private readonly uint _hmtxOffset;
-    private CmapLookup? _cmap;
-    private GsubTable? _gsub;
-    private bool _gsubParsed;
-    private GposTable? _gpos;
-    private bool _gposParsed;
-    private ClassDefTable? _gdefClasses;
-    private bool _gdefParsed;
-    private CffFont? _cff;
-    private bool _cffParsed;
+    // The five optional tables are parsed on first use and never again. Each one
+    // is behind a Lazy rather than the "flag, then field" pair this used to be,
+    // because that pair is not just torn-prone, it is wrong in a specific and
+    // silent way: `_gsubParsed = true` was published BEFORE `_gsub` was assigned,
+    // so a second thread arriving in between saw parsed==true and read a null
+    // table — and every one of these accessors treats null as "the font does not
+    // have this table". The failure is therefore not a crash but a wrong render:
+    // no ligatures, no mark positioning, or (for CFF) HasOutlines false and the
+    // text drawn with the built-in block glyphs. ExecutionAndPublication keeps
+    // the parse once-only, and a null result stays cached instead of re-parsing
+    // on every call the way `_cmap ??= BuildCmap()` did for a font with no cmap.
+    private readonly Lazy<CmapLookup?> _cmap;
+    private readonly Lazy<GsubTable?> _gsub;
+    private readonly Lazy<GposTable?> _gpos;
+    private readonly Lazy<ClassDefTable?> _gdefClasses;
+    private readonly Lazy<CffFont?> _cff;
 
     public int UnitsPerEm { get; }
     public int Ascender { get; }
@@ -65,6 +73,17 @@ public sealed class TrueTypeFont
 
         uint locaOffset = tables.GetValueOrDefault("loca");
         _loca = ReadLoca(locaOffset, indexToLocFormat, _numGlyphs);
+
+        // Assigned here rather than in a field initialiser because each factory
+        // closes over `this`. The parse routines read only `_data` and `_tables`,
+        // both of which are set above and never written again, and none of them
+        // re-enters another accessor — so there is no lock-ordering hazard in
+        // ExecutionAndPublication.
+        _cmap = new Lazy<CmapLookup?>(BuildCmap, LazyThreadSafetyMode.ExecutionAndPublication);
+        _gsub = new Lazy<GsubTable?>(ParseGsubSafe, LazyThreadSafetyMode.ExecutionAndPublication);
+        _gpos = new Lazy<GposTable?>(ParseGposSafe, LazyThreadSafetyMode.ExecutionAndPublication);
+        _gdefClasses = new Lazy<ClassDefTable?>(ParseGdefClassesSafe, LazyThreadSafetyMode.ExecutionAndPublication);
+        _cff = new Lazy<CffFont?>(ParseCffSafe, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>Parses a font file's bytes; returns <c>null</c> when the data is not a recognised sfnt container.</summary>
@@ -112,8 +131,7 @@ public sealed class TrueTypeFont
     /// <summary>Maps a Unicode code point to a glyph index (0 = .notdef / missing).</summary>
     public int GetGlyphIndex(int codepoint)
     {
-        _cmap ??= BuildCmap();
-        return _cmap?.Map(codepoint) ?? 0;
+        return _cmap.Value?.Map(codepoint) ?? 0;
     }
 
     /// <summary>Horizontal advance for a glyph, in font design units.</summary>
@@ -146,23 +164,20 @@ public sealed class TrueTypeFont
         return cff != null ? cff.GetGlyphOutline(glyphIndex) : [];
     }
 
-    private CffFont? GetCff()
+    private CffFont? GetCff() => _cff.Value;
+
+    private CffFont? ParseCffSafe()
     {
-        if (_cffParsed)
-            return _cff;
-        _cffParsed = true;
         uint cffOffset = _tables.GetValueOrDefault("CFF ");
-        if (cffOffset != 0)
+        if (cffOffset == 0)
+            return null;
+
+        try
         {
-            try
-            {
-                var font = new CffFont(_data, (int)cffOffset, UnitsPerEm);
-                if (font.Ok)
-                    _cff = font;
-            }
-            catch { _cff = null; }
+            var font = new CffFont(_data, (int)cffOffset, UnitsPerEm);
+            return font.Ok ? font : null;
         }
-        return _cff;
+        catch { return null; }
     }
 
     // ── Glyph outline parsing ─────────────────────────────────────────────
@@ -622,14 +637,12 @@ public sealed class TrueTypeFont
         return false;
     }
 
-    private GsubTable? GetGsub()
+    private GsubTable? GetGsub() => _gsub.Value;
+
+    private GsubTable? ParseGsubSafe()
     {
-        if (_gsubParsed)
-            return _gsub;
-        _gsubParsed = true;
-        try { _gsub = ParseGsub(); }
-        catch { _gsub = null; }
-        return _gsub;
+        try { return ParseGsub(); }
+        catch { return null; }
     }
 
     private GsubTable? ParseGsub()
@@ -842,13 +855,14 @@ public sealed class TrueTypeFont
     /// <summary>Whether <paramref name="glyph"/> is a mark per the GDEF glyph-class table.</summary>
     public bool IsMarkGlyph(int glyph)
     {
-        if (!_gdefParsed)
-        {
-            _gdefParsed = true;
-            try { _gdefClasses = ParseGdefClasses(); }
-            catch { _gdefClasses = null; }
-        }
-        return _gdefClasses != null && _gdefClasses.GetClass(glyph) == 3; // 3 = Mark
+        ClassDefTable? classes = _gdefClasses.Value;
+        return classes != null && classes.GetClass(glyph) == 3; // 3 = Mark
+    }
+
+    private ClassDefTable? ParseGdefClassesSafe()
+    {
+        try { return ParseGdefClasses(); }
+        catch { return null; }
     }
 
     /// <summary>
@@ -877,14 +891,12 @@ public sealed class TrueTypeFont
         return false;
     }
 
-    private GposTable? GetGpos()
+    private GposTable? GetGpos() => _gpos.Value;
+
+    private GposTable? ParseGposSafe()
     {
-        if (_gposParsed)
-            return _gpos;
-        _gposParsed = true;
-        try { _gpos = ParseGpos(); }
-        catch { _gpos = null; }
-        return _gpos;
+        try { return ParseGpos(); }
+        catch { return null; }
     }
 
     private GposTable? ParseGpos()
