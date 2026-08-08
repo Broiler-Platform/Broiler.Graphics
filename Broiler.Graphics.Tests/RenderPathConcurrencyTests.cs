@@ -43,6 +43,7 @@ internal static class RenderPathConcurrencyTests
         tests.Add(("BImageRenderer renders the same pixels on many threads", ConcurrentRenderMatchesSequentialRender));
         tests.Add(("Glyph contours survive concurrent first use", ContourCacheIsThreadSafe));
         tests.Add(("Lazily-parsed font tables publish before their latch", LazyFontTablesPublishSafely));
+        tests.Add(("TrueTypeFont's glyph outline cache is correct and thread-safe", GlyphOutlineCacheIsCorrectAndThreadSafe));
     }
 
     // ── FontsHandler ─────────────────────────────────────────────────────────
@@ -242,6 +243,77 @@ internal static class RenderPathConcurrencyTests
             int expected = TotalPoints(reference.GetGlyphContours(reference.GetGlyphIndex(codepoint)));
             AssertEx.AreEqual(expected, TotalPoints(contours), $"Cached contours for U+{codepoint:X4} must match a cold parse.");
         }
+    }
+
+    /// <summary>
+    /// Multithreading item #10: <c>TrueTypeFont.GetGlyphContours</c> caches its outlines, so the
+    /// cache has to answer with the same geometry a cold parse produces and has to survive being
+    /// filled from several threads at once.
+    /// </summary>
+    /// <remarks>
+    /// Two properties, and the first is the one that would go unnoticed. A cache that returns
+    /// <em>an</em> outline for every glyph but occasionally the wrong one draws a page of plausible
+    /// text with a few wrong letters — nothing throws, and no smoke test sees it. So every glyph
+    /// warmed concurrently is compared point-for-point against a font instance that has never been
+    /// touched by another thread, rather than merely checked for non-emptiness.
+    /// </remarks>
+    private static void GlyphOutlineCacheIsCorrectAndThreadSafe()
+    {
+        FallbackSystemFont? shared = FallbackSystemFont.Shared;
+        if (shared is null)
+            return; // No host font on this machine.
+
+        TrueTypeFont? warm = TrueTypeFont.LoadFromFile(shared.RegularPath);
+        TrueTypeFont? cold = TrueTypeFont.LoadFromFile(shared.RegularPath);
+        if (warm is null || cold is null)
+            return;
+
+        // Glyph indices every thread asks for, so they collide on the cold entries rather than
+        // each filling a private corner of the cache.
+        int[] glyphs = new int[48];
+        for (int i = 0; i < glyphs.Length; i++)
+            glyphs[i] = warm.GetGlyphIndex('A' + (i % 26)) is var g && g > 0 ? g : 1;
+
+        var failures = new ConcurrentBag<string>();
+        RunOnAllThreads(_ =>
+        {
+            foreach (int glyph in glyphs)
+            {
+                List<PointF[]> contours = warm.GetGlyphContours(glyph);
+                if (contours is null)
+                    failures.Add($"glyph {glyph} returned null contours");
+            }
+        });
+
+        AssertEx.AreEqual(0, failures.Count, $"Cached outlines must survive concurrency: {string.Join("; ", failures.Take(4))}");
+
+        foreach (int glyph in glyphs)
+        {
+            List<PointF[]> cached = warm.GetGlyphContours(glyph);
+            List<PointF[]> expected = cold.GetGlyphContours(glyph);
+
+            AssertEx.AreEqual(expected.Count, cached.Count, $"Glyph {glyph} must cache the same contour count.");
+            for (int contour = 0; contour < expected.Count; contour++)
+            {
+                AssertEx.AreEqual(
+                    expected[contour].Length,
+                    cached[contour].Length,
+                    $"Glyph {glyph} contour {contour} must cache the same point count.");
+                for (int point = 0; point < expected[contour].Length; point++)
+                {
+                    AssertEx.AreEqual(
+                        expected[contour][point],
+                        cached[contour][point],
+                        $"Glyph {glyph} contour {contour} point {point} must cache the same coordinates.");
+                }
+            }
+        }
+
+        // The cache is a cache: the same glyph asked twice is the same instance, which is what
+        // stops the caller paying for the outline again.
+        AssertEx.IsTrue(
+            ReferenceEquals(warm.GetGlyphContours(glyphs[0]), warm.GetGlyphContours(glyphs[0])),
+            "A cached outline must be handed back, not re-parsed.");
     }
 
     /// <summary>

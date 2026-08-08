@@ -43,6 +43,40 @@ public sealed class TrueTypeFont
     private readonly Lazy<ClassDefTable?> _gdefClasses;
     private readonly Lazy<CffFont?> _cff;
 
+    /// <summary>
+    /// Outlines already extracted for this font, by glyph index. Multithreading roadmap item #10 —
+    /// the cache the item says to measure before adding threads.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Outlining is pure, and it was being redone per occurrence.</b> Every draw of a glyph
+    /// re-walked <c>glyf</c> (or re-ran the CFF charstring interpreter), re-flattened its quadratic
+    /// segments, and allocated a fresh contour array — for the <em>same</em> glyph index, thousands
+    /// of times on a page of text. The result depends only on the glyph index and the font's
+    /// immutable bytes, so it is cacheable by construction; the sibling cache in
+    /// <c>FallbackSystemFont</c> has always done this and this one simply did not.
+    /// </para>
+    /// <para>
+    /// <b>Concurrent, because this instance is shared.</b> A <see cref="TrueTypeFont"/> lives in a
+    /// process-wide font cache and is now reached from painting threads (roadmap item #4). A plain
+    /// dictionary here would be exactly the hazard item #9 was about, so entries are published
+    /// through <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,TValue)"/>:
+    /// two threads racing on one glyph produce equal contours and every caller ends up on whichever
+    /// instance was published first.
+    /// </para>
+    /// <para>
+    /// <b>The cached list is shared, so callers must not mutate it.</b> Every caller already
+    /// transforms the font-unit points into its own arrays before drawing, which is what the
+    /// fallback font's cache has always relied on too.
+    /// </para>
+    /// <para>
+    /// <b>Unbounded on purpose.</b> The bound is the font's glyph count and, in practice, the far
+    /// smaller number of glyphs a document actually uses. An eviction policy would add a hot-path
+    /// decision to save memory that a single page does not spend.
+    /// </para>
+    /// </remarks>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, List<PointF[]>> _glyphContours = new();
+
     public int UnitsPerEm { get; }
     public int Ascender { get; }
     public int Descender { get; }       // typically negative
@@ -150,7 +184,19 @@ public sealed class TrueTypeFont
     /// segments are flattened to polylines.  Empty glyphs (e.g. spaces) return
     /// an empty list.
     /// </summary>
+    /// <remarks>
+    /// The returned list is cached and shared between callers (see <see cref="_glyphContours"/>);
+    /// treat it as read-only and transform into your own arrays before drawing.
+    /// </remarks>
     public List<PointF[]> GetGlyphContours(int glyphIndex)
+    {
+        if (_glyphContours.TryGetValue(glyphIndex, out var cached))
+            return cached;
+
+        return _glyphContours.GetOrAdd(glyphIndex, ExtractGlyphContours(glyphIndex));
+    }
+
+    private List<PointF[]> ExtractGlyphContours(int glyphIndex)
     {
         // glyf outlines take precedence; otherwise use CFF (PostScript) outlines.
         if (_glyfOffset != 0 && _loca.Length > 1)
