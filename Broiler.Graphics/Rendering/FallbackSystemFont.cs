@@ -17,12 +17,18 @@ internal sealed class FallbackSystemFont
 {
     private readonly TrueTypeFont _regular;
     private readonly TrueTypeFont _bold;
-    private readonly Dictionary<int, IReadOnlyList<PointF[]>> _regularContours = [];
-    private readonly Dictionary<int, IReadOnlyList<PointF[]>> _boldContours = [];
     // Concurrent because the instance is a process-wide singleton (see LazyShared)
     // and text measurement is not confined to one thread: two threads measuring at
     // once through a plain Dictionary tore its buckets and threw
     // IndexOutOfRangeException from inside TryInsert.
+    //
+    // The contour caches carry the same hazard and were left out when the four
+    // below were converted: TryGetGlyph populates them on the read path exactly
+    // the way Resolve populates these, so a glyph first rasterised on two threads
+    // at once tore the same way. They are last here because they are the ones a
+    // *painting* thread hits, which is the thread this phase is adding.
+    private readonly ConcurrentDictionary<int, IReadOnlyList<PointF[]>> _regularContours = new();
+    private readonly ConcurrentDictionary<int, IReadOnlyList<PointF[]>> _boldContours = new();
     private readonly ConcurrentDictionary<int, int> _regularGlyphIndex = new();
     private readonly ConcurrentDictionary<int, int> _boldGlyphIndex = new();
     private readonly ConcurrentDictionary<int, int> _regularAdvance = new();
@@ -67,11 +73,14 @@ internal sealed class FallbackSystemFont
             return false;
         }
 
-        Dictionary<int, IReadOnlyList<PointF[]>> cache = bold ? _boldContours : _regularContours;
+        ConcurrentDictionary<int, IReadOnlyList<PointF[]>> cache = bold ? _boldContours : _regularContours;
         if (!cache.TryGetValue(glyphIndex, out IReadOnlyList<PointF[]>? cached))
         {
             cached = (bold ? _bold : _regular).GetGlyphContours(glyphIndex);
-            cache[glyphIndex] = cached;
+            // GetOrAdd rather than the indexer: outlining is pure, so two threads
+            // racing on one glyph produce equal contours, and returning whichever
+            // was published first keeps every caller on one instance.
+            cached = cache.GetOrAdd(glyphIndex, cached);
         }
 
         contours = cached;
