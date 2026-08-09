@@ -17,6 +17,13 @@
   <ItemGroup>
     <!-- The test runner reaches selected internals for core graphics coverage. -->
     <InternalsVisibleTo Include="Broiler.Graphics.Tests" />
+    <!--
+      The raster thread budget (BRasterParallelism) is internal, and the multithreading roadmap
+      requires item #3 to be measured before it is believed. The benchmark runner sets that budget
+      per run, so it needs the same access the test runner has. Broiler.HTML grants its own
+      rasterizer's copy to the same assembly, for the same reason.
+    -->
+    <InternalsVisibleTo Include="Broiler.Render.Stage.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>

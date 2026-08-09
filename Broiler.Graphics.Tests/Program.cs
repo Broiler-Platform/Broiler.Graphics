@@ -26,6 +26,7 @@ internal static class Program
         ApngTests.Register(tests);
         TextMeasurementConcurrencyTests.Register(tests);
         RenderPathConcurrencyTests.Register(tests);
+        RasterBandParallelismTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

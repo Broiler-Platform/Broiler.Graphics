@@ -171,6 +171,24 @@ public sealed class BBitmap : IDisposable
         _disposed = true;
     }
 
+    /// <summary>
+    /// Whether pixels of this bitmap may be written from several threads at once, given each
+    /// thread writes its own pixels. Gates the rasterizer's band parallelism (multithreading
+    /// roadmap item #3).
+    /// </summary>
+    /// <remarks>
+    /// <b>Unconditionally true here, and the constant is the interesting part.</b> A write reaches
+    /// exactly one place — <see cref="_rgba"/>, a <c>byte[]</c>, whose distinct elements tolerate
+    /// concurrent writes by construction. The sibling rasterizer in <c>Broiler.HTML.Image</c> has
+    /// the same member and it is <em>not</em> constant there: that bitmap also mirrors each write
+    /// into a compat surface, which carries a platform bitmap's threading rules once it has
+    /// materialized one. This copy has no such mirror, so there is nothing for the answer to
+    /// depend on. It is a property rather than an inlined <c>true</c> at the call site so that the
+    /// day a platform-backed surface does land here, the gate is already the thing to change —
+    /// and so the two rasterizers still read alike when they are unified.
+    /// </remarks>
+    internal static bool SupportsConcurrentPixelWrites => true;
+
     internal void ErasePixels(BColor color)
     {
         for (int i = 0; i < _rgba.Length; i += BPixelBuffer.BytesPerPixel)

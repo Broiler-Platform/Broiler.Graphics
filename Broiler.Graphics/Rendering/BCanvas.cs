@@ -13,6 +13,22 @@ public sealed class BCanvas : IDisposable
     private readonly Stack<CanvasState> _stateStack = new();
     private readonly Stack<LayerState> _layerStack = new();
     private readonly List<ClipOperation> _clipOperations = [];
+
+    /// <summary>
+    /// Running intersection of the <em>including</em> clip operations, one entry per entry of
+    /// <see cref="_clipOperations"/>, in device pixels. The last entry is a bounding box of every
+    /// pixel the clip stack can admit.
+    /// </summary>
+    /// <remarks>
+    /// <b>It exists to bound loops, not to decide visibility.</b> <see cref="IsVisible"/> is still
+    /// the authority — it handles exclusions and rounded corners, neither of which a bounding box
+    /// can express. What the box buys is that a primitive no longer walks pixels the clip is
+    /// certain to reject, which on this canvas is most of them: every clipped fill here computes
+    /// its loop from its own geometry and then discards, per pixel, whatever the clip excludes.
+    /// Kept as a running intersection rather than recomputed so a push or a pop stays O(1).
+    /// </remarks>
+    private readonly List<RectangleF> _clipBounds = [];
+
     private PointF _translation;
     private float _scale = 1f;
 
@@ -33,7 +49,7 @@ public sealed class BCanvas : IDisposable
         _scale = state.Scale;
 
         while (_clipOperations.Count > state.ClipOperationCount)
-            _clipOperations.RemoveAt(_clipOperations.Count - 1);
+            PopClip();
     }
 
     public void Translate(float dx, float dy) =>
@@ -51,9 +67,9 @@ public sealed class BCanvas : IDisposable
 
     public void Clear(BColor color) => CurrentTarget.ErasePixels(color);
 
-    public void PushClip(RectangleF rect) => _clipOperations.Add(ClipOperation.Include(Translate(rect)));
+    public void PushClip(RectangleF rect) => AddClip(ClipOperation.Include(Translate(rect)));
 
-    public void PushClipExclude(RectangleF rect) => _clipOperations.Add(ClipOperation.Exclude(Translate(rect)));
+    public void PushClipExclude(RectangleF rect) => AddClip(ClipOperation.Exclude(Translate(rect)));
 
     public void PushClipRounded(
         RectangleF rect,
@@ -65,7 +81,7 @@ public sealed class BCanvas : IDisposable
         double cornerSeY,
         double cornerSw,
         double cornerSwY) =>
-        _clipOperations.Add(ClipOperation.IncludeRounded(
+        AddClip(ClipOperation.IncludeRounded(
             Translate(rect),
             (float)cornerNw * _scale,
             (float)cornerNwY * _scale,
@@ -86,7 +102,7 @@ public sealed class BCanvas : IDisposable
         double cornerSeY,
         double cornerSw,
         double cornerSwY) =>
-        _clipOperations.Add(ClipOperation.ExcludeRounded(
+        AddClip(ClipOperation.ExcludeRounded(
             Translate(rect),
             (float)cornerNw * _scale,
             (float)cornerNwY * _scale,
@@ -99,26 +115,150 @@ public sealed class BCanvas : IDisposable
 
     public void PopClip()
     {
-        if (_clipOperations.Count > 0)
-            _clipOperations.RemoveAt(_clipOperations.Count - 1);
+        if (_clipOperations.Count == 0)
+            return;
+
+        _clipOperations.RemoveAt(_clipOperations.Count - 1);
+        _clipBounds.RemoveAt(_clipBounds.Count - 1);
     }
+
+    /// <summary>
+    /// Appends a clip operation and the bounding box the stack admits once it is in effect.
+    /// </summary>
+    /// <remarks>
+    /// An <em>excluding</em> operation carries the running box forward unchanged: it removes pixels
+    /// from the admitted set and can never add one, so it cannot narrow a bound that has to stay a
+    /// superset of what <see cref="IsVisible"/> accepts. A rounded clip narrows to its bounding
+    /// box, which is exactly what <see cref="ClipOperation.Rect"/> already holds.
+    /// </remarks>
+    private void AddClip(ClipOperation operation)
+    {
+        RectangleF? previous = _clipBounds.Count > 0 ? _clipBounds[^1] : null;
+        RectangleF bounds = operation.IsExclude
+            ? previous ?? SurfaceBounds
+            : previous is { } current ? RectangleF.Intersect(current, operation.Rect) : operation.Rect;
+
+        _clipOperations.Add(operation);
+        _clipBounds.Add(bounds);
+    }
+
+    /// <summary>
+    /// Stands in for "nothing has narrowed the clip yet" when an excluding operation arrives first,
+    /// so the running list stays dense and every entry is a real rectangle.
+    /// </summary>
+    /// <remarks>
+    /// The surface, not an enormous rectangle: the box only ever has to be a superset of the pixels
+    /// that can be written, and no pixel outside the surface can be. A sentinel built from
+    /// <c>float.MaxValue</c> would be a superset too, and would then be cast to <c>int</c> by
+    /// <see cref="NarrowToClip"/> — a conversion that is undefined once the value leaves
+    /// <c>int</c>'s range. Every layer buffer is allocated at the surface's size, so this bound
+    /// holds whichever target is current.
+    /// </remarks>
+    private RectangleF SurfaceBounds => new(0f, 0f, _rootBitmap.Width, _rootBitmap.Height);
+
+    /// <summary>
+    /// Device-space bounding box of everything the clip stack can admit, or <c>null</c> when
+    /// nothing has narrowed it.
+    /// </summary>
+    private RectangleF? CurrentClipBounds => _clipBounds.Count > 0 ? _clipBounds[^1] : null;
+
+    /// <summary>
+    /// Clamps a primitive's device-pixel bounds to the surface and to the rows and columns the
+    /// current clip can admit, and reports whether anything is left to draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It never drops a pixel <see cref="IsVisible"/> would have kept.</b> A pixel is visible
+    /// only if every including clip rectangle contains its centre <c>(x + 0.5, y + 0.5)</c>, so the
+    /// leftmost visible column is at least <c>Left - 0.5</c> and <c>floor(Left)</c> is at or below
+    /// it; the same argument, mirrored, gives the right edge. The clamp is therefore a conservative
+    /// superset of the visible box, and every pixel it removes is one the per-pixel test rejects.
+    /// Output is unchanged; the work of walking those pixels is not.
+    /// </para>
+    /// <para>
+    /// Callers pass the geometry's own bounds and read back the narrowed ones. Every primitive
+    /// computes each pixel's value from the geometry rather than from the loop bounds, so narrowing
+    /// the loop leaves the surviving pixels bit-identical — including <see cref="FillGlyphContours"/>,
+    /// whose coverage accumulator is indexed from <c>minX</c> and whose spans are clipped into it.
+    /// </para>
+    /// </remarks>
+    private bool NarrowToClip(ref int minX, ref int minY, ref int maxX, ref int maxY)
+    {
+        BBitmap target = CurrentTarget;
+        minX = Math.Max(0, minX);
+        minY = Math.Max(0, minY);
+        maxX = Math.Min(target.Width - 1, maxX);
+        maxY = Math.Min(target.Height - 1, maxY);
+
+        if (_clipBounds.Count > 0)
+        {
+            RectangleF bounds = _clipBounds[^1];
+            if (bounds.Width <= 0f || bounds.Height <= 0f)
+                return false;
+
+            minX = Math.Max(minX, (int)Math.Floor(bounds.Left));
+            minY = Math.Max(minY, (int)Math.Floor(bounds.Top));
+            maxX = Math.Min(maxX, (int)Math.Ceiling(bounds.Right) - 1);
+            maxY = Math.Min(maxY, (int)Math.Ceiling(bounds.Bottom) - 1);
+        }
+
+        return minX <= maxX && minY <= maxY;
+    }
+
+    /// <summary>
+    /// Whether a primitive whose device-space bounds are <paramref name="bounds"/> can put a pixel
+    /// anywhere the clip admits. Lets a primitive reject itself before transforming its geometry.
+    /// </summary>
+    private bool IntersectsClip(RectangleF bounds)
+    {
+        int minX = (int)Math.Floor(bounds.Left);
+        int minY = (int)Math.Floor(bounds.Top);
+        int maxX = (int)Math.Ceiling(bounds.Right);
+        int maxY = (int)Math.Ceiling(bounds.Bottom);
+        return NarrowToClip(ref minX, ref minY, ref maxX, ref maxY);
+    }
+
+    /// <summary>
+    /// Splits a fill's scanlines into bands across threads, or runs them inline when the fill is
+    /// too small to be worth it. Multithreading roadmap item #3; the reasoning is on
+    /// <see cref="BRasterParallelism"/>.
+    /// </summary>
+    /// <remarks>
+    /// Takes the clipped pixel bounds rather than a row count because the decision is about area:
+    /// a hundred-row fill one pixel wide is not worth a thread and a two-row fill across a 4K
+    /// surface may be. <see cref="CurrentTarget"/> is not read per band — the layer a fill draws
+    /// into is fixed for the whole fill, exactly as it is in the sequential path.
+    /// </remarks>
+    private static void ForEachBand(int minY, int maxY, int minX, int maxX, Action<int, int> band) =>
+        BRasterParallelism.ForEachBand(
+            minY,
+            maxY,
+            maxX - minX + 1,
+            BBitmap.SupportsConcurrentPixelWrites,
+            band);
 
     public void FillRect(RectangleF rect, BColor color)
     {
         RectangleF translated = Translate(rect);
-        int minX = Math.Max(0, (int)Math.Floor(translated.Left));
-        int minY = Math.Max(0, (int)Math.Floor(translated.Top));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translated.Right) - 1);
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translated.Bottom) - 1);
+        int minX = (int)Math.Floor(translated.Left);
+        int minY = (int)Math.Floor(translated.Top);
+        int maxX = (int)Math.Ceiling(translated.Right) - 1;
+        int maxY = (int)Math.Ceiling(translated.Bottom) - 1;
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-        for (int y = minY; y <= maxY; y++)
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
         {
-            for (int x = minX; x <= maxX; x++)
+            for (int y = fromY; y <= toY; y++)
             {
-                if (IsVisible(x, y))
-                    BlendPixel(CurrentTarget, x, y, color, "normal");
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (IsVisible(x, y))
+                        BlendPixel(target, x, y, color, "normal");
+                }
             }
-        }
+        });
     }
 
     public void DrawLine(PointF start, PointF end, BColor color, float strokeWidth = 1f)
@@ -127,23 +267,29 @@ public sealed class BCanvas : IDisposable
         PointF p2 = Translate(end);
         float radius = Math.Max(0.5f, strokeWidth * _scale / 2f);
 
-        int minX = Math.Max(0, (int)Math.Floor(Math.Min(p1.X, p2.X) - radius));
-        int minY = Math.Max(0, (int)Math.Floor(Math.Min(p1.Y, p2.Y) - radius));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(Math.Max(p1.X, p2.X) + radius));
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(Math.Max(p1.Y, p2.Y) + radius));
+        int minX = (int)Math.Floor(Math.Min(p1.X, p2.X) - radius);
+        int minY = (int)Math.Floor(Math.Min(p1.Y, p2.Y) - radius);
+        int maxX = (int)Math.Ceiling(Math.Max(p1.X, p2.X) + radius);
+        int maxY = (int)Math.Ceiling(Math.Max(p1.Y, p2.Y) + radius);
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-        for (int y = minY; y <= maxY; y++)
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
         {
-            for (int x = minX; x <= maxX; x++)
+            for (int y = fromY; y <= toY; y++)
             {
-                if (!IsVisible(x, y))
-                    continue;
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
 
-                float distance = DistanceToSegment(x + 0.5f, y + 0.5f, p1, p2);
-                if (distance <= radius)
-                    BlendPixel(CurrentTarget, x, y, color, "normal");
+                    float distance = DistanceToSegment(x + 0.5f, y + 0.5f, p1, p2);
+                    if (distance <= radius)
+                        BlendPixel(target, x, y, color, "normal");
+                }
             }
-        }
+        });
     }
 
     public void DrawRectangleStroke(RectangleF rect, BColor color, float strokeWidth = 1f)
@@ -223,24 +369,38 @@ public sealed class BCanvas : IDisposable
             maxY = Math.Max(maxY, point.Y);
         }
 
-        int startX = Math.Max(0, (int)Math.Floor(minX));
-        int startY = Math.Max(0, (int)Math.Floor(minY));
-        int endX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(maxX));
-        int endY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(maxY));
+        int startX = (int)Math.Floor(minX);
+        int startY = (int)Math.Floor(minY);
+        int endX = (int)Math.Ceiling(maxX);
+        int endY = (int)Math.Ceiling(maxY);
+        if (!NarrowToClip(ref startX, ref startY, ref endX, ref endY))
+            return;
 
-        for (int y = startY; y <= endY; y++)
+        BBitmap target = CurrentTarget;
+        ForEachBand(startY, endY, startX, endX, (fromY, toY) =>
         {
-            for (int x = startX; x <= endX; x++)
+            for (int y = fromY; y <= toY; y++)
             {
-                if (IsVisible(x, y) && ContainsPolygonPoint(translated, x + 0.5f, y + 0.5f))
-                    BlendPixel(CurrentTarget, x, y, color, "normal");
+                for (int x = startX; x <= endX; x++)
+                {
+                    if (IsVisible(x, y) && ContainsPolygonPoint(translated, x + 0.5f, y + 0.5f))
+                        BlendPixel(target, x, y, color, "normal");
+                }
             }
-        }
+        });
     }
 
     public void FillGlyphContours(IReadOnlyList<PointF[]> contours, BColor color)
     {
         if (contours == null || contours.Count == 0 || color.A == 0)
+            return;
+
+        // Reject the glyph on its bounding box before transforming and copying its points. Text is
+        // the one primitive a document issues thousands of times, and a document is usually taller
+        // than the surface it is being drawn into — so the allocation below is worth skipping
+        // rather than doing and then discarding. The box goes through the same mapping as the
+        // points do, so a glyph that survives it is measured no differently than before.
+        if (!IntersectsClip(Translate(BoundingBox(contours))))
             return;
 
         float minXf = float.PositiveInfinity;
@@ -269,77 +429,113 @@ public sealed class BCanvas : IDisposable
         if (float.IsInfinity(minXf))
             return;
 
-        int minX = Math.Max(0, (int)Math.Floor(minXf));
-        int minY = Math.Max(0, (int)Math.Floor(minYf));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(maxXf));
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(maxYf));
-        if (maxX < minX || maxY < minY)
+        int minX = (int)Math.Floor(minXf);
+        int minY = (int)Math.Floor(minYf);
+        int maxX = (int)Math.Ceiling(maxXf);
+        int maxY = (int)Math.Ceiling(maxYf);
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
             return;
 
         const int subSamples = 4;
         int width = maxX - minX + 1;
-        var coverage = new float[width];
-        var crossings = new List<(float X, int Direction)>(16);
+        BBitmap target = CurrentTarget;
 
-        for (int y = minY; y <= maxY; y++)
+        // The coverage accumulator and the crossing list are per band, not per canvas: they are
+        // the only mutable state a scanline carries, and giving each band its own is what lets the
+        // bands run at once. A glyph is normally far below the parallel threshold and takes the
+        // inline path with exactly one band — this matters for the large fills (headline text, SVG
+        // outlines) that are not.
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
         {
-            Array.Clear(coverage, 0, width);
+            var coverage = new float[width];
+            var crossings = new List<(float X, int Direction)>(16);
 
-            for (int sample = 0; sample < subSamples; sample++)
+            for (int y = fromY; y <= toY; y++)
             {
-                float sampleY = y + (sample + 0.5f) / subSamples;
-                crossings.Clear();
+                Array.Clear(coverage, 0, width);
 
-                foreach (PointF[] polygon in deviceContours)
+                for (int sample = 0; sample < subSamples; sample++)
                 {
-                    int count = polygon.Length;
-                    for (int i = 0; i < count; i++)
+                    float sampleY = y + (sample + 0.5f) / subSamples;
+                    crossings.Clear();
+
+                    foreach (PointF[] polygon in deviceContours)
                     {
-                        PointF p0 = polygon[i];
-                        PointF p1 = polygon[(i + 1) % count];
-                        if (p0.Y == p1.Y)
-                            continue;
+                        int count = polygon.Length;
+                        for (int i = 0; i < count; i++)
+                        {
+                            PointF p0 = polygon[i];
+                            PointF p1 = polygon[(i + 1) % count];
+                            if (p0.Y == p1.Y)
+                                continue;
 
-                        float low = Math.Min(p0.Y, p1.Y);
-                        float high = Math.Max(p0.Y, p1.Y);
-                        if (sampleY < low || sampleY >= high)
-                            continue;
+                            float low = Math.Min(p0.Y, p1.Y);
+                            float high = Math.Max(p0.Y, p1.Y);
+                            if (sampleY < low || sampleY >= high)
+                                continue;
 
-                        float t = (sampleY - p0.Y) / (p1.Y - p0.Y);
-                        float xCross = p0.X + (t * (p1.X - p0.X));
-                        crossings.Add((xCross, p1.Y > p0.Y ? 1 : -1));
+                            float t = (sampleY - p0.Y) / (p1.Y - p0.Y);
+                            float xCross = p0.X + (t * (p1.X - p0.X));
+                            crossings.Add((xCross, p1.Y > p0.Y ? 1 : -1));
+                        }
+                    }
+
+                    if (crossings.Count < 2)
+                        continue;
+
+                    crossings.Sort(static (left, right) => left.X.CompareTo(right.X));
+
+                    int winding = 0;
+                    for (int i = 0; i < crossings.Count - 1; i++)
+                    {
+                        winding += crossings[i].Direction;
+                        if (winding != 0)
+                            AccumulateGlyphSpan(coverage, minX, crossings[i].X, crossings[i + 1].X, 1f / subSamples);
                     }
                 }
 
-                if (crossings.Count < 2)
-                    continue;
-
-                crossings.Sort(static (left, right) => left.X.CompareTo(right.X));
-
-                int winding = 0;
-                for (int i = 0; i < crossings.Count - 1; i++)
+                for (int i = 0; i < width; i++)
                 {
-                    winding += crossings[i].Direction;
-                    if (winding != 0)
-                        AccumulateGlyphSpan(coverage, minX, crossings[i].X, crossings[i + 1].X, 1f / subSamples);
+                    float cov = Math.Clamp(coverage[i], 0f, 1f);
+                    if (cov <= 0f)
+                        continue;
+
+                    int x = minX + i;
+                    if (!IsVisible(x, y))
+                        continue;
+
+                    byte alpha = (byte)Math.Clamp((int)Math.Round(color.A * cov), 0, 255);
+                    if (alpha != 0)
+                        BlendPixel(target, x, y, new BColor(color.R, color.G, color.B, alpha), "normal");
                 }
             }
+        });
+    }
 
-            for (int i = 0; i < width; i++)
+    /// <summary>User-space bounding box of a set of contours, empty when they hold no points.</summary>
+    private static RectangleF BoundingBox(IReadOnlyList<PointF[]> contours)
+    {
+        float minX = float.PositiveInfinity;
+        float minY = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float maxY = float.NegativeInfinity;
+
+        for (int contourIndex = 0; contourIndex < contours.Count; contourIndex++)
+        {
+            PointF[] points = contours[contourIndex];
+            for (int i = 0; i < points.Length; i++)
             {
-                float cov = Math.Clamp(coverage[i], 0f, 1f);
-                if (cov <= 0f)
-                    continue;
-
-                int x = minX + i;
-                if (!IsVisible(x, y))
-                    continue;
-
-                byte alpha = (byte)Math.Clamp((int)Math.Round(color.A * cov), 0, 255);
-                if (alpha != 0)
-                    BlendPixel(CurrentTarget, x, y, new BColor(color.R, color.G, color.B, alpha), "normal");
+                PointF point = points[i];
+                minX = Math.Min(minX, point.X);
+                minY = Math.Min(minY, point.Y);
+                maxX = Math.Max(maxX, point.X);
+                maxY = Math.Max(maxY, point.Y);
             }
         }
+
+        return float.IsInfinity(minX)
+            ? RectangleF.Empty
+            : new RectangleF(minX, minY, maxX - minX, maxY - minY);
     }
 
     public void DrawBitmap(BBitmap source, RectangleF destRect, RectangleF srcRect)
@@ -350,31 +546,34 @@ public sealed class BCanvas : IDisposable
             return;
 
         RectangleF translatedDest = Translate(destRect);
-        int startX = Math.Max(0, (int)Math.Floor(translatedDest.Left));
-        int startY = Math.Max(0, (int)Math.Floor(translatedDest.Top));
-        int endX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translatedDest.Right) - 1);
-        int endY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translatedDest.Bottom) - 1);
-
-        if (startX > endX || startY > endY)
+        int startX = (int)Math.Floor(translatedDest.Left);
+        int startY = (int)Math.Floor(translatedDest.Top);
+        int endX = (int)Math.Ceiling(translatedDest.Right) - 1;
+        int endY = (int)Math.Ceiling(translatedDest.Bottom) - 1;
+        if (!NarrowToClip(ref startX, ref startY, ref endX, ref endY))
             return;
 
-        for (int y = startY; y <= endY; y++)
+        BBitmap target = CurrentTarget;
+        ForEachBand(startY, endY, startX, endX, (fromY, toY) =>
         {
-            for (int x = startX; x <= endX; x++)
+            for (int y = fromY; y <= toY; y++)
             {
-                if (!IsVisible(x, y))
-                    continue;
+                for (int x = startX; x <= endX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
 
-                float normalizedX = ((x + 0.5f) - translatedDest.Left) / translatedDest.Width;
-                float normalizedY = ((y + 0.5f) - translatedDest.Top) / translatedDest.Height;
-                if (normalizedX < 0f || normalizedX >= 1f || normalizedY < 0f || normalizedY >= 1f)
-                    continue;
+                    float normalizedX = ((x + 0.5f) - translatedDest.Left) / translatedDest.Width;
+                    float normalizedY = ((y + 0.5f) - translatedDest.Top) / translatedDest.Height;
+                    if (normalizedX < 0f || normalizedX >= 1f || normalizedY < 0f || normalizedY >= 1f)
+                        continue;
 
-                int srcX = Math.Clamp((int)Math.Floor(srcRect.Left + (normalizedX * srcRect.Width)), 0, source.Width - 1);
-                int srcY = Math.Clamp((int)Math.Floor(srcRect.Top + (normalizedY * srcRect.Height)), 0, source.Height - 1);
-                BlendPixel(CurrentTarget, x, y, source.GetPixel(srcX, srcY), "normal");
+                    int srcX = Math.Clamp((int)Math.Floor(srcRect.Left + (normalizedX * srcRect.Width)), 0, source.Width - 1);
+                    int srcY = Math.Clamp((int)Math.Floor(srcRect.Top + (normalizedY * srcRect.Height)), 0, source.Height - 1);
+                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), "normal");
+                }
             }
-        }
+        });
     }
 
     public void DrawPathStroke(IReadOnlyList<PointF> points, BColor color, float strokeWidth = 1f)
@@ -395,31 +594,37 @@ public sealed class BCanvas : IDisposable
 
         RectangleF translatedDest = Translate(destRect);
         PointF translatedOrigin = Translate(tileOrigin);
-        int minX = Math.Max(0, (int)Math.Floor(translatedDest.Left));
-        int minY = Math.Max(0, (int)Math.Floor(translatedDest.Top));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translatedDest.Right) - 1);
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translatedDest.Bottom) - 1);
+        int minX = (int)Math.Floor(translatedDest.Left);
+        int minY = (int)Math.Floor(translatedDest.Top);
+        int maxX = (int)Math.Ceiling(translatedDest.Right) - 1;
+        int maxY = (int)Math.Ceiling(translatedDest.Bottom) - 1;
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-        for (int y = minY; y <= maxY; y++)
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
         {
-            for (int x = minX; x <= maxX; x++)
+            for (int y = fromY; y <= toY; y++)
             {
-                if (!IsVisible(x, y))
-                    continue;
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
 
-                float sampleX = x + 0.5f;
-                float sampleY = y + 0.5f;
-                int srcX = Math.Clamp(
-                    (int)Math.Floor(srcRect.Left + PositiveModulo(sampleX - translatedOrigin.X, srcRect.Width)),
-                    0,
-                    source.Width - 1);
-                int srcY = Math.Clamp(
-                    (int)Math.Floor(srcRect.Top + PositiveModulo(sampleY - translatedOrigin.Y, srcRect.Height)),
-                    0,
-                    source.Height - 1);
-                BlendPixel(CurrentTarget, x, y, source.GetPixel(srcX, srcY), "normal");
+                    float sampleX = x + 0.5f;
+                    float sampleY = y + 0.5f;
+                    int srcX = Math.Clamp(
+                        (int)Math.Floor(srcRect.Left + PositiveModulo(sampleX - translatedOrigin.X, srcRect.Width)),
+                        0,
+                        source.Width - 1);
+                    int srcY = Math.Clamp(
+                        (int)Math.Floor(srcRect.Top + PositiveModulo(sampleY - translatedOrigin.Y, srcRect.Height)),
+                        0,
+                        source.Height - 1);
+                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), "normal");
+                }
             }
-        }
+        });
     }
 
     public void FillLinearGradientRect(RectangleF rect, IReadOnlyList<BColor> colors, IReadOnlyList<float>? positions, float angle)
@@ -434,10 +639,6 @@ public sealed class BCanvas : IDisposable
         }
 
         RectangleF translatedRect = Translate(rect);
-        int minX = Math.Max(0, (int)Math.Floor(translatedRect.Left));
-        int minY = Math.Max(0, (int)Math.Floor(translatedRect.Top));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translatedRect.Right) - 1);
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translatedRect.Bottom) - 1);
         float[] normalizedPositions = NormalizeGradientPositions(colors.Count, positions);
         (PointF startPoint, PointF endPoint) = GetGradientEndpoints(translatedRect, angle);
         float gradientX = endPoint.X - startPoint.X;
@@ -450,19 +651,30 @@ public sealed class BCanvas : IDisposable
             return;
         }
 
-        for (int y = minY; y <= maxY; y++)
-        {
-            for (int x = minX; x <= maxX; x++)
-            {
-                if (!IsVisible(x, y))
-                    continue;
+        int minX = (int)Math.Floor(translatedRect.Left);
+        int minY = (int)Math.Floor(translatedRect.Top);
+        int maxX = (int)Math.Ceiling(translatedRect.Right) - 1;
+        int maxY = (int)Math.Ceiling(translatedRect.Bottom) - 1;
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-                float sampleX = x + 0.5f;
-                float sampleY = y + 0.5f;
-                float t = (((sampleX - startPoint.X) * gradientX) + ((sampleY - startPoint.Y) * gradientY)) / gradientLengthSquared;
-                BlendPixel(CurrentTarget, x, y, SampleGradientColor(colors, normalizedPositions, Math.Clamp(t, 0f, 1f)), "normal");
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
+        {
+            for (int y = fromY; y <= toY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
+
+                    float sampleX = x + 0.5f;
+                    float sampleY = y + 0.5f;
+                    float t = (((sampleX - startPoint.X) * gradientX) + ((sampleY - startPoint.Y) * gradientY)) / gradientLengthSquared;
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, Math.Clamp(t, 0f, 1f)), "normal");
+                }
             }
-        }
+        });
     }
 
     public void FillRadialGradientRect(RectangleF rect, IReadOnlyList<BColor> colors, IReadOnlyList<float>? positions, float centerX, float centerY)
@@ -477,10 +689,6 @@ public sealed class BCanvas : IDisposable
         }
 
         RectangleF translatedRect = Translate(rect);
-        int minX = Math.Max(0, (int)Math.Floor(translatedRect.Left));
-        int minY = Math.Max(0, (int)Math.Floor(translatedRect.Top));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translatedRect.Right) - 1);
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translatedRect.Bottom) - 1);
         float[] normalizedPositions = NormalizeGradientPositions(colors.Count, positions);
 
         float cx = translatedRect.Left + (centerX * translatedRect.Width);
@@ -490,19 +698,30 @@ public sealed class BCanvas : IDisposable
         if (rx <= 0 || ry <= 0)
             return;
 
-        for (int y = minY; y <= maxY; y++)
-        {
-            for (int x = minX; x <= maxX; x++)
-            {
-                if (!IsVisible(x, y))
-                    continue;
+        int minX = (int)Math.Floor(translatedRect.Left);
+        int minY = (int)Math.Floor(translatedRect.Top);
+        int maxX = (int)Math.Ceiling(translatedRect.Right) - 1;
+        int maxY = (int)Math.Ceiling(translatedRect.Bottom) - 1;
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-                float dx = (x + 0.5f - cx) / rx;
-                float dy = (y + 0.5f - cy) / ry;
-                float t = Math.Clamp((float)Math.Sqrt((dx * dx) + (dy * dy)), 0f, 1f);
-                BlendPixel(CurrentTarget, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
+        {
+            for (int y = fromY; y <= toY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
+
+                    float dx = (x + 0.5f - cx) / rx;
+                    float dy = (y + 0.5f - cy) / ry;
+                    float t = Math.Clamp((float)Math.Sqrt((dx * dx) + (dy * dy)), 0f, 1f);
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+                }
             }
-        }
+        });
     }
 
     public void FillConicGradientRect(
@@ -523,32 +742,39 @@ public sealed class BCanvas : IDisposable
         }
 
         RectangleF translatedRect = Translate(rect);
-        int minX = Math.Max(0, (int)Math.Floor(translatedRect.Left));
-        int minY = Math.Max(0, (int)Math.Floor(translatedRect.Top));
-        int maxX = Math.Min(CurrentTarget.Width - 1, (int)Math.Ceiling(translatedRect.Right) - 1);
-        int maxY = Math.Min(CurrentTarget.Height - 1, (int)Math.Ceiling(translatedRect.Bottom) - 1);
         float[] normalizedPositions = NormalizeGradientPositions(colors.Count, positions);
         float cx = translatedRect.Left + (centerX * translatedRect.Width);
         float cy = translatedRect.Top + (centerY * translatedRect.Height);
 
-        for (int y = minY; y <= maxY; y++)
-        {
-            for (int x = minX; x <= maxX; x++)
-            {
-                if (!IsVisible(x, y))
-                    continue;
+        int minX = (int)Math.Floor(translatedRect.Left);
+        int minY = (int)Math.Floor(translatedRect.Top);
+        int maxX = (int)Math.Ceiling(translatedRect.Right) - 1;
+        int maxY = (int)Math.Ceiling(translatedRect.Bottom) - 1;
+        if (!NarrowToClip(ref minX, ref minY, ref maxX, ref maxY))
+            return;
 
-                float dx = x + 0.5f - cx;
-                float dy = y + 0.5f - cy;
-                float angleDeg = (float)(Math.Atan2(dx, -dy) * 180.0 / Math.PI);
-                float t = PositiveModulo(angleDeg - fromAngleDeg, 360f) / 360f;
-                BlendPixel(CurrentTarget, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+        BBitmap target = CurrentTarget;
+        ForEachBand(minY, maxY, minX, maxX, (fromY, toY) =>
+        {
+            for (int y = fromY; y <= toY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsVisible(x, y))
+                        continue;
+
+                    float dx = x + 0.5f - cx;
+                    float dy = y + 0.5f - cy;
+                    float angleDeg = (float)(Math.Atan2(dx, -dy) * 180.0 / Math.PI);
+                    float t = PositiveModulo(angleDeg - fromAngleDeg, 360f) / 360f;
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+                }
             }
-        }
+        });
     }
 
     public void SaveOpacityLayer(float opacity) =>
-        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), opacity, "normal"));
+        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), opacity, "normal", CurrentClipBounds));
 
     public void RestoreOpacityLayer()
     {
@@ -557,7 +783,7 @@ public sealed class BCanvas : IDisposable
     }
 
     public void SaveBlendLayer(string blendMode) =>
-        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), 1f, blendMode ?? "normal"));
+        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), 1f, blendMode ?? "normal", CurrentClipBounds));
 
     public void RestoreBlendLayer()
     {
@@ -606,12 +832,32 @@ public sealed class BCanvas : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Blends a layer's buffer back into the target underneath it, over the box the layer's clip
+    /// could have let it write rather than over the whole surface.
+    /// </summary>
+    /// <remarks>
+    /// The bound is the clip in force when the layer was <em>pushed</em>, recorded then rather than
+    /// read now: the layer's own draws may have pushed and popped clips of their own, so the stack
+    /// at restore time says nothing about where the layer's pixels went. Outside that box every
+    /// source pixel is transparent — nothing could have written one — and the loop already skips
+    /// transparent sources, so this removes only iterations, never a blend.
+    /// </remarks>
     private void CompositeLayer(LayerState layer)
     {
         BBitmap destination = CurrentTarget;
-        for (int y = 0; y < destination.Height; y++)
+        int minX = 0, minY = 0, maxX = destination.Width - 1, maxY = destination.Height - 1;
+        if (layer.ContentBounds is { } bounds)
         {
-            for (int x = 0; x < destination.Width; x++)
+            minX = Math.Max(minX, (int)Math.Floor(bounds.Left));
+            minY = Math.Max(minY, (int)Math.Floor(bounds.Top));
+            maxX = Math.Min(maxX, (int)Math.Ceiling(bounds.Right) - 1);
+            maxY = Math.Min(maxY, (int)Math.Ceiling(bounds.Bottom) - 1);
+        }
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
             {
                 BColor source = layer.Bitmap.GetPixel(x, y);
                 if (source.A == 0)
@@ -855,7 +1101,11 @@ public sealed class BCanvas : IDisposable
 
     private readonly record struct CanvasState(PointF Translation, float Scale, int ClipOperationCount);
 
-    private sealed record LayerState(BBitmap Bitmap, float Opacity, string BlendMode);
+    /// <param name="ContentBounds">
+    /// Device-space box the clip admitted when the layer was pushed, or <c>null</c> when nothing
+    /// had narrowed it. See <see cref="CompositeLayer"/>.
+    /// </param>
+    private sealed record LayerState(BBitmap Bitmap, float Opacity, string BlendMode, RectangleF? ContentBounds);
 
     private readonly record struct ClipOperation(
         RectangleF Rect,
