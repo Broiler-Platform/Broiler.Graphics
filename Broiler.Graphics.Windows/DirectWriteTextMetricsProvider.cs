@@ -141,20 +141,49 @@ internal static class DirectWriteText
         return (float)Math.Min(sizeInPixels, float.MaxValue);
     }
 
+    /// <summary>
+    /// Maps a font family to the name DirectWrite should be asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Callers are expected to hand over a single, already-resolved family. This also accepts a raw
+    /// CSS <c>font-family</c> list as a backstop, because one used to reach
+    /// <c>IDWriteFactory::CreateTextFormat</c> whole: <c>"Verdana, Arial, Helvetica"</c> matches no
+    /// installed family, so DirectWrite silently substituted its default and drew the page in a
+    /// face nothing had been measured in. Splitting the list here means the worst case is the first
+    /// named family rather than an unrelated one.
+    /// </para>
+    /// <para>
+    /// The <b>first</b> entry wins, which is CSS order minus the "is it installed" test this cannot
+    /// run without a font-collection lookup. Deliberately not "first generic wins": that would send
+    /// <c>"Verdana, sans-serif"</c> to Segoe UI on a machine that has Verdana. When the first entry
+    /// names a family the host lacks, DirectWrite applies its own font fallback, which is the same
+    /// thing a browser does with an unresolvable first choice.
+    /// </para>
+    /// </remarks>
     internal static string ResolveFontFamily(string familyName)
     {
         if (string.IsNullOrWhiteSpace(familyName))
             return "Segoe UI";
 
-        string trimmed = familyName.Trim();
-        return trimmed.ToLowerInvariant() switch
+        foreach (string candidate in familyName.Split(','))
         {
-            "sans-serif" => "Segoe UI",
-            "serif" => "Times New Roman",
-            "monospace" => "Consolas",
-            "monospaced" => "Consolas",
-            _ => trimmed,
-        };
+            string trimmed = candidate.Trim().Trim('"', '\'').Trim();
+            if (trimmed.Length == 0)
+                continue;
+
+            return trimmed.ToLowerInvariant() switch
+            {
+                "sans-serif" or "system-ui" or "ui-sans-serif" or "ui-rounded" => "Segoe UI",
+                "serif" or "ui-serif" => "Times New Roman",
+                "monospace" or "monospaced" or "ui-monospace" => "Consolas",
+                "cursive" => "Segoe Script",
+                "fantasy" => "Impact",
+                _ => trimmed,
+            };
+        }
+
+        return "Segoe UI";
     }
 
     internal static string CurrentLocaleName()

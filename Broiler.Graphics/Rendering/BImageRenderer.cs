@@ -159,10 +159,58 @@ public sealed class BImageRenderer : IBroilerRenderer
         if (command.Color.A == 0)
             return;
 
-        RectangleF rect = TransformRect(command.Rect, state);
-        if (IsDrawable(rect))
-            canvas.FillRect(rect, command.Color);
+        // A rotated or skewed rectangle is a quad, not a rectangle. TransformRect answers with the
+        // axis-aligned bounding box, which is right for an upright transform and badly wrong for
+        // any other: a thin diagonal strip came out as the solid block that encloses it, so a
+        // rotated element filled its whole bounding box and a diagonal rule became a rectangle.
+        // The canvas can fill an arbitrary polygon, so hand it the four transformed corners.
+        if (IsAxisAligned(state.Effective))
+        {
+            RectangleF rect = TransformRect(command.Rect, state);
+            if (IsDrawable(rect))
+                canvas.FillRect(rect, command.Color);
+
+            return;
+        }
+
+        PointF[]? quad = TransformQuad(command.Rect, state);
+        if (quad is not null)
+            canvas.FillPolygon(quad, command.Color);
     }
+
+    /// <summary>
+    /// Whether the transform maps rectangles to rectangles — no rotation and no skew, so an
+    /// axis-aligned fill is exact and the polygon path is unnecessary.
+    /// </summary>
+    private static bool IsAxisAligned(BMatrix3x2 transform) =>
+        Math.Abs(transform.M12) < 1e-6 && Math.Abs(transform.M21) < 1e-6;
+
+    /// <summary>The rectangle's four corners in device space, or null when it is degenerate.</summary>
+    private static PointF[]? TransformQuad(BRect rect, ReplayState state)
+    {
+        if (!(rect.Width > 0) || !(rect.Height > 0))
+            return null;
+
+        BMatrix3x2 transform = state.Effective;
+        BPoint p1 = transform.Transform(new BPoint(rect.Left, rect.Top));
+        BPoint p2 = transform.Transform(new BPoint(rect.Right, rect.Top));
+        BPoint p3 = transform.Transform(new BPoint(rect.Right, rect.Bottom));
+        BPoint p4 = transform.Transform(new BPoint(rect.Left, rect.Bottom));
+
+        if (!IsFinite(p1) || !IsFinite(p2) || !IsFinite(p3) || !IsFinite(p4))
+            return null;
+
+        return
+        [
+            new PointF((float)p1.X, (float)p1.Y),
+            new PointF((float)p2.X, (float)p2.Y),
+            new PointF((float)p3.X, (float)p3.Y),
+            new PointF((float)p4.X, (float)p4.Y),
+        ];
+    }
+
+    private static bool IsFinite(BPoint point) =>
+        double.IsFinite(point.X) && double.IsFinite(point.Y);
 
     private void StrokeRect(BCanvas canvas, BRenderCommand.StrokeRect command, ReplayState state)
     {
@@ -243,10 +291,14 @@ public sealed class BImageRenderer : IBroilerRenderer
 
         double fontSize = Math.Max(1.0, run.Font.SizeInPixels);
         bool bold = run.Font.Weight >= BFontWeight.Bold;
+        bool italic = run.Font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 
-        // Prefer a real host font when one was discovered; otherwise fall back to
-        // the built-in block font so text still renders on a font-less system.
-        FallbackSystemFont? font = FallbackSystemFont.Shared;
+        // Prefer the host's face for the family that was actually asked for, then any host face,
+        // then the built-in block font so text still renders on a font-less system. Resolving the
+        // family matters because whoever laid this text out measured it in that family: drawing it
+        // in another makes each run the wrong width for the space reserved for it. Must stay in
+        // step with BTextMeasurer's fallback provider, which resolves the same way.
+        FallbackSystemFont? font = FallbackSystemFont.For(run.Font.FamilyName, bold, italic);
         if (font is not null)
             DrawTextWithSystemFont(canvas, run, command.Origin, fontSize, bold, font, state);
         else

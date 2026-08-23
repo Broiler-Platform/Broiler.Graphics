@@ -48,8 +48,45 @@ internal sealed class FallbackSystemFont
 
     private static readonly Lazy<FallbackSystemFont?> LazyShared = new(TryLoad, isThreadSafe: true);
 
+    // Concurrent for the same reason the glyph caches are: painting is not confined to one thread,
+    // and this is populated on the read path.
+    private static readonly ConcurrentDictionary<(string Family, bool Bold, bool Italic), FallbackSystemFont?> ByFamily = new();
+
     /// <summary>The process-wide resolved font, or null when none could be loaded.</summary>
     public static FallbackSystemFont? Shared => LazyShared.Value;
+
+    /// <summary>
+    /// The host's face for <paramref name="family"/>, or <see cref="Shared"/> when the machine has
+    /// none — so a run is drawn in the family it was measured in whenever that is possible at all.
+    /// </summary>
+    /// <remarks>
+    /// Measurement and drawing must call this with the same arguments and get the same face, which
+    /// is why the result is cached per (family, bold, italic) rather than recomputed: a resolver
+    /// that answered differently between the measure and the draw would reintroduce exactly the
+    /// drift this exists to remove. The returned instance carries the resolved face as both its
+    /// regular and bold slot, because the resolver was already asked for the bold one — callers may
+    /// keep passing their <c>bold</c> flag and it is simply inert.
+    /// </remarks>
+    public static FallbackSystemFont? For(string? family, bool bold, bool italic)
+    {
+        if (string.IsNullOrWhiteSpace(family) || !BSystemFontFiles.HasResolver)
+            return Shared;
+
+        FallbackSystemFont? resolved = ByFamily.GetOrAdd(
+            (family, bold, italic),
+            static key => TryLoadFamily(key.Family, key.Bold, key.Italic));
+
+        return resolved ?? Shared;
+    }
+
+    private static FallbackSystemFont? TryLoadFamily(string family, bool bold, bool italic)
+    {
+        if (!BSystemFontFiles.TryResolve(family, bold, italic, out string path))
+            return null;
+
+        TrueTypeFont? face = TryLoadFace(path);
+        return face is null || !face.HasOutlines ? null : new FallbackSystemFont(face, path, face, path);
+    }
 
     /// <summary>A human-readable summary of what was resolved, for diagnostics/logging.</summary>
     public static string Describe()

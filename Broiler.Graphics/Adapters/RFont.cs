@@ -15,5 +15,25 @@ public abstract class RFont : ILayoutFont
     /// </summary>
     public string? FontFeatures { get; set; }
 
+    /// <summary>
+    /// The single family this font actually resolved to — never the CSS
+    /// <c>font-family</c> list it was asked for.
+    /// </summary>
+    /// <remarks>
+    /// A consumer that has the font and re-derives a family from the document's style instead
+    /// picks a different face than the one every width was measured with. The declared value is a
+    /// list (<c>"Verdana, Arial, Helvetica"</c>), and resolving it is this font's job, done once by
+    /// <see cref="FontsHandler.GetCachedFont"/>; publishing the answer is what lets a render
+    /// backend draw with the face that was measured. Empty when the implementation does not know
+    /// (test doubles), in which case a consumer must fall back to its own resolution.
+    /// </remarks>
+    public virtual string Family => string.Empty;
+
+    /// <summary>
+    /// The style this font was resolved with — the bold and italic bits included, so a consumer
+    /// does not have to re-read them from a style sheet it may not have.
+    /// </summary>
+    public virtual FontStyle Style => FontStyle.Regular;
+
     public abstract double GetWhitespaceWidth(RGraphics graphics);
 }
