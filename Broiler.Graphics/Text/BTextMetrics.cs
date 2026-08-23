@@ -79,13 +79,15 @@ public static class BTextMeasurer
         {
             double size = font.SizeInPixels;
             bool bold = font.Weight >= BFontWeight.Bold;
+            bool italic = font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 
             // Mirror BImageRenderer's pen advance exactly so measurement (caret,
             // hit-testing, selection, scroll) matches what is actually drawn. When a
             // real host font backs rendering, use its glyph advances; otherwise every
-            // glyph is drawn with the fixed-width block font.
+            // glyph is drawn with the fixed-width block font. The family is resolved the
+            // same way the renderer resolves it, so both land on one face.
             double blockAdvance = Math.Max(1.0, size * 0.62);
-            FallbackSystemFont? realFont = FallbackSystemFont.Shared;
+            FallbackSystemFont? realFont = FallbackSystemFont.For(font.FamilyName, bold, italic);
 
             double advance = 0;
             foreach (char character in text)

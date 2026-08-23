@@ -8,7 +8,15 @@ namespace Broiler.Graphics;
 /// </summary>
 public interface ILayoutFont
 {
-    /// <summary>The font size, in CSS pixels.</summary>
+    /// <summary>
+    /// The font size, in typographic <b>points</b> — the unit the CSS cascade resolves font sizes
+    /// in here (<c>CssBoxProperties.ComputedFontSizePoints</c>). Multiply by 96/72 for CSS pixels,
+    /// as <c>CssBoxProperties.GetEmHeight</c> does.
+    /// </summary>
+    /// <remarks>
+    /// This said "CSS pixels" and was wrong, which is not a harmless comment: a consumer that
+    /// believed it drew every run at three quarters of the size the same font had been measured at.
+    /// </remarks>
     double Size { get; }
 
     /// <summary>The line height of the font, in CSS pixels.</summary>
