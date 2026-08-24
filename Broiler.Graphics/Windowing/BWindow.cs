@@ -19,6 +19,16 @@ public abstract class BWindow : IDisposable
 
     public bool IsDisposed => _disposed;
 
+    /// <summary>
+    /// Raised when the user asks the OS to close a secondary window (created with
+    /// <see cref="BWindowOptions.OwnsMessageLoop"/> = false). The owner decides whether to
+    /// <see cref="Close"/> it; the window is not auto-destroyed.
+    /// </summary>
+    public event EventHandler? CloseRequested;
+
+    /// <summary>Raised after the native window has been destroyed.</summary>
+    public event EventHandler? Closed;
+
     public abstract IntPtr NativeHandle { get; }
 
     public abstract BSize ClientSize { get; }
@@ -33,6 +43,31 @@ public abstract class BWindow : IDisposable
     {
         ThrowIfDisposed();
         return RunCore();
+    }
+
+    /// <summary>
+    /// Realizes and shows the native window without entering a message loop. Used for a secondary
+    /// window (<see cref="BWindowOptions.OwnsMessageLoop"/> = false) that is serviced by an existing
+    /// loop on the same thread.
+    /// </summary>
+    public void Show()
+    {
+        ThrowIfDisposed();
+        ShowCore();
+    }
+
+    /// <summary>Programmatically closes (destroys) the native window.</summary>
+    public void Close()
+    {
+        ThrowIfDisposed();
+        CloseCore();
+    }
+
+    /// <summary>Sets the native window title.</summary>
+    public void SetTitle(string title)
+    {
+        ThrowIfDisposed();
+        SetTitleCore(title ?? string.Empty);
     }
 
     public void Invalidate()
@@ -90,7 +125,25 @@ public abstract class BWindow : IDisposable
 
     protected void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
+    protected void RaiseCloseRequested() => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    protected void RaiseClosed() => Closed?.Invoke(this, EventArgs.Empty);
+
     protected abstract int RunCore();
+
+    /// <summary>Backend hook for <see cref="Show"/>. Default is unsupported.</summary>
+    protected virtual void ShowCore() =>
+        throw new NotSupportedException("This window backend does not support Show().");
+
+    /// <summary>Backend hook for <see cref="Close"/>. Default is a no-op.</summary>
+    protected virtual void CloseCore()
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="SetTitle"/>. Default is a no-op.</summary>
+    protected virtual void SetTitleCore(string title)
+    {
+    }
 
     protected abstract void InvalidateCore();
 

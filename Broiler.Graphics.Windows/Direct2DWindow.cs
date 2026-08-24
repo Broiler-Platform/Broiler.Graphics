@@ -42,6 +42,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private const uint WmDestroy = 0x0002;
     private const uint WmSize = 0x0005;
     private const uint WmCommand = 0x0111;
+    private const uint WmClose = 0x0010;
     private const uint WmPaint = 0x000F;
     private const uint WmEraseBkgnd = 0x0014;
     private const uint WmDpiChanged = 0x02E0;
@@ -89,6 +90,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private long _frameIndex;
     private int _nextControlId = 1000;
     private bool _runStarted;
+    private bool _realized;
     private bool _trackingMouse;
     private bool _animationTimerRunning;
     private bool _closing;
@@ -125,12 +127,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             throw new InvalidOperationException("A Direct2DWindow instance can only be run once.");
 
         _runStarted = true;
-        EnsureWindowClassRegistered();
-        EnsureRenderHostClassRegistered();
-        CreateWindow();
-
-        ShowWindow(_hwnd, SwShow);
-        UpdateWindow(_hwnd);
+        RealizeWindow();
 
         while (true)
         {
@@ -143,6 +140,34 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             TranslateMessage(ref msg);
             DispatchMessage(ref msg);
         }
+    }
+
+    protected override void ShowCore() => RealizeWindow();
+
+    protected override void CloseCore()
+    {
+        if (_hwnd != IntPtr.Zero)
+            DestroyWindow(_hwnd);
+    }
+
+    protected override void SetTitleCore(string title)
+    {
+        if (_hwnd != IntPtr.Zero)
+            SetWindowText(_hwnd, title);
+    }
+
+    private void RealizeWindow()
+    {
+        if (_realized)
+            return;
+
+        _realized = true;
+        EnsureWindowClassRegistered();
+        EnsureRenderHostClassRegistered();
+        CreateWindow();
+
+        ShowWindow(_hwnd, SwShow);
+        UpdateWindow(_hwnd);
     }
 
     protected override void InvalidateCore()
@@ -341,12 +366,25 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
                 ValidateRect(_hwnd, IntPtr.Zero);
                 return IntPtr.Zero;
 
+            case WmClose:
+                // A secondary window that does not own the loop must not destroy itself on the
+                // native close button: notify the owner and let it drive the close.
+                if (!Options.OwnsMessageLoop)
+                {
+                    RaiseCloseRequested();
+                    return IntPtr.Zero;
+                }
+                return DefWindowProc(_hwnd, message, wParam, lParam);
+
             case WmDestroy:
                 BeginClosing();
                 StopAnimationTimerCore();
                 ReleaseGraphicsResources();
                 DestroyRenderHost();
-                PostQuitMessage(0);
+                if (Options.OwnsMessageLoop)
+                    PostQuitMessage(0);
+                else
+                    RaiseClosed();
                 return IntPtr.Zero;
 
             case WmNcdestroy:
@@ -1073,6 +1111,10 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool DestroyWindow(IntPtr hwnd);
+
+    [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "SetWindowTextW", StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowText(IntPtr hwnd, string text);
 
     [LibraryImport("user32.dll")]
     private static partial IntPtr GetParent(IntPtr hwnd);

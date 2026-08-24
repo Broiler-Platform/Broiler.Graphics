@@ -14,4 +14,12 @@ public sealed record BWindowOptions
     public bool EnableTransparency { get; init; }
 
     public BRenderOptions RenderOptions { get; init; } = BRenderOptions.Default;
+
+    /// <summary>
+    /// When true (the default) the window owns the thread's message loop: <see cref="BWindow.Run"/>
+    /// blocks until the window closes and closing quits the loop. Set false for a secondary window
+    /// realized with <see cref="BWindow.Show"/> that is serviced by an existing loop and whose close
+    /// must not quit the application.
+    /// </summary>
+    public bool OwnsMessageLoop { get; init; } = true;
 }
