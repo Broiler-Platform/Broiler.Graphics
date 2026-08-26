@@ -8,6 +8,7 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Android</RootNamespace>
     <AssemblyName>Broiler.Graphics.Android</AssemblyName>
+    <PackageTags>broiler;graphics;rendering;android;opengles;egl</PackageTags>
     <PackageId>Broiler.Graphics.Android</PackageId>
     <Description>Android EGL / OpenGL ES presentation backend for Broiler.Graphics.</Description>
   </PropertyGroup>

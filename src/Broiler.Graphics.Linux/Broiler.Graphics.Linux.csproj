@@ -8,6 +8,8 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Linux</RootNamespace>
     <AssemblyName>Broiler.Graphics.Linux</AssemblyName>
+    <Description>Shared Linux runtime support for the Broiler.Graphics backends: native library probing, dependency resolution, and runtime diagnostics.</Description>
+    <PackageTags>broiler;graphics;rendering;linux</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>

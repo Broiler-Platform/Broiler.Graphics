@@ -12,6 +12,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>Broiler.Graphics</RootNamespace>
     <AssemblyName>Broiler.Graphics</AssemblyName>
+    <Description>Platform-neutral graphics core for Broiler: BBitmap, BCanvas, deterministic CPU rasterization, text and font handling, and the render-list pipeline.</Description>
+    <PackageTags>broiler;graphics;rendering;raster;canvas</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,7 +32,7 @@
     <!-- Graphics depends only on the media image ABSTRACTION. Concrete codecs
          (Broiler.Media.Image.Managed) are supplied by the application composition
          root via BImageCodecs.Use(...); see Imaging/BImageCodecs.cs. -->
-    <ProjectReference Include="..\..\src\Broiler.Media.Image\Broiler.Media.Image.csproj" />
+    <ProjectReference Include="..\..\Broiler.Media\src\Broiler.Media.Image\Broiler.Media.Image.csproj" />
   </ItemGroup>
 
 </Project>

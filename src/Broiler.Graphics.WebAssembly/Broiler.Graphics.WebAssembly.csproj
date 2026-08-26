@@ -14,6 +14,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>Broiler.Graphics.WebAssembly</RootNamespace>
     <AssemblyName>Broiler.Graphics.WebAssembly</AssemblyName>
+    <Description>Browser Canvas backend for Broiler.Graphics: a platform-neutral frame planner plus browser-wasm JSImport/JSExport interop.</Description>
+    <PackageTags>broiler;graphics;rendering;webassembly;wasm;canvas</PackageTags>
     <!-- Advertise browser as a supported platform so the compatibility analyzer
          does not flag the gated interop when this builds without a RID. -->
     <SupportedPlatform>browser</SupportedPlatform>

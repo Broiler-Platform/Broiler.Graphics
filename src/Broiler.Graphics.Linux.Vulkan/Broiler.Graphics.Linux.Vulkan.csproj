@@ -8,6 +8,8 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Linux.Vulkan</RootNamespace>
     <AssemblyName>Broiler.Graphics.Linux.Vulkan</AssemblyName>
+    <Description>Linux Vulkan presentation backend for Broiler.Graphics (preview: Vulkan 1.2 loader/device path with a CPU-present fallback).</Description>
+    <PackageTags>broiler;graphics;rendering;linux;vulkan</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>

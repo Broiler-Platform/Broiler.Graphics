@@ -11,6 +11,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Windows</RootNamespace>
     <AssemblyName>Broiler.Graphics.Windows</AssemblyName>
+    <Description>Windows Direct2D/DirectWrite backend for Broiler.Graphics, with window and input integration and an HWND-backed video presentation target.</Description>
+    <PackageTags>broiler;graphics;rendering;windows;direct2d;directwrite</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -28,7 +30,7 @@
          (HwndVideoOutput) implementing the Broiler.Media.Video output lifecycle, per the
          media roadmap §6.6/§7.5. It references only the Video ABSTRACTION, never a codec
          implementation. -->
-    <ProjectReference Include="..\..\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
+    <ProjectReference Include="..\..\Broiler.Media\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
   </ItemGroup>
 
 </Project>

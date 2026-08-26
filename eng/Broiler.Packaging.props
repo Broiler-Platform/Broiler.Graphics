@@ -9,7 +9,9 @@
     This file is the single source of truth. It is VENDORED into each
     component at <Component>/eng/Broiler.Packaging.props by
     scripts/sync-packaging.ps1, so every component builds and packs
-    standalone with no dependency on a parent-repo file.
+    standalone with no dependency on a parent-repo file. Cross-component
+    publication gates are tracked in the aggregate repository's
+    docs/ROADMAP.md under "Release and distribution".
 
     DO NOT edit the vendored copies by hand. Edit this canonical file
     and re-run the sync script.
@@ -37,7 +39,7 @@
     <!-- Project / repository links. RepositoryUrl is filled by SourceLink
          from the component's own git origin (PublishRepositoryUrl below),
          which keeps each component self-contained. -->
-    <PackageProjectUrl>https://github.com/MaiRat</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Broiler-Platform</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
 
     <!-- README + icon are packed by the ItemGroup below. -->
@@ -72,6 +74,9 @@
     <!-- Symbol packages -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- EnablePackageValidation is added in Phase 5 with a published
+         PackageValidationBaselineVersion, where the API/version diff is
+         meaningful; on a baseline-less first release it adds little. -->
 
     <!-- Reproducible builds + SourceLink -->
     <Deterministic>true</Deterministic>
@@ -97,6 +102,11 @@
   <!-- SourceLink provider. PrivateAssets=all keeps it out of the
        package dependency graph. -->
   <ItemGroup>
+    <!-- The Remove keeps this import idempotent. When one component is checked
+         out INSIDE another (submodule layout), the inner Directory.Build.props
+         chains to the outer one, so both vendored copies of this file are
+         imported and the bare Include would land twice - which is NU1504. -->
+    <PackageReference Remove="Microsoft.SourceLink.GitHub" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
   </ItemGroup>
 

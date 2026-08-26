@@ -9,4 +9,9 @@
 
 # Test / publish artifacts
 [Pp]ublish/
+artifacts/
 *.binlog
+
+# NuGet pack output (packages are published from CI/local artifacts, never committed)
+*.nupkg
+*.snupkg
