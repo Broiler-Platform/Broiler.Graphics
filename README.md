@@ -36,6 +36,29 @@ dotnet add package Broiler.Graphics.Windows --prerelease
 There is no meta-package: an application takes the core plus exactly the backends it
 presents with.
 
+### Consuming Broiler packages from GitHub Packages
+
+`NuGet.config` in the repository root pins two sources — nuget.org and the
+Broiler-Platform GitHub Packages feed — and clears whatever the machine has configured,
+so a restore resolves identically everywhere. Package source mapping sends `Broiler.*` to
+either feed and everything else to nuget.org only.
+
+That mapping is load-bearing. GitHub Packages requires authentication **even for public
+packages** and answers `401` to an anonymous request, so an unmapped source would be
+queried for every package and break the restore. Because this repository takes its
+Broiler dependencies through the submodules as project references, nothing queries that
+feed today and no credentials are needed to build.
+
+To actually pull `Broiler.*` from GitHub Packages you need a personal access token with
+the `read:packages` scope. Put it in your **user-level** config, never in the committed
+one:
+
+```bash
+dotnet nuget update source broiler-github --username <github-user> --password <pat> --store-password-in-clear-text --configfile "$APPDATA/NuGet/NuGet.Config"
+```
+
+In GitHub Actions use `secrets.GITHUB_TOKEN` rather than a personal token.
+
 ## Packages
 
 | Package | Target | Role |
