@@ -13,7 +13,7 @@
   <ItemGroup>
     <!-- Tests exercise the platform-neutral planner and the CPU oracle; the browser
          interop is not compiled here (no browser-wasm RID). -->
-    <ProjectReference Include="..\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
+    <ProjectReference Include="..\..\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
   </ItemGroup>
 
 </Project>

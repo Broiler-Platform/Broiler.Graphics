@@ -8,6 +8,8 @@
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Linux.OpenGL</RootNamespace>
     <AssemblyName>Broiler.Graphics.Linux.OpenGL</AssemblyName>
+    <Description>Linux OpenGL/EGL presentation backend for Broiler.Graphics (Mesa/EGL, pbuffer and opt-in X11 window surfaces, partial GPU-native replay).</Description>
+    <PackageTags>broiler;graphics;rendering;linux;opengl;egl</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>

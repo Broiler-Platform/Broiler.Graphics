@@ -16,9 +16,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Broiler.Graphics.Windows\Broiler.Graphics.Direct2D.csproj" />
+    <ProjectReference Include="..\..\Broiler.Graphics.Windows\Broiler.Graphics.Direct2D.csproj" />
     <!-- Composition root: supplies the concrete image codecs to Broiler.Graphics via BImageCodecs.Use(...). -->
-    <ProjectReference Include="..\..\src\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
+    <ProjectReference Include="..\..\..\Broiler.Media\src\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
   </ItemGroup>
 
 </Project>

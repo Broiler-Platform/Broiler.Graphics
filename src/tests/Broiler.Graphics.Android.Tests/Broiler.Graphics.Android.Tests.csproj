@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="..\Broiler.Graphics.Android\Broiler.Graphics.Android.csproj" />
+    <ProjectReference Include="..\..\Broiler.Graphics\Broiler.Graphics.csproj" />
+    <ProjectReference Include="..\..\Broiler.Graphics.Android\Broiler.Graphics.Android.csproj" />
   </ItemGroup>
 
 </Project>
