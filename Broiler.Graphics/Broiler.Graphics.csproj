@@ -30,7 +30,7 @@
     <!-- Graphics depends only on the media image ABSTRACTION. Concrete codecs
          (Broiler.Media.Image.Managed) are supplied by the application composition
          root via BImageCodecs.Use(...); see Imaging/BImageCodecs.cs. -->
-    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Image\Broiler.Media.Image.csproj" />
+    <ProjectReference Include="..\..\src\Broiler.Media.Image\Broiler.Media.Image.csproj" />
   </ItemGroup>
 
 </Project>
