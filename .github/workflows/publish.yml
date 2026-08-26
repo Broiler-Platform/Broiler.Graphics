@@ -176,20 +176,27 @@ jobs:
       # GitHub Packages does not accept snupkg symbol packages, hence
       # --no-symbols. The feed owner must match the package RepositoryUrl,
       # which SourceLink fills in from this checkout's origin.
+      #
+      # The glob is deliberately unquoted so that bash expands it and hands
+      # dotnet the seven package paths. Quoting it leaves the expansion to
+      # NuGet, which splits a pattern on the platform separator - on this
+      # Windows host 'artifacts/*.nupkg' is then one filename, matches
+      # nothing, and the push fails with "File does not exist".
       - name: Push to GitHub Packages
         if: env.TARGET == 'github' && env.DRY_RUN != 'true'
         run: >
-          dotnet nuget push 'artifacts/*.nupkg'
+          dotnet nuget push artifacts/*.nupkg
           --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
           --api-key ${{ secrets.GITHUB_TOKEN }}
           --skip-duplicate
           --no-symbols
 
-      # Pushing a .nupkg also pushes the .snupkg sitting beside it.
+      # Pushing a .nupkg also pushes the .snupkg sitting beside it. Unquoted
+      # for the same reason as the GitHub Packages push above.
       - name: Push to NuGet.org
         if: env.TARGET == 'nuget' && env.DRY_RUN != 'true'
         run: >
-          dotnet nuget push 'artifacts/*.nupkg'
+          dotnet nuget push artifacts/*.nupkg
           --source https://api.nuget.org/v3/index.json
           --api-key ${{ secrets.NUGET_API_KEY }}
           --skip-duplicate
