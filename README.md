@@ -1,5 +1,6 @@
 # Broiler.Graphics
 
+[![CI](https://github.com/Broiler-Platform/Broiler.Graphics/actions/workflows/ci.yml/badge.svg)](https://github.com/Broiler-Platform/Broiler.Graphics/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Broiler-Platform/Broiler.Graphics/blob/main/LICENSE)
 
 Broiler.Graphics is the rendering component for Broiler. It owns a platform-neutral
@@ -115,8 +116,9 @@ remaining Linux validation and implementation work.
 src/                     runtime assemblies, one directory per package
 src/tests/               one self-hosted test runner executable per assembly
 src/demos/               Windows and Linux demo applications (never packaged)
-eng/                     vendored packaging metadata and package icon
+eng/                     vendored packaging metadata, package icon, test script
 docs/                    roadmap
+.github/workflows/       CI and publish pipelines
 Broiler.Media/           submodule; supplies the image and video abstractions
 Broiler.Input/           submodule; keyboard and mouse providers for the Linux demo
 Broiler.Graphics.slnx    solution over every project in src/
@@ -162,26 +164,20 @@ and the Linux demo likewise build only under `Debug-Linux`/`Release-Linux`. A pl
 when that is what you mean to check.
 
 Tests are self-hosted console runners rather than a test framework, so there is nothing
-for `dotnet test` to discover. Run each suite the configuration produced:
+for `dotnet test` to discover. After building, run every suite the configuration
+produced:
+
+```bash
+bash ./eng/run-tests.sh Release-Windows
+```
+
+The script picks the runners that apply: the Direct2D suite under `-Windows`, the Linux
+suite under `-Linux`, and the three neutral suites — core, WebAssembly, Android — under
+every configuration. It starts them with `--no-build`, so they exercise exactly the
+binaries the build produced. Or run one directly:
 
 ```bash
 dotnet run --project src/tests/Broiler.Graphics.Tests -c Debug
-```
-
-```bash
-dotnet run --project src/tests/Broiler.Graphics.WebAssembly.Tests -c Debug
-```
-
-```bash
-dotnet run --project src/tests/Broiler.Graphics.Android.Tests -c Debug
-```
-
-```bash
-dotnet run --project src/tests/Broiler.Graphics.Windows.Tests -c Debug-Windows
-```
-
-```bash
-dotnet run --project src/tests/Broiler.Graphics.Linux.Tests -c Debug-Linux
 ```
 
 ## Demos
@@ -223,6 +219,22 @@ Test and demo projects never pack. `eng/Broiler.Packaging.props` is a vendored c
 the suite-wide packaging metadata and holds the version, which stays in lockstep across
 Broiler components during preview — edit the canonical file and re-run the sync script
 rather than editing the copy.
+
+## Continuous integration and releases
+
+`.github/workflows/ci.yml` builds and tests both configurations on every push and pull
+request — `Release-Linux` on Ubuntu, `Release-Windows` on Windows — checking out the
+submodules one level, and attaches the packed packages to each run. Neither
+configuration alone produces the whole set, so the Windows leg packs both: it can build
+every project, because the Linux libraries are plain `net10.0` with no runtime
+identifier.
+
+`.github/workflows/publish.yml` publishes. Run it manually to choose a feed (GitHub
+Packages or nuget.org); it defaults to a dry run that packs and attaches the packages
+without pushing. Pushing a `v*` tag publishes to nuget.org, and the tag must match the
+version in `eng/Broiler.Packaging.props`, which stays the source of truth for the suite
+version. Publishing to nuget.org needs a `NUGET_API_KEY` repository secret; GitHub
+Packages uses the built-in `GITHUB_TOKEN`.
 
 ## Preview status
 
