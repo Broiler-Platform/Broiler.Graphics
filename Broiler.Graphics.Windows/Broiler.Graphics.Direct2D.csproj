@@ -28,7 +28,7 @@
          (HwndVideoOutput) implementing the Broiler.Media.Video output lifecycle, per the
          media roadmap §6.6/§7.5. It references only the Video ABSTRACTION, never a codec
          implementation. -->
-    <ProjectReference Include="..\..\Broiler.Media\Broiler.Media.Video\Broiler.Media.Video.csproj" />
+    <ProjectReference Include="..\..\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
   </ItemGroup>
 
 </Project>
