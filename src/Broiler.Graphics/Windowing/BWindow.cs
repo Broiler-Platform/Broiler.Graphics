@@ -19,6 +19,19 @@ public abstract class BWindow : IDisposable
 
     public bool IsDisposed => _disposed;
 
+    /// <summary>
+    /// Raised when the user asks the OS to close this window (close button, Alt+F4). A window that
+    /// does not own the message loop (<see cref="BWindowOptions.OwnsMessageLoop"/> = false) is not
+    /// destroyed by the request: the owner decides and calls <see cref="Close"/>.
+    /// </summary>
+    public event EventHandler? CloseRequested;
+
+    /// <summary>Raised after the native window has been destroyed.</summary>
+    public event EventHandler? Closed;
+
+    /// <summary>Raised when the window is minimized, maximized, or restored.</summary>
+    public event EventHandler? StateChanged;
+
     public abstract IntPtr NativeHandle { get; }
 
     public abstract BSize ClientSize { get; }
@@ -29,10 +42,78 @@ public abstract class BWindow : IDisposable
 
     public abstract IBroilerSurface? Surface { get; }
 
+    /// <summary>The current show state. <see cref="BWindowState.Normal"/> before the window exists.</summary>
+    public virtual BWindowState WindowState => BWindowState.Normal;
+
     public int Run()
     {
         ThrowIfDisposed();
         return RunCore();
+    }
+
+    /// <summary>
+    /// Realizes and shows the native window without entering a message loop. Used for a secondary
+    /// window (<see cref="BWindowOptions.OwnsMessageLoop"/> = false) that an existing loop on the
+    /// same thread services.
+    /// </summary>
+    public void Show()
+    {
+        ThrowIfDisposed();
+        ShowCore();
+    }
+
+    /// <summary>Destroys the native window. Safe to call more than once.</summary>
+    public void Close()
+    {
+        if (IsDisposed)
+            return;
+
+        CloseCore();
+    }
+
+    /// <summary>Sets the native window title. Owner-drawn chrome still uses it for the taskbar.</summary>
+    public void SetTitle(string title)
+    {
+        ThrowIfDisposed();
+        SetTitleCore(title ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Sets the window (taskbar and Alt+Tab) icon from straight-alpha RGBA pixels, or clears it
+    /// when <paramref name="icon"/> is null. Owner-drawn chrome draws its own icon separately.
+    /// </summary>
+    public void SetIcon(BPixelBuffer? icon)
+    {
+        ThrowIfDisposed();
+        SetIconCore(icon);
+    }
+
+    /// <summary>Minimizes, maximizes, or restores the window.</summary>
+    public void SetWindowState(BWindowState state)
+    {
+        ThrowIfDisposed();
+        SetWindowStateCore(state);
+    }
+
+    /// <summary>
+    /// Hands an in-progress pointer press to the window manager as a window move. An owner-drawn
+    /// title bar calls this on press so dragging, snapping, and shake behave natively.
+    /// </summary>
+    public void BeginMoveDrag()
+    {
+        ThrowIfDisposed();
+        BeginMoveDragCore();
+    }
+
+    /// <summary>
+    /// Hands an in-progress pointer press to the window manager as a resize of
+    /// <paramref name="edge"/>. <see cref="BWindowEdge.None"/> is ignored.
+    /// </summary>
+    public void BeginResizeDrag(BWindowEdge edge)
+    {
+        ThrowIfDisposed();
+        if (edge != BWindowEdge.None)
+            BeginResizeDragCore(edge);
     }
 
     public void Invalidate()
@@ -90,7 +171,47 @@ public abstract class BWindow : IDisposable
 
     protected void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
+    protected void RaiseCloseRequested() => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    protected void RaiseClosed() => Closed?.Invoke(this, EventArgs.Empty);
+
+    protected void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
+
     protected abstract int RunCore();
+
+    /// <summary>Backend hook for <see cref="Show"/>. Default is unsupported.</summary>
+    protected virtual void ShowCore() =>
+        throw new NotSupportedException("This window backend does not support Show().");
+
+    /// <summary>Backend hook for <see cref="Close"/>. Default is a no-op.</summary>
+    protected virtual void CloseCore()
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="SetTitle"/>. Default is a no-op.</summary>
+    protected virtual void SetTitleCore(string title)
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="SetIcon"/>. Default is a no-op.</summary>
+    protected virtual void SetIconCore(BPixelBuffer? icon)
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="SetWindowState"/>. Default is a no-op.</summary>
+    protected virtual void SetWindowStateCore(BWindowState state)
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="BeginMoveDrag"/>. Default is a no-op.</summary>
+    protected virtual void BeginMoveDragCore()
+    {
+    }
+
+    /// <summary>Backend hook for <see cref="BeginResizeDrag"/>. Default is a no-op.</summary>
+    protected virtual void BeginResizeDragCore(BWindowEdge edge)
+    {
+    }
 
     protected abstract void InvalidateCore();
 
