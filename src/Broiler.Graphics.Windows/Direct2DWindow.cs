@@ -424,7 +424,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             y,
             width,
             height,
-            IntPtr.Zero,
+            Options.Owner?.NativeHandle ?? IntPtr.Zero,
             IntPtr.Zero,
             GetModuleHandle(null),
             lpParam);
