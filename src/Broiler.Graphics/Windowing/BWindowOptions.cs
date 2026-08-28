@@ -44,4 +44,15 @@ public sealed record BWindowOptions
     /// Requested top edge in device-independent pixels. Null centers the window on the screen.
     /// </summary>
     public double? Top { get; init; }
+
+    /// <summary>
+    /// The window this one is owned by, or null for an unowned top-level window.
+    ///
+    /// Ownership is what locks a secondary window's z-order: the window manager keeps an owned
+    /// window above its owner, so the owner cannot be raised in front of it, minimizes it with the
+    /// owner, and leaves it off the taskbar. That is what a modal dialog needs — input blocking is
+    /// the application's business, but staying in front of the window it blocks is the window
+    /// manager's, and no amount of activation calls substitutes for it.
+    /// </summary>
+    public BWindow? Owner { get; init; }
 }
