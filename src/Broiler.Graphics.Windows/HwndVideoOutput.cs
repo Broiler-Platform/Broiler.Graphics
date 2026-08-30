@@ -4,25 +4,33 @@ using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using Broiler.Media;
-using Broiler.Media.Video;
+using Broiler.Media.Video.Windows;
 
 namespace Broiler.Graphics.Windows;
 
 /// <summary>
-/// A Windows HWND-backed video presentation target, declared and owned by
-/// <c>Broiler.Graphics.Windows</c> (which owns the window lifetime). It implements the
-/// platform-neutral <see cref="IVideoOutput"/> lifecycle so a video backend such as
+/// A Windows HWND-backed video presentation target, created and owned by
+/// <c>Broiler.Graphics.Windows</c> (which owns the window lifetime). It implements
+/// <see cref="IHwndVideoOutput"/> so a video backend such as
 /// <c>Broiler.Media.Video.MediaFoundation</c> can <em>borrow</em> it and drive
 /// <c>IMFMediaEngine</c> against its HWND without ever creating or destroying the window.
 /// </summary>
 /// <remarks>
-/// This type is the presentation-target contract required by the Broiler.Media roadmap
-/// (§6.6 / §7.5): the HWND is declared and owned here in Graphics.Windows; the Media
-/// Foundation implementation references this assembly and treats the handle's lifetime and
-/// thread affinity as external constraints.
+/// <para>
+/// This type is the presentation target required by the Broiler.Media roadmap (§6.6 / §7.5):
+/// the HWND is created and owned here in Graphics.Windows, and a borrowing backend treats the
+/// handle's lifetime and thread affinity as external constraints.
+/// </para>
+/// <para>
+/// The dependency runs one way: this assembly references the Media contract, and Media
+/// references nothing here. The borrower sees only <see cref="IHwndVideoOutput"/>, which
+/// carries no owner-only operation — so <see cref="Resize"/>, <see cref="SetVisible"/> and
+/// <see cref="NotifyDestroyed"/> below are reachable only by the window's owner. Keep them off
+/// the interface (Broiler.Media ADR 0006).
+/// </para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
-public sealed class HwndVideoOutput : IVideoOutput
+public sealed class HwndVideoOutput : IHwndVideoOutput
 {
     private readonly object _gate = new();
 

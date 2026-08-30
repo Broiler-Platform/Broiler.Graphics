@@ -18,6 +18,7 @@ internal static class Program
 
         var tests = new List<(string Name, Action Body)>();
         WindowsImageTests.Register(tests);
+        HwndVideoOutputTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();
