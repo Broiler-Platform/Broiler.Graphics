@@ -14,7 +14,7 @@
     <!-- Tests depend on the platform-neutral Core, and — acting as the composition
          root — on the concrete managed codecs to register via BImageCodecs.Use(...). -->
     <ProjectReference Include="..\..\Broiler.Graphics\Broiler.Graphics.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Media\src\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
+    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
   </ItemGroup>
 
 </Project>

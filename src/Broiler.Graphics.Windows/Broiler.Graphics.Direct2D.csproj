@@ -31,8 +31,8 @@
          roadmap §6.6/§7.5. It references only the Video ABSTRACTIONS, never a codec
          implementation — and the dependency runs this way only: Media references nothing
          here (Broiler.Media ADR 0006). -->
-    <ProjectReference Include="..\..\Broiler.Media\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
-    <ProjectReference Include="..\..\Broiler.Media\src\Broiler.Media.Video.Windows\Broiler.Media.Video.Windows.csproj" />
+    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
+    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Video.Windows\Broiler.Media.Video.Windows.csproj" />
   </ItemGroup>
 
 </Project>
