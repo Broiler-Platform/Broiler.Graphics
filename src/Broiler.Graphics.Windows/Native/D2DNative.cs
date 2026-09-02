@@ -103,6 +103,40 @@ internal static class D2DNative
     /// <summary>ID2D1Factory1::CreateDevice.</summary>
     internal const int VtblCreateDevice = 17;
 
+    // Geometry. A triangle is the one primitive Direct2D has no dedicated call for, so it goes
+    // through a path geometry: ID2D1Resource::GetFactory off the context, CreatePathGeometry,
+    // Open, one closed figure, Close, then ID2D1RenderTarget::FillGeometry.
+
+    /// <summary>ID2D1Resource::GetFactory (the first method after IUnknown on every D2D object).</summary>
+    internal const int VtblGetFactory = 3;
+
+    /// <summary>ID2D1Factory::CreatePathGeometry.</summary>
+    internal const int VtblCreatePathGeometry = 10;
+
+    /// <summary>ID2D1PathGeometry::Open (ID2D1Geometry contributes slots 4-16).</summary>
+    internal const int VtblPathGeometryOpen = 17;
+
+    /// <summary>ID2D1PathGeometry::GetFigureCount, which is how a test proves the sink was driven.</summary>
+    internal const int VtblPathGeometryGetFigureCount = 20;
+
+    /// <summary>ID2D1SimplifiedGeometrySink::SetFillMode.</summary>
+    internal const int VtblGeometrySinkSetFillMode = 3;
+
+    /// <summary>ID2D1SimplifiedGeometrySink::BeginFigure.</summary>
+    internal const int VtblGeometrySinkBeginFigure = 5;
+
+    /// <summary>ID2D1SimplifiedGeometrySink::AddLines.</summary>
+    internal const int VtblGeometrySinkAddLines = 6;
+
+    /// <summary>ID2D1SimplifiedGeometrySink::EndFigure.</summary>
+    internal const int VtblGeometrySinkEndFigure = 8;
+
+    /// <summary>ID2D1SimplifiedGeometrySink::Close.</summary>
+    internal const int VtblGeometrySinkClose = 9;
+
+    /// <summary>ID2D1RenderTarget::FillGeometry.</summary>
+    internal const int VtblFillGeometry = 23;
+
     /// <summary>Direct2D signals this from EndDraw when target resources must be recreated.</summary>
     internal const int D2DERR_RECREATE_TARGET = unchecked((int)0x8899000C);
 
@@ -169,6 +203,24 @@ internal static class D2DNative
     }
 
     [Flags]
+    internal enum D2D1_FILL_MODE : uint
+    {
+        ALTERNATE = 0,
+        WINDING = 1,
+    }
+
+    internal enum D2D1_FIGURE_BEGIN : uint
+    {
+        FILLED = 0,
+        HOLLOW = 1,
+    }
+
+    internal enum D2D1_FIGURE_END : uint
+    {
+        OPEN = 0,
+        CLOSED = 1,
+    }
+
     internal enum D2D1_DEVICE_CONTEXT_OPTIONS : uint
     {
         NONE = 0,

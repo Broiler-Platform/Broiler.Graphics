@@ -41,6 +41,39 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     private delegate void FillRectangleProc(IntPtr self, in D2DNative.D2D1_RECT_F rect, IntPtr brush);
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void GetFactoryProc(IntPtr self, out IntPtr factory);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int CreatePathGeometryProc(IntPtr self, out IntPtr pathGeometry);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int PathGeometryOpenProc(IntPtr self, out IntPtr sink);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void GeometrySinkSetFillModeProc(IntPtr self, D2DNative.D2D1_FILL_MODE fillMode);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void GeometrySinkBeginFigureProc(
+        IntPtr self,
+        D2DNative.D2D1_POINT_2F startPoint,
+        D2DNative.D2D1_FIGURE_BEGIN figureBegin);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void GeometrySinkAddLinesProc(
+        IntPtr self,
+        [In] D2DNative.D2D1_POINT_2F[] points,
+        uint pointsCount);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void GeometrySinkEndFigureProc(IntPtr self, D2DNative.D2D1_FIGURE_END figureEnd);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int GeometrySinkCloseProc(IntPtr self);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void FillGeometryProc(IntPtr self, IntPtr geometry, IntPtr brush, IntPtr opacityBrush);
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     private delegate void DrawRectangleProc(
         IntPtr self,
         in D2DNative.D2D1_RECT_F rect,
@@ -235,6 +268,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             case BRenderCommand.StrokeRoundedRect c:
                 StrokeRoundedRect(surface, c);
                 break;
+            case BRenderCommand.FillTriangle c:
+                FillTriangle(surface, c);
+                break;
             case BRenderCommand.DrawText c:
                 DrawText(surface, c);
                 break;
@@ -267,6 +303,84 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         FillRectangleProc fill = ComVtable.Method<FillRectangleProc>(context, D2DNative.VtblFillRectangle);
         fill(context, in rect, brush.Pointer);
     }
+
+    /// <summary>
+    /// Fills a triangle. Direct2D has a call for rectangles, rounded rectangles and ellipses but
+    /// none for an arbitrary polygon, so the three corners become a one-figure path geometry that
+    /// FillGeometry draws with the render target's own antialiasing.
+    /// </summary>
+    private static void FillTriangle(IDirect2DSurface surface, BRenderCommand.FillTriangle c)
+    {
+        IntPtr context = surface.Context;
+        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        using ComPtr geometry = CreateTriangleGeometry(context, c);
+
+        FillGeometryProc fill = ComVtable.Method<FillGeometryProc>(context, D2DNative.VtblFillGeometry);
+        fill(context, geometry.Pointer, brush.Pointer, IntPtr.Zero);
+    }
+
+    /// <summary>
+    /// Builds the closed three-corner path. The factory comes from the context rather than from
+    /// Direct2DDevice: ID2D1Resource::GetFactory is on every D2D object and answers the factory the
+    /// object was made by, which is exactly the one the geometry has to belong to.
+    /// </summary>
+    private static ComPtr CreateTriangleGeometry(IntPtr context, BRenderCommand.FillTriangle c)
+    {
+        GetFactoryProc getFactory = ComVtable.Method<GetFactoryProc>(context, D2DNative.VtblGetFactory);
+        getFactory(context, out IntPtr factoryPointer);
+        if (factoryPointer == IntPtr.Zero)
+            throw new InvalidOperationException("ID2D1Resource::GetFactory returned no factory.");
+
+        using var factory = new ComPtr();
+        factory.Attach(factoryPointer);
+
+        CreatePathGeometryProc createGeometry =
+            ComVtable.Method<CreatePathGeometryProc>(factory.Pointer, D2DNative.VtblCreatePathGeometry);
+        int hr = createGeometry(factory.Pointer, out IntPtr geometryPointer);
+        NativeMethods.ThrowIfFailed(hr, "ID2D1Factory::CreatePathGeometry");
+
+        var geometry = new ComPtr();
+        geometry.Attach(geometryPointer);
+
+        try
+        {
+            PathGeometryOpenProc open =
+                ComVtable.Method<PathGeometryOpenProc>(geometry.Pointer, D2DNative.VtblPathGeometryOpen);
+            hr = open(geometry.Pointer, out IntPtr sinkPointer);
+            NativeMethods.ThrowIfFailed(hr, "ID2D1PathGeometry::Open");
+
+            using var sink = new ComPtr();
+            sink.Attach(sinkPointer);
+
+            // Winding, so the corner order does not decide whether the triangle is filled - the CPU
+            // rasterizer fills by nonzero winding too, and the two have to agree.
+            ComVtable.Method<GeometrySinkSetFillModeProc>(sink.Pointer, D2DNative.VtblGeometrySinkSetFillMode)(
+                sink.Pointer, D2DNative.D2D1_FILL_MODE.WINDING);
+
+            ComVtable.Method<GeometrySinkBeginFigureProc>(sink.Pointer, D2DNative.VtblGeometrySinkBeginFigure)(
+                sink.Pointer, ToPointF(c.A), D2DNative.D2D1_FIGURE_BEGIN.FILLED);
+
+            D2DNative.D2D1_POINT_2F[] rest = [ToPointF(c.B), ToPointF(c.C)];
+            ComVtable.Method<GeometrySinkAddLinesProc>(sink.Pointer, D2DNative.VtblGeometrySinkAddLines)(
+                sink.Pointer, rest, (uint)rest.Length);
+
+            ComVtable.Method<GeometrySinkEndFigureProc>(sink.Pointer, D2DNative.VtblGeometrySinkEndFigure)(
+                sink.Pointer, D2DNative.D2D1_FIGURE_END.CLOSED);
+
+            hr = ComVtable.Method<GeometrySinkCloseProc>(sink.Pointer, D2DNative.VtblGeometrySinkClose)(sink.Pointer);
+            NativeMethods.ThrowIfFailed(hr, "ID2D1SimplifiedGeometrySink::Close");
+        }
+        catch
+        {
+            geometry.Dispose();
+            throw;
+        }
+
+        return geometry;
+    }
+
+    private static D2DNative.D2D1_POINT_2F ToPointF(BPoint point) =>
+        new() { X = (float)point.X, Y = (float)point.Y };
 
     private static void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
     {

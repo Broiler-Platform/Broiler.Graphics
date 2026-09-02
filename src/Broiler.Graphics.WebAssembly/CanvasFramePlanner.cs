@@ -101,6 +101,9 @@ public sealed class CanvasFramePlanner
             case BRenderCommand.StrokeRoundedRect c:
                 PlanStrokeRoundedRect(c);
                 break;
+            case BRenderCommand.FillTriangle c:
+                PlanFillTriangle(c);
+                break;
             case BRenderCommand.DrawText c:
                 PlanDrawText(c);
                 break;
@@ -143,6 +146,39 @@ public sealed class CanvasFramePlanner
         EmitRect(rect);
         EmitColor(command.Color);
     }
+
+    /// <summary>
+    /// Plans a filled triangle. Unlike every rectangle op this does not go through
+    /// <see cref="CanvasTransformPolicy.ToDeviceAabb"/>: a triangle's three corners map exactly
+    /// under an affine transform, so there is nothing to approximate and the browser matches the
+    /// CPU oracle, which transforms the same three points.
+    /// </summary>
+    private void PlanFillTriangle(BRenderCommand.FillTriangle command)
+    {
+        if (command.Color.A == 0)
+            return;
+
+        BMatrix3x2 transform = _current * _pixelScale;
+        BPoint a = transform.Transform(command.A);
+        BPoint b = transform.Transform(command.B);
+        BPoint c = transform.Transform(command.C);
+        if (!IsFinite(a) || !IsFinite(b) || !IsFinite(c))
+            return;
+
+        EnsureClip();
+        EmitOp(CanvasReplayOp.FillTriangle);
+        Emit(a.X);
+        Emit(a.Y);
+        Emit(b.X);
+        Emit(b.Y);
+        Emit(c.X);
+        Emit(c.Y);
+        EmitColor(command.Color);
+    }
+
+    private static bool IsFinite(BPoint point) =>
+        !double.IsNaN(point.X) && !double.IsInfinity(point.X) &&
+        !double.IsNaN(point.Y) && !double.IsInfinity(point.Y);
 
     private void PlanStrokeRect(BRenderCommand.StrokeRect command)
     {

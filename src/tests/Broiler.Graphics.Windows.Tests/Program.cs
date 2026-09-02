@@ -21,6 +21,7 @@ internal static class Program
         HwndVideoOutputTests.Register(tests);
         WindowCaptionTests.Register(tests);
         WindowResizePaintTests.Register(tests);
+        Direct2DTriangleTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

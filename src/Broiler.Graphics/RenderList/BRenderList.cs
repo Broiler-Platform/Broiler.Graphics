@@ -68,6 +68,20 @@ public sealed class BRenderList
         _commands.Add(new BRenderCommand.StrokeRoundedRect(rect, color, radiusX, radiusY, thickness));
     }
 
+    /// <summary>
+    /// Records a filled triangle. A degenerate triangle - one whose corners are collinear, so it
+    /// has no area - is dropped rather than recorded, because backends disagree about what to do
+    /// with a zero-area fill and none of them would draw anything useful.
+    /// </summary>
+    public void FillTriangle(BPoint a, BPoint b, BPoint c, BColor color)
+    {
+        double twiceArea = ((b.X - a.X) * (c.Y - a.Y)) - ((c.X - a.X) * (b.Y - a.Y));
+        if (double.IsNaN(twiceArea) || Math.Abs(twiceArea) < 1e-9)
+            return;
+
+        _commands.Add(new BRenderCommand.FillTriangle(a, b, c, color));
+    }
+
     public void DrawText(BTextRun text, BPoint origin)
     {
         ArgumentNullException.ThrowIfNull(text);
