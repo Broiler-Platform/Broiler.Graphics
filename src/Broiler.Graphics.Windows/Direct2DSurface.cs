@@ -115,8 +115,24 @@ internal sealed class Direct2DSurface : IDirect2DSurface
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _size = ValidateSize(size);
-        _dpiScale = NormalizeDpiScale(dpiScale);
+        BSize requested = ValidateSize(size);
+        double requestedScale = NormalizeDpiScale(dpiScale);
+
+        // The buffers are sized in pixels, so a resize that lands on the same pixel extent has
+        // nothing to do - and tearing down the D2D target bitmap only to rebuild an identical one
+        // is what a drag would pay for on every step. Linux and the browser both guard this
+        // already; Windows was the one backend that did not. The scale is part of the test because
+        // the target bitmap carries the DPI, so the same pixels at a new scale still need rebuilding.
+        if (requestedScale.Equals(_dpiScale) &&
+            ToPixelDimension(requested.Width, requestedScale, nameof(Size)) == PixelWidth &&
+            ToPixelDimension(requested.Height, requestedScale, nameof(Size)) == PixelHeight)
+        {
+            _size = requested;
+            return;
+        }
+
+        _size = requested;
+        _dpiScale = requestedScale;
 
         ReleaseSizeDependentResources();
 

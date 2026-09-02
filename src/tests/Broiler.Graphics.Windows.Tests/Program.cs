@@ -20,6 +20,7 @@ internal static class Program
         WindowsImageTests.Register(tests);
         HwndVideoOutputTests.Register(tests);
         WindowCaptionTests.Register(tests);
+        WindowResizePaintTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();
