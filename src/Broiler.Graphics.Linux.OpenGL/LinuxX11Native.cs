@@ -13,6 +13,12 @@ internal static class LinuxX11Native
     public const int ConfigureNotify = 22;
     public const int ClientMessage = 33;
 
+    /// <summary>XChangeProperty's PropModeReplace.</summary>
+    public const int PropModeReplace = 0;
+
+    /// <summary>A property of 8-bit items, which is what a UTF-8 title is.</summary>
+    public const int Format8 = 8;
+
     public const int RevertToParent = 2;
     public const int CurrentTime = 0;
 
@@ -82,6 +88,22 @@ internal static class LinuxX11Native
         IntPtr display,
         [MarshalAs(UnmanagedType.LPStr)] string atomName,
         int onlyIfExists);
+
+    /// <summary>
+    /// Writes a window property. Needed for <c>_NET_WM_NAME</c>, which is the title a modern window
+    /// manager actually reads: <c>XStoreName</c> writes the legacy <c>WM_NAME</c>, and that one is
+    /// Latin-1, so a document called "Übung.docx" comes out mangled through it.
+    /// </summary>
+    [DllImport("libX11.so.6", EntryPoint = "XChangeProperty")]
+    public static extern int ChangeProperty(
+        IntPtr display,
+        IntPtr window,
+        IntPtr property,
+        IntPtr type,
+        int format,
+        int mode,
+        byte[] data,
+        int elementCount);
 
     [DllImport("libX11.so.6", EntryPoint = "XSetWMProtocols")]
     public static extern int SetWmProtocols(
