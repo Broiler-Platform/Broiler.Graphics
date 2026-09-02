@@ -146,7 +146,16 @@ internal sealed class Direct2DSurface : IDirect2DSurface
             SampleDesc = new DxgiNative.DXGI_SAMPLE_DESC { Count = 1, Quality = 0 },
             BufferUsage = DxgiNative.DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount = BufferCount,
-            Scaling = DxgiNative.DXGI_SCALING.STRETCH,
+
+            // NONE for a window, so a frame the app has not redrawn yet is shown at its own size
+            // in the corner rather than rubber-sheeted over the new one. STRETCH is what made a
+            // live resize distort every control - a 100 DIP button drawn wider than 100 DIP for
+            // as long as the drag lasted - because the compositor scaled the last presented frame
+            // to whatever the window had become. A composition swap chain has no choice: DXGI
+            // only accepts STRETCH from CreateSwapChainForComposition.
+            Scaling = _hwnd == IntPtr.Zero
+                ? DxgiNative.DXGI_SCALING.STRETCH
+                : DxgiNative.DXGI_SCALING.NONE,
             SwapEffect = DxgiNative.DXGI_SWAP_EFFECT.FLIP_SEQUENTIAL,
             AlphaMode = _enableTransparency
                 ? DxgiNative.DXGI_ALPHA_MODE.PREMULTIPLIED
