@@ -24,6 +24,7 @@ internal static class Program
         ImageRendererTests.Register(tests);
         LifecycleTests.Register(tests);
         ImageCodecTests.Register(tests);
+        ImageResourceTests.Register(tests);
         ApngTests.Register(tests);
         TextMeasurementConcurrencyTests.Register(tests);
         RenderPathConcurrencyTests.Register(tests);
