@@ -33,12 +33,12 @@ internal sealed class CanvasTextMetricsProvider : IBTextMetricsProvider
 
         string family = font.FamilyName ?? string.Empty;
         bool italic = font.Slant != BFontSlant.Normal;
-        var key = new CacheKey(text, family, font.SizeInPixels, (int)font.Weight, italic);
+        var key = new CacheKey(text, family, font.Size, (int)font.Weight, italic);
         if (_advanceCache.TryGetValue(key, out double cached))
             return cached;
 
         double advance = CanvasInterop.MeasureAdvance(
-            text, font.SizeInPixels, (int)font.Weight, italic ? 1 : 0, family);
+            text, font.Size, (int)font.Weight, italic ? 1 : 0, family);
         if (!double.IsFinite(advance) || advance < 0)
             advance = 0;
         advance = Math.Round(advance, 2);
@@ -50,7 +50,7 @@ internal sealed class CanvasTextMetricsProvider : IBTextMetricsProvider
     public double GetLineHeight(BFontStyle font)
     {
         ArgumentNullException.ThrowIfNull(font);
-        return Math.Ceiling(font.SizeInPixels * 1.25);
+        return Math.Ceiling(font.Size * 1.25);
     }
 
     private readonly record struct CacheKey(string Text, string Family, double Size, int Weight, bool Italic);
