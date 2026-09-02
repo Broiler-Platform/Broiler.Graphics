@@ -22,6 +22,7 @@ internal static class Program
         WindowCaptionTests.Register(tests);
         WindowResizePaintTests.Register(tests);
         Direct2DTriangleTests.Register(tests);
+        SystemFontCollectionTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

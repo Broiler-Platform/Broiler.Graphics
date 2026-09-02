@@ -149,6 +149,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         _device.Initialize();
 
         DirectWriteTextMetricsProvider.UseIfUnset();
+        DirectWriteFontFamilies.UseIfUnset();
     }
 
     public IBroilerSurface CreateSurface(BSurfaceDescriptor descriptor)

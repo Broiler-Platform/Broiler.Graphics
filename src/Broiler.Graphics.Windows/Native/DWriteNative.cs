@@ -15,6 +15,27 @@ internal static class DWriteNative
 
     // ---- Vtable slots ----------------------------------------------------------------------------
 
+    /// <summary>IDWriteFactory::GetSystemFontCollection.</summary>
+    internal const int VtblGetSystemFontCollection = 3;
+
+    /// <summary>IDWriteFontCollection::GetFontFamilyCount.</summary>
+    internal const int VtblGetFontFamilyCount = 3;
+
+    /// <summary>IDWriteFontCollection::GetFontFamily.</summary>
+    internal const int VtblGetFontFamily = 4;
+
+    /// <summary>IDWriteFontFamily::GetFamilyNames, after the five slots it inherits from IDWriteFontList.</summary>
+    internal const int VtblGetFamilyNames = 6;
+
+    /// <summary>IDWriteLocalizedStrings::FindLocaleName.</summary>
+    internal const int VtblFindLocaleName = 4;
+
+    /// <summary>IDWriteLocalizedStrings::GetStringLength.</summary>
+    internal const int VtblGetStringLength = 7;
+
+    /// <summary>IDWriteLocalizedStrings::GetString.</summary>
+    internal const int VtblGetString = 8;
+
     /// <summary>IDWriteFactory::CreateTextFormat.</summary>
     internal const int VtblCreateTextFormat = 15;
 
