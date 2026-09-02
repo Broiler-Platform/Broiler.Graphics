@@ -28,6 +28,7 @@ internal static class Program
         TextMeasurementConcurrencyTests.Register(tests);
         RenderPathConcurrencyTests.Register(tests);
         RasterBandParallelismTests.Register(tests);
+        SystemFontTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();
