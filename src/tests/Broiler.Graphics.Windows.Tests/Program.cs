@@ -19,6 +19,9 @@ internal static class Program
         var tests = new List<(string Name, Action Body)>();
         WindowsImageTests.Register(tests);
         HwndVideoOutputTests.Register(tests);
+        WindowCaptionTests.Register(tests);
+        WindowResizePaintTests.Register(tests);
+        Direct2DTriangleTests.Register(tests);
 
         int passed = 0;
         var failures = new List<string>();

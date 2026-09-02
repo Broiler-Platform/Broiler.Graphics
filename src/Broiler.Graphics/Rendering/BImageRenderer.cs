@@ -130,6 +130,9 @@ public sealed class BImageRenderer : IBroilerRenderer
             case BRenderCommand.StrokeRoundedRect c:
                 StrokeRoundedRect(canvas, c, state);
                 break;
+            case BRenderCommand.FillTriangle c:
+                FillTriangle(canvas, c, state);
+                break;
             case BRenderCommand.DrawText c:
                 DrawText(canvas, c, state);
                 break;
@@ -176,6 +179,35 @@ public sealed class BImageRenderer : IBroilerRenderer
         PointF[]? quad = TransformQuad(command.Rect, state);
         if (quad is not null)
             canvas.FillPolygon(quad, command.Color);
+    }
+
+    /// <summary>
+    /// Fills a triangle through the same antialiased scanline filler glyphs use, so a diagonal
+    /// edge is smooth rather than stepped. FillPolygon is deliberately not used here: it decides
+    /// each pixel by a point-in-polygon test at the pixel centre, which is exactly the hard edge a
+    /// triangle primitive exists to avoid.
+    /// </summary>
+    private void FillTriangle(BCanvas canvas, BRenderCommand.FillTriangle command, ReplayState state)
+    {
+        if (command.Color.A == 0)
+            return;
+
+        BMatrix3x2 transform = state.Effective;
+        BPoint a = transform.Transform(command.A);
+        BPoint b = transform.Transform(command.B);
+        BPoint c = transform.Transform(command.C);
+        if (!IsFinite(a) || !IsFinite(b) || !IsFinite(c))
+            return;
+
+        PointF[] contour =
+        [
+            new PointF((float)a.X, (float)a.Y),
+            new PointF((float)b.X, (float)b.Y),
+            new PointF((float)c.X, (float)c.Y),
+        ];
+
+        // Nonzero winding, so the corner order does not decide whether the triangle is filled.
+        canvas.FillGlyphContours([contour], command.Color);
     }
 
     /// <summary>

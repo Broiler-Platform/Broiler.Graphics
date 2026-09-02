@@ -23,7 +23,9 @@ internal static class CanvasFramePlannerTests
         tests.Add(("Rounded rect radii scale with transform", RoundedRadiiScale));
         tests.Add(("DrawText bakes baseline and string table", DrawTextEncodes));
         tests.Add(("DrawImage encodes source, dest, opacity", DrawImageEncodes));
-        tests.Add(("All ten command kinds plan without fallback", AllKindsNoFallback));
+        tests.Add(("FillTriangle encodes its three corners and color", FillTriangleEncodes));
+        tests.Add(("FillTriangle keeps its shape under rotation", FillTriangleSurvivesRotation));
+        tests.Add(("All eleven command kinds plan without fallback", AllKindsNoFallback));
         tests.Add(("Unbalanced list is rejected", UnbalancedRejected));
         tests.Add(("Planner is reusable across frames", ReusableAcrossFrames));
     }
@@ -194,6 +196,49 @@ internal static class CanvasFramePlannerTests
         AssertEx.AreClose(0.5, draw.Operands[9]);
     }
 
+    private static void FillTriangleEncodes()
+    {
+        var list = new BRenderList();
+        list.FillTriangle(new BPoint(1, 2), new BPoint(9, 2), new BPoint(5, 10), BColor.Red);
+
+        List<ReplayOp> ops = ReplayStream.Parse(Plan(list, dpr: 2.0));
+        ReplayOp triangle = ops.Single(CanvasReplayOp.FillTriangle);
+
+        // Corners in device pixels: the DPR is baked in, exactly as it is for a rectangle.
+        AssertEx.AreClose(2, triangle.Operands[0]);
+        AssertEx.AreClose(4, triangle.Operands[1]);
+        AssertEx.AreClose(18, triangle.Operands[2]);
+        AssertEx.AreClose(4, triangle.Operands[3]);
+        AssertEx.AreClose(10, triangle.Operands[4]);
+        AssertEx.AreClose(20, triangle.Operands[5]);
+        AssertEx.AreEqual(BColor.Red.ToArgb(), (uint)triangle.Operands[6]);
+    }
+
+    /// <summary>
+    /// The reason the command exists. Every rectangle op goes through ToDeviceAabb, so a rotated
+    /// one arrives as its bounding box; a triangle carries its corners, so a quarter turn has to
+    /// come out as a genuinely rotated triangle rather than a box.
+    /// </summary>
+    private static void FillTriangleSurvivesRotation()
+    {
+        var list = new BRenderList();
+
+        // A quarter turn: (x, y) -> (-y, x), then pushed back into view.
+        list.PushTransform(new BMatrix3x2(0, 1, -1, 0, 20, 0));
+        list.FillTriangle(new BPoint(0, 0), new BPoint(10, 0), new BPoint(0, 10), BColor.Red);
+        list.PopTransform();
+
+        List<ReplayOp> ops = ReplayStream.Parse(Plan(list));
+        ReplayOp triangle = ops.Single(CanvasReplayOp.FillTriangle);
+
+        AssertEx.AreClose(20, triangle.Operands[0]);
+        AssertEx.AreClose(0, triangle.Operands[1]);
+        AssertEx.AreClose(20, triangle.Operands[2]);
+        AssertEx.AreClose(10, triangle.Operands[3]);
+        AssertEx.AreClose(10, triangle.Operands[4]);
+        AssertEx.AreClose(0, triangle.Operands[5]);
+    }
+
     private static void AllKindsNoFallback()
     {
         var list = new BRenderList();
@@ -201,6 +246,7 @@ internal static class CanvasFramePlannerTests
         list.StrokeRect(new BRect(0, 0, 10, 10), BColor.Blue, 1);
         list.FillRoundedRect(new BRect(0, 0, 10, 10), BColor.Green, 2, 2);
         list.StrokeRoundedRect(new BRect(0, 0, 10, 10), BColor.Black, 2, 2, 1);
+        list.FillTriangle(new BPoint(0, 0), new BPoint(8, 0), new BPoint(4, 8), BColor.Red);
         list.DrawText(new BTextRun("x"), new BPoint(1, 1));
         list.DrawImage(BImageHandle.FromId(1, new BSize(2, 2)), new BRect(0, 0, 2, 2), new BRect(0, 0, 4, 4));
         list.PushClip(new BRect(0, 0, 5, 5));
@@ -216,6 +262,7 @@ internal static class CanvasFramePlannerTests
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.StrokeRect) == 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.FillRoundedRect) == 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.StrokeRoundedRect) == 1);
+        AssertEx.IsTrue(ops.Count(CanvasReplayOp.FillTriangle) == 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.DrawText) == 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.DrawImage) == 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.SetClip) == 1);

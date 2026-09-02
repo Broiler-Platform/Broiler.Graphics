@@ -788,7 +788,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         {
             CreateGraphicsResources();
             OnResized(ClientSize, DpiScale);
-            InvalidateCore();
+            RenderResizedFrame();
             return;
         }
 
@@ -802,7 +802,27 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         }
 
         OnResized(ClientSize, DpiScale);
-        InvalidateCore();
+        RenderResizedFrame();
+    }
+
+    /// <summary>
+    /// Draws and presents one frame before returning from the size that asked for it.
+    ///
+    /// Only invalidating is not enough while a resize is in progress. Windows runs the drag in a
+    /// modal loop of its own inside DefWindowProc, and WM_PAINT is the lowest-priority message
+    /// there: the move stream keeps the queue busy, the posted paint starves, and what stays on
+    /// screen for the whole drag is the last frame the app managed to present - at the size it
+    /// was drawn for, not the size the window now has. Painting here costs one layout per size
+    /// step and keeps every control the size it says it is.
+    /// </summary>
+    private void RenderResizedFrame()
+    {
+        RenderFrame();
+
+        // The paint MoveRenderHost and InvalidateCore would have queued draws exactly what was
+        // just drawn, so drop it rather than pay for it again.
+        if (_renderHwnd != IntPtr.Zero)
+            ValidateRect(_renderHwnd, IntPtr.Zero);
     }
 
     private void RenderFrame()
@@ -1108,18 +1128,21 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     private static IntPtr WindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam)
     {
+        // WM_NCCREATE is where the window first learns which managed instance it belongs to, so the
+        // handle has to be stashed here rather than after CreateWindowEx returns. DefWindowProc
+        // still has to see the message afterwards: its WM_NCCREATE is what copies
+        // CREATESTRUCT.lpszName into the window text. Answering TRUE instead of deferring left
+        // every Broiler window with an empty caption no matter what BWindowOptions.Title said.
         if (message == WmNccreate)
         {
             CREATESTRUCT createStruct = Marshal.PtrToStructure<CREATESTRUCT>(lParam);
             GCHandle handle = GCHandle.FromIntPtr(createStruct.LpCreateParams);
-            if (handle.Target is Direct2DWindow window)
-            {
-                window._hwnd = hwnd;
-                SetWindowLongPtr(hwnd, GwlUserData, createStruct.LpCreateParams);
-                return new IntPtr(1);
-            }
+            if (handle.Target is not Direct2DWindow window)
+                return IntPtr.Zero;
 
-            return IntPtr.Zero;
+            window._hwnd = hwnd;
+            SetWindowLongPtr(hwnd, GwlUserData, createStruct.LpCreateParams);
+            return DefWindowProc(hwnd, message, wParam, lParam);
         }
 
         Direct2DWindow? instance = FromHwnd(hwnd);

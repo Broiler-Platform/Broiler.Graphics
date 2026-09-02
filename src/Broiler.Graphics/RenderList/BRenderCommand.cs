@@ -27,6 +27,20 @@ public abstract record BRenderCommand
         double RadiusY,
         double Thickness) : BRenderCommand;
 
+    /// <summary>
+    /// Fills the triangle with the given corners with a solid color, using the same antialiasing
+    /// the rectangle commands get.
+    /// </summary>
+    /// <remarks>
+    /// The one primitive in the set that is not axis-aligned, and the reason it exists: a rectangle
+    /// rotated into a diagonal is not portable. Only Direct2D and the Android hardware canvas apply
+    /// a true affine transform - the CPU rasterizer and, deliberately matching it, the browser
+    /// planner reduce a rotated shape to its bounding box - so an arrowhead or a chevron built from
+    /// a turned rectangle renders as a square on three of the five backends. A triangle carries its
+    /// corners in the command, so every backend draws the same shape.
+    /// </remarks>
+    public sealed record FillTriangle(BPoint A, BPoint B, BPoint C, BColor Color) : BRenderCommand;
+
     /// <summary>Draws a text run with its top-left origin at <paramref name="Origin"/>.</summary>
     public sealed record DrawText(BTextRun Text, BPoint Origin) : BRenderCommand;
 

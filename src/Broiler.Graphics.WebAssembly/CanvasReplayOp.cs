@@ -49,6 +49,14 @@ internal static class CanvasReplayOp
     /// </summary>
     internal const int DrawText = 8;
 
+    /// <summary>
+    /// Fill a device-space triangle with a solid color: <c>x0, y0, x1, y1, x2, y2, argb</c>.
+    /// The three corners are transformed individually rather than reduced to a bounding box, which
+    /// an affine transform allows exactly - a triangle is the one primitive here whose shape
+    /// survives rotation, and carrying the corners is why.
+    /// </summary>
+    internal const int FillTriangle = 9;
+
     /// <summary>Number of operands (excluding the op code) for a given op.</summary>
     internal static int Arity(int op) => op switch
     {
@@ -60,6 +68,7 @@ internal static class CanvasReplayOp
         StrokeRoundedRect => 8,
         DrawImage => 10,
         DrawText => 8,
+        FillTriangle => 7,
         _ => -1,
     };
 }

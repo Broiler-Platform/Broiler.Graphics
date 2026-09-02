@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Broiler.Graphics.Linux.OpenGL;
 
@@ -12,8 +13,11 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
     private static readonly X11ErrorHandler IgnoreX11Errors = static (_, _) => 0;
     private static bool _errorHandlerInstalled;
 
+    /// <summary>What the window is called when the caller names it nothing.</summary>
+    private const string DefaultTitle = "Broiler.Graphics OpenGL";
+
     private readonly LinuxOpenGlRendererOptions _options;
-    private readonly string _title;
+    private string _title;
     private IntPtr _display;
     private IntPtr _window;
     private IntPtr _wmDeleteWindow;
@@ -31,7 +35,7 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
         string title)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _title = string.IsNullOrWhiteSpace(title) ? "Broiler.Graphics OpenGL" : title;
+        _title = string.IsNullOrWhiteSpace(title) ? DefaultTitle : title;
         _descriptor = ValidateDescriptor(descriptor);
         CreateWindowAndSession();
     }
@@ -245,7 +249,7 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
             if (_window == IntPtr.Zero)
                 throw new LinuxOpenGlException("XCreateSimpleWindow failed.");
 
-            LinuxX11Native.StoreName(_display, _window, _title);
+            ApplyTitle();
             LinuxX11Native.SelectInput(
                 _display,
                 _window,
@@ -308,6 +312,56 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
         _descriptor = ValidateDescriptor(_descriptor with { Size = logicalSize });
         _lastFrame?.Dispose();
         _lastFrame = null;
+    }
+
+    /// <summary>The window's title, as the window manager currently has it.</summary>
+    public string Title => _title;
+
+    /// <summary>
+    /// Renames the window. The title used to be fixed at construction, so the Linux head could
+    /// only ever say "Broiler Writer" while the Windows one said which document was open.
+    /// </summary>
+    public void SetTitle(string title)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        string resolved = string.IsNullOrWhiteSpace(title) ? DefaultTitle : title;
+        if (StringComparer.Ordinal.Equals(_title, resolved))
+            return;
+
+        _title = resolved;
+        if (_display == IntPtr.Zero || _window == IntPtr.Zero)
+            return;
+
+        ApplyTitle();
+        LinuxX11Native.Flush(_display);
+    }
+
+    /// <summary>
+    /// Puts the title on the window twice, because window managers do not agree about where it
+    /// lives. <c>_NET_WM_NAME</c> is what a modern one reads and is UTF-8, so it is the one that
+    /// survives a document called "Übung.docx"; <c>WM_NAME</c> through XStoreName is Latin-1 and
+    /// is set as well, for anything old enough to only look there.
+    /// </summary>
+    private void ApplyTitle()
+    {
+        LinuxX11Native.StoreName(_display, _window, _title);
+
+        IntPtr netWmName = LinuxX11Native.InternAtom(_display, "_NET_WM_NAME", LinuxX11Native.False);
+        IntPtr utf8String = LinuxX11Native.InternAtom(_display, "UTF8_STRING", LinuxX11Native.False);
+        if (netWmName == IntPtr.Zero || utf8String == IntPtr.Zero)
+            return;
+
+        byte[] utf8 = Encoding.UTF8.GetBytes(_title);
+        LinuxX11Native.ChangeProperty(
+            _display,
+            _window,
+            netWmName,
+            utf8String,
+            LinuxX11Native.Format8,
+            LinuxX11Native.PropModeReplace,
+            utf8,
+            utf8.Length);
     }
 
     private void RegisterCloseProtocol()

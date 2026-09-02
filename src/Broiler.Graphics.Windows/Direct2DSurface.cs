@@ -115,8 +115,24 @@ internal sealed class Direct2DSurface : IDirect2DSurface
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _size = ValidateSize(size);
-        _dpiScale = NormalizeDpiScale(dpiScale);
+        BSize requested = ValidateSize(size);
+        double requestedScale = NormalizeDpiScale(dpiScale);
+
+        // The buffers are sized in pixels, so a resize that lands on the same pixel extent has
+        // nothing to do - and tearing down the D2D target bitmap only to rebuild an identical one
+        // is what a drag would pay for on every step. Linux and the browser both guard this
+        // already; Windows was the one backend that did not. The scale is part of the test because
+        // the target bitmap carries the DPI, so the same pixels at a new scale still need rebuilding.
+        if (requestedScale.Equals(_dpiScale) &&
+            ToPixelDimension(requested.Width, requestedScale, nameof(Size)) == PixelWidth &&
+            ToPixelDimension(requested.Height, requestedScale, nameof(Size)) == PixelHeight)
+        {
+            _size = requested;
+            return;
+        }
+
+        _size = requested;
+        _dpiScale = requestedScale;
 
         ReleaseSizeDependentResources();
 
@@ -146,7 +162,16 @@ internal sealed class Direct2DSurface : IDirect2DSurface
             SampleDesc = new DxgiNative.DXGI_SAMPLE_DESC { Count = 1, Quality = 0 },
             BufferUsage = DxgiNative.DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount = BufferCount,
-            Scaling = DxgiNative.DXGI_SCALING.STRETCH,
+
+            // NONE for a window, so a frame the app has not redrawn yet is shown at its own size
+            // in the corner rather than rubber-sheeted over the new one. STRETCH is what made a
+            // live resize distort every control - a 100 DIP button drawn wider than 100 DIP for
+            // as long as the drag lasted - because the compositor scaled the last presented frame
+            // to whatever the window had become. A composition swap chain has no choice: DXGI
+            // only accepts STRETCH from CreateSwapChainForComposition.
+            Scaling = _hwnd == IntPtr.Zero
+                ? DxgiNative.DXGI_SCALING.STRETCH
+                : DxgiNative.DXGI_SCALING.NONE,
             SwapEffect = DxgiNative.DXGI_SWAP_EFFECT.FLIP_SEQUENTIAL,
             AlphaMode = _enableTransparency
                 ? DxgiNative.DXGI_ALPHA_MODE.PREMULTIPLIED

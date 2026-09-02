@@ -86,6 +86,11 @@ public static class LinuxOpenGlNativeReplay
                     plan = null;
                     return false;
 
+                case BRenderCommand.FillTriangle:
+                    diagnostic = "OpenGL native replay does not yet support triangle commands; using CPU-present fallback.";
+                    plan = null;
+                    return false;
+
                 case BRenderCommand.DrawText:
                     diagnostic = "OpenGL native replay does not yet support text commands; using CPU-present fallback.";
                     plan = null;
