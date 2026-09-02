@@ -60,7 +60,7 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
     private double MeasureLineHeight(BFontStyle font)
     {
         DWriteNative.DWRITE_TEXT_METRICS metrics = MeasureLayout("Hg", font);
-        double height = metrics.Height > 0 ? metrics.Height : Math.Ceiling(font.SizeInPixels * 1.25);
+        double height = metrics.Height > 0 ? metrics.Height : Math.Ceiling(font.Size * 1.25);
         return Math.Ceiling(height);
     }
 
@@ -86,7 +86,7 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
             DWriteNative.ToDWrite(font.Weight),
             DWriteNative.ToDWrite(font.Slant),
             DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
-            DirectWriteText.ToFontSize(font.SizeInPixels),
+            DirectWriteText.ToFontSize(font.Size),
             DirectWriteText.CurrentLocaleName(),
             out IntPtr textFormat);
         NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");

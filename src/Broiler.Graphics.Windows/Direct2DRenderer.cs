@@ -515,7 +515,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             DWriteNative.ToDWrite(font.Weight),
             DWriteNative.ToDWrite(font.Slant),
             DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
-            DirectWriteText.ToFontSize(font.SizeInPixels),
+            DirectWriteText.ToFontSize(font.Size),
             DirectWriteText.CurrentLocaleName(),
             out IntPtr textFormat);
         NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");

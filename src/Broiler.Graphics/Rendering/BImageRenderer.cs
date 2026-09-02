@@ -318,10 +318,10 @@ public sealed class BImageRenderer : IBroilerRenderer
     private void DrawText(BCanvas canvas, BRenderCommand.DrawText command, ReplayState state)
     {
         BTextRun run = command.Text;
-        if (string.IsNullOrEmpty(run.Text) || run.Color.A == 0 || run.Font.SizeInPixels <= 0)
+        if (string.IsNullOrEmpty(run.Text) || run.Color.A == 0 || run.Font.Size <= 0)
             return;
 
-        double fontSize = Math.Max(1.0, run.Font.SizeInPixels);
+        double fontSize = Math.Max(1.0, run.Font.Size);
         bool bold = run.Font.Weight >= BFontWeight.Bold;
         bool italic = run.Font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 

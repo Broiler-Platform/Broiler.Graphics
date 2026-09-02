@@ -56,7 +56,7 @@ public static class BTextMeasurer
 
         double advance = MeasureAdvance(text, font);
         double lineHeight = GetLineHeight(font);
-        return new BTextMetrics(new BSize(advance, lineHeight), Math.Round(font.SizeInPixels * 0.8, 2), advance, lineHeight);
+        return new BTextMetrics(new BSize(advance, lineHeight), Math.Round(font.Size * 0.8, 2), advance, lineHeight);
     }
 
     public static double MeasureAdvance(string text, BFontStyle font)
@@ -77,7 +77,7 @@ public static class BTextMeasurer
     {
         public double MeasureAdvance(string text, BFontStyle font)
         {
-            double size = font.SizeInPixels;
+            double size = font.Size;
             bool bold = font.Weight >= BFontWeight.Bold;
             bool italic = font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 
@@ -103,6 +103,6 @@ public static class BTextMeasurer
             return Math.Round(advance, 2);
         }
 
-        public double GetLineHeight(BFontStyle font) => Math.Ceiling(font.SizeInPixels * 1.25);
+        public double GetLineHeight(BFontStyle font) => Math.Ceiling(font.Size * 1.25);
     }
 }

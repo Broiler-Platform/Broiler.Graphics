@@ -236,10 +236,10 @@ public sealed class CanvasFramePlanner
     private void PlanDrawText(BRenderCommand.DrawText command)
     {
         BTextRun run = command.Text;
-        if (string.IsNullOrEmpty(run.Text) || run.Color.A == 0 || run.Font.SizeInPixels <= 0)
+        if (string.IsNullOrEmpty(run.Text) || run.Color.A == 0 || run.Font.Size <= 0)
             return;
 
-        double fontSize = Math.Max(1.0, run.Font.SizeInPixels);
+        double fontSize = Math.Max(1.0, run.Font.Size);
         BMatrix3x2 transform = _current * _pixelScale;
 
         // Match the CPU renderer's baseline assumption (origin.Y + 0.8 * fontSize),
