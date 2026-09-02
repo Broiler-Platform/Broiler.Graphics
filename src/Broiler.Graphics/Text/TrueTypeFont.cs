@@ -20,6 +20,14 @@ public sealed class TrueTypeFont
 {
     private readonly byte[] _data;
     private readonly Dictionary<string, uint> _tables;
+
+    /// <summary>
+    /// Declared byte length per table, for a read that must not run past the
+    /// table it is in. The offsets alone cannot express that: tables sit back
+    /// to back, so reading past a short one lands in the next one's bytes and
+    /// returns a plausible value from unrelated data.
+    /// </summary>
+    private readonly Dictionary<string, uint> _tableLengths;
     private readonly uint _glyfOffset;
     private readonly uint[] _loca;          // glyph data offsets into glyf, length numGlyphs + 1
     private readonly int _numGlyphs;
@@ -83,10 +91,54 @@ public sealed class TrueTypeFont
     /// <summary>True when the font has rasterisable outlines (glyf or CFF).</summary>
     public bool HasOutlines => (_glyfOffset != 0 && _loca.Length > 1) || GetCff() != null;
 
-    private TrueTypeFont(byte[] data, Dictionary<string, uint> tables)
+    /// <summary>
+    /// What this font's <c>OS/2</c> table declares about embedding it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Read, never enforced here. This parser inspects a font; deciding what may
+    /// be done with one belongs to whoever holds the licence, and
+    /// <see cref="BFontEmbeddingRights"/> says why the two are not the same
+    /// question.
+    /// </para>
+    /// <para>
+    /// A font with no <c>OS/2</c> table, or one too short to hold the field,
+    /// reports <see cref="BFontEmbeddingRights.Unknown"/> rather than a default.
+    /// The field sits at a fixed offset in every version of the table, so no
+    /// version check is needed to reach it — but the length check is, because a
+    /// truncated table is a thing that exists.
+    /// </para>
+    /// </remarks>
+    public BFontEmbeddingRights EmbeddingRights
+    {
+        get
+        {
+            uint os2 = _tables.GetValueOrDefault("OS/2");
+
+            // version (2) + xAvgCharWidth (2) + usWeightClass (2) + usWidthClass
+            // (2) puts fsType at offset 8, and the field is two bytes.
+            const uint FsTypeEnd = 10;
+
+            // Bounded by the table's own declared length as well as the file's.
+            // Tables sit back to back, so a read past a truncated OS/2 lands in
+            // whatever follows and returns a permission from unrelated bytes —
+            // which for this field is worse than returning nothing.
+            if (os2 == 0 ||
+                os2 + FsTypeEnd > (uint)_data.Length ||
+                _tableLengths.GetValueOrDefault("OS/2") < FsTypeEnd)
+            {
+                return BFontEmbeddingRights.Unknown;
+            }
+
+            return BFontEmbeddingRights.FromFsType((ushort)ReadUInt16(os2 + 8));
+        }
+    }
+
+    private TrueTypeFont(byte[] data, Dictionary<string, uint> tables, Dictionary<string, uint>? tableLengths = null)
     {
         _data = data;
         _tables = tables;
+        _tableLengths = tableLengths ?? [];
 
         uint head = tables.GetValueOrDefault("head");
         UnitsPerEm = head != 0 ? ReadUInt16(head + 18) : 1000;
@@ -145,6 +197,7 @@ public sealed class TrueTypeFont
 
         int numTables = ReadU16(data, (int)tableDirOffset + 4);
         var tables = new Dictionary<string, uint>(numTables, StringComparer.Ordinal);
+        var lengths = new Dictionary<string, uint>(numTables, StringComparer.Ordinal);
         int recordBase = (int)tableDirOffset + 12;
         for (int i = 0; i < numTables; i++)
         {
@@ -153,12 +206,13 @@ public sealed class TrueTypeFont
             string tag = System.Text.Encoding.ASCII.GetString(data, rec, 4);
             uint offset = ReadU32(data, rec + 8);
             tables[tag] = offset;
+            lengths[tag] = ReadU32(data, rec + 12);
         }
 
         if (!tables.ContainsKey("head") || !tables.ContainsKey("maxp"))
             return null;
 
-        return new TrueTypeFont(data, tables);
+        return new TrueTypeFont(data, tables, lengths);
     }
 
     /// <summary>Maps a Unicode code point to a glyph index (0 = .notdef / missing).</summary>
