@@ -56,12 +56,15 @@ internal static class MediaImageBridge
         }
 
         using var decodeInput = new MediaInput(new MemoryStream(bytes), leaveOpen: false);
-        return codec.DecodeAsync(
-                decodeInput,
-                new ImageDecodeOptions(preserveAnimation: preserveAnimation))
-            .AsTask()
-            .GetAwaiter()
-            .GetResult();
+
+        // The synchronous path, rather than blocking on the asynchronous one.
+        // This bridge is called from rendering code that has no async context to
+        // return to, and GetResult() on a codec's read is what deadlocks where
+        // continuations run on a single thread. The two paths decode through the
+        // same DecodeCore, so nothing about the image changes with the call.
+        return codec.Decode(
+            decodeInput,
+            new ImageDecodeOptions(preserveAnimation: preserveAnimation));
     }
 
     private static byte[] EncodeMedia(MediaImageSequence sequence, ImageEncodeFormat format, int quality)
