@@ -26,6 +26,7 @@ internal static class Program
         ImageCodecTests.Register(tests);
         ImageResourceTests.Register(tests);
         FontEmbeddingRightsTests.Register(tests);
+        FontProgramInspectorTests.Register(tests);
         ApngTests.Register(tests);
         TextMeasurementConcurrencyTests.Register(tests);
         RenderPathConcurrencyTests.Register(tests);
