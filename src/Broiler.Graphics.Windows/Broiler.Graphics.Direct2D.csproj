@@ -25,6 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse.Windows\Broiler.Input.Mouse.Windows.csproj" />
+    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Windows\Broiler.Input.Windows.csproj" />
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
     <!-- Graphics.Windows owns the HWND-backed video presentation target (HwndVideoOutput),
          which implements Broiler.Media.Video.Windows' IHwndVideoOutput contract per the media

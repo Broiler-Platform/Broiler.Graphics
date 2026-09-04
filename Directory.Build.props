@@ -16,6 +16,12 @@
     <BroilerMediaRoot>$(MSBuildThisFileDirectory)Broiler.Media</BroilerMediaRoot>
   </PropertyGroup>
 
+  <!-- Same again for Broiler.Input, which Broiler.Graphics.Windows reaches for the
+       mouse provider behind its window procedure. -->
+  <PropertyGroup Condition="'$(BroilerInputRoot)' == ''">
+    <BroilerInputRoot>$(MSBuildThisFileDirectory)Broiler.Input</BroilerInputRoot>
+  </PropertyGroup>
+
   <!-- Broiler NuGet packaging metadata (vendored; do not edit by hand). -->
   <Import Project="$(MSBuildThisFileDirectory)eng\Broiler.Packaging.props" />
 
