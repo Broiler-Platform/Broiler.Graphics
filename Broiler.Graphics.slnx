@@ -112,8 +112,10 @@
       <Build Project="false" Solution="Debug-Linux|*" />
       <Build Project="false" Solution="Release-Linux|*" />
     </Project>
-    <!-- Linux-only: builds under the *-Linux configurations exclusively. It is also the
-         only project here that reaches outside the component, to Broiler.Input. -->
+    <!-- Linux-only: builds under the *-Linux configurations exclusively. It reaches outside
+         the component, to Broiler.Input, as Broiler.Graphics.Windows now does for the mouse
+         provider; neither one's Broiler.Input projects are listed here, and the build
+         follows the ProjectReferences to them. -->
     <Project Path="src/demos/Broiler.Graphics.Linux.Demo/Broiler.Graphics.Linux.Demo.csproj">
       <Build Project="false" Solution="Debug|*" />
       <Build Project="false" Solution="Release|*" />
