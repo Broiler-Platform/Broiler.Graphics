@@ -41,15 +41,34 @@ public readonly struct BPointerEventArgs
 
 /// <summary>
 /// A mouse-wheel event. <see cref="Delta"/> is in wheel notches: positive scrolls up / away from the
-/// user, negative scrolls down. <see cref="Position"/> matches <see cref="BPointerEventArgs.Position"/>.
+/// user on the vertical axis, and to the right on the horizontal one. <see cref="Position"/> matches
+/// <see cref="BPointerEventArgs.Position"/>.
 /// </summary>
+/// <remarks>
+/// The modifier keys are carried because the platform hands them over with the notch and they decide
+/// what the notch means: shift and a wheel is how every editor scrolls sideways on a mouse that has
+/// one wheel. <see cref="BKeyEventArgs"/> has carried the same three from the start; a wheel event
+/// that dropped them left a host unable to tell the two gestures apart, however plainly the user had
+/// made the distinction.
+/// </remarks>
 public readonly struct BMouseWheelEventArgs
 {
-    public BMouseWheelEventArgs(BPoint position, double delta, BMouseButtons buttons)
+    public BMouseWheelEventArgs(
+        BPoint position,
+        double delta,
+        BMouseButtons buttons,
+        bool control = false,
+        bool shift = false,
+        bool alt = false,
+        bool isHorizontal = false)
     {
         Position = position;
         Delta = delta;
         Buttons = buttons;
+        Control = control;
+        Shift = shift;
+        Alt = alt;
+        IsHorizontal = isHorizontal;
     }
 
     public BPoint Position { get; }
@@ -57,6 +76,15 @@ public readonly struct BMouseWheelEventArgs
     public double Delta { get; }
 
     public BMouseButtons Buttons { get; }
+
+    public bool Control { get; }
+
+    public bool Shift { get; }
+
+    public bool Alt { get; }
+
+    /// <summary>True for a wheel that tilts, or a touchpad's sideways gesture.</summary>
+    public bool IsHorizontal { get; }
 }
 
 /// <summary>A keyboard key event. <see cref="VirtualKey"/> is the platform virtual-key code.</summary>

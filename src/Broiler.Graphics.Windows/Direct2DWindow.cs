@@ -78,6 +78,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private const uint WmMButtonDown = 0x0207;
     private const uint WmMButtonUp = 0x0208;
     private const uint WmMouseWheel = 0x020A;
+    private const uint WmMouseHWheel = 0x020E;
     private const uint WmMouseLeave = 0x02A3;
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
@@ -93,6 +94,8 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private const uint WmInvoke = 0x8001;
 
     private const int MkLButton = 0x0001;
+    private const int MkControl = 0x0008;
+    private const int MkShift = 0x0004;
     private const int MkRButton = 0x0002;
     private const int MkMButton = 0x0010;
 
@@ -1207,7 +1210,14 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
                 return IntPtr.Zero;
 
             case WmMouseWheel:
-                instance.DispatchMouseWheel(hwnd, wParam, lParam);
+                instance.DispatchMouseWheel(hwnd, wParam, lParam, horizontal: false);
+                return IntPtr.Zero;
+
+            // A wheel that tilts, and the sideways gesture of a precision
+            // touchpad. Without this the platform's own horizontal scroll never
+            // reaches the application at all.
+            case WmMouseHWheel:
+                instance.DispatchMouseWheel(hwnd, wParam, lParam, horizontal: true);
                 return IntPtr.Zero;
 
             case WmKeyDown:
@@ -1244,13 +1254,25 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             _trackingMouse = true;
     }
 
-    private void DispatchMouseWheel(IntPtr hwnd, IntPtr wParam, IntPtr lParam)
+    private void DispatchMouseWheel(IntPtr hwnd, IntPtr wParam, IntPtr lParam, bool horizontal)
     {
         // WM_MOUSEWHEEL reports the cursor position in screen coordinates; map it into the render host.
         var point = new POINT { X = SignedLowWord(lParam), Y = SignedHighWord(lParam) };
         ScreenToClient(hwnd, ref point);
         double delta = SignedHighWord(wParam) / (double)WheelDelta;
-        OnMouseWheel(new BMouseWheelEventArgs(PixelsToDip(point.X, point.Y), delta, ButtonsFromWParam(wParam)));
+
+        // The modifier keys ride in the same low word as the mouse buttons, and
+        // they decide what the notch means: shift and a wheel is a sideways
+        // scroll everywhere else in the system.
+        int keys = LowWord(wParam);
+        OnMouseWheel(new BMouseWheelEventArgs(
+            PixelsToDip(point.X, point.Y),
+            delta,
+            ButtonsFromWParam(wParam),
+            (keys & MkControl) != 0,
+            (keys & MkShift) != 0,
+            alt: false,
+            horizontal));
     }
 
     private BPoint LParamToDip(IntPtr lParam) => PixelsToDip(SignedLowWord(lParam), SignedHighWord(lParam));
