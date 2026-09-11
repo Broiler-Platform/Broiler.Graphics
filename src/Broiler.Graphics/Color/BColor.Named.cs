@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Color;
 
 // Named-color lookup for BColor.FromName, mirroring the extended (CSS/X11)
 // named-color set that System.Drawing.Color.FromName resolved. Kept in its own

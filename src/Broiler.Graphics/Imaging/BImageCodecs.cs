@@ -1,7 +1,7 @@
 using System;
 using Broiler.Media;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>
 /// Explicit, application-owned registration seam for the image codec catalog that

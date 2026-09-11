@@ -1,8 +1,9 @@
 #nullable disable
+using Broiler;
 using System;
 using System.Collections.Generic;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// A shaped glyph: a resolved glyph index, its advance, and a positioning

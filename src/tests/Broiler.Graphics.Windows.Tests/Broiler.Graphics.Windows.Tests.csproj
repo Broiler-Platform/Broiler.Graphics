@@ -16,9 +16,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Broiler.Media.Image.Managed" Version="0.1.0-preview.10" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Broiler.Graphics.Windows\Broiler.Graphics.Direct2D.csproj" />
     <!-- Composition root: supplies the concrete image codecs to Broiler.Graphics via BImageCodecs.Use(...). -->
-    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Image.Managed\Broiler.Media.Image.Managed.csproj" />
   </ItemGroup>
 
 </Project>

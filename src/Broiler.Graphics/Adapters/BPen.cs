@@ -1,6 +1,8 @@
-namespace Broiler.Graphics;
+using Broiler.Graphics.Rendering;
 
-public abstract class RPen
+namespace Broiler.Graphics.Adapters;
+
+public abstract class BPen
 {
     public abstract double Width { get; set; }
     public abstract DashStyle DashStyle { set; }

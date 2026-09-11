@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
 /// <summary>
 /// Read-only view of the background-image CSS properties that drawing handlers
@@ -22,5 +22,5 @@ public interface IBackgroundImageDrawHandler
     /// <summary>
     /// Draws a background image within the specified rectangle.
     /// </summary>
-    void DrawBackgroundImage(RGraphics g, IBackgroundRenderData box, IImageLoadHandler imageHandler, RectangleF rectangle);
+    void DrawBackgroundImage(BGraphics g, IBackgroundRenderData box, IImageLoadHandler imageHandler, RectangleF rectangle);
 }

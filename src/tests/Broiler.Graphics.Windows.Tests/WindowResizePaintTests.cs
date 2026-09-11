@@ -1,3 +1,8 @@
+using static Broiler.Native.Windows.WindowNative;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Windowing;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -77,7 +82,7 @@ internal static class WindowResizePaintTests
     {
         Assert.True(window.NativeHandle != IntPtr.Zero, "Expected the window to have been realized.");
         Assert.True(
-            MoveWindow(window.NativeHandle, -4000, -4000, width, height, bRepaint: true),
+            MoveWindow(window.NativeHandle, -4000, -4000, width, height, repaint: true),
             "MoveWindow failed.");
     }
 
@@ -87,10 +92,6 @@ internal static class WindowResizePaintTests
         if (Math.Abs(expected - actual) > 1.0)
             throw new AssertException($"Expected the frame {what} to match the client {what}: {expected} vs {actual}.");
     }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool MoveWindow(IntPtr hwnd, int x, int y, int width, int height, bool bRepaint);
 
     /// <summary>Records how often, and at what size, the window asked for a frame.</summary>
     private sealed class CountingWindow() : Direct2DWindow(new BWindowOptions

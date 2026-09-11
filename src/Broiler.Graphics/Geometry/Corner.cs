@@ -1,4 +1,4 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Geometry;
 
 /// <summary>
 /// Identifies one corner of an axis-aligned rectangle. Used by path builders

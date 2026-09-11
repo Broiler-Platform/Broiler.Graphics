@@ -1,3 +1,7 @@
+using static Broiler.Native.Windows.WindowNative;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Windowing;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -64,9 +68,6 @@ internal static class WindowCaptionTests
         _ = GetWindowText(hwnd, text, text.Capacity);
         return text.ToString();
     }
-
-    [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int maxCount);
 
     /// <summary>The smallest concrete window there is: it draws nothing and answers no input.</summary>
     private sealed class CaptionProbeWindow(BWindowOptions options) : Direct2DWindow(options)

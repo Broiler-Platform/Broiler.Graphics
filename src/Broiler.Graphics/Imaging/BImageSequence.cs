@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>
 /// A decoded image as a sequence of one or more frames. A still image is a
@@ -13,10 +13,10 @@ public sealed class BImageSequence
     public BImageSequence(IReadOnlyList<BImageFrame> frames, int width, int height, int loopCount)
     {
         ArgumentNullException.ThrowIfNull(frames);
+        ArgumentOutOfRangeException.ThrowIfNegative(loopCount);
+
         if (frames.Count == 0)
             throw new ArgumentException("An image sequence needs at least one frame.", nameof(frames));
-        if (loopCount < 0)
-            throw new ArgumentOutOfRangeException(nameof(loopCount));
 
         Frames = frames;
         Width = width;

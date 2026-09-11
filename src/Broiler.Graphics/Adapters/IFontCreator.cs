@@ -1,7 +1,9 @@
-namespace Broiler.Graphics;
+using Broiler.Graphics.Text;
+
+namespace Broiler.Graphics.Adapters;
 
 public interface IFontCreator
 {
-    RFont CreateFont(string family, double size, FontStyle style);
-    RFont CreateFont(RFontFamily family, double size, FontStyle style);
+    BFont CreateFont(string family, double size, FontStyle style);
+    BFont CreateFont(BFontFamily family, double size, FontStyle style);
 }

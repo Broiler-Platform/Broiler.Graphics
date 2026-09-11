@@ -1,9 +1,10 @@
 #nullable disable
+using Broiler;
 using System;
 using System.IO;
 using System.IO.Compression;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Decodes a WOFF 1.0 container into a raw sfnt (TrueType/OpenType) byte array
@@ -16,8 +17,7 @@ public static class WoffDecoder
 {
     /// <summary>True when <paramref name="data"/> starts with the WOFF 1.0 signature.</summary>
     public static bool IsWoff(byte[] data) =>
-        data != null && data.Length >= 4 &&
-        data[0] == (byte)'w' && data[1] == (byte)'O' && data[2] == (byte)'F' && data[3] == (byte)'F';
+        data != null && data.Length >= 4 && data[0] == (byte)'w' && data[1] == (byte)'O' && data[2] == (byte)'F' && data[3] == (byte)'F';
 
     /// <summary>
     /// Decodes WOFF 1.0 bytes to sfnt bytes, or returns <c>null</c> if the input
@@ -40,14 +40,18 @@ public static class WoffDecoder
             var checksums = new uint[numTables];
             var data = new byte[numTables][];
             int dir = 44;
+            
             for (int i = 0; i < numTables; i++)
             {
                 if (dir + 20 > woff.Length)
                     return null;
+                
                 tags[i] = U32(woff, dir);
+                
                 uint offset = U32(woff, dir + 4);
                 uint compLength = U32(woff, dir + 8);
                 uint origLength = U32(woff, dir + 12);
+                
                 checksums[i] = U32(woff, dir + 16);
                 dir += 20;
 
@@ -57,6 +61,7 @@ public static class WoffDecoder
                 data[i] = compLength < origLength
                     ? Inflate(woff, (int)offset, (int)compLength, (int)origLength)
                     : Slice(woff, (int)offset, (int)origLength);
+
                 if (data[i] == null)
                     return null;
             }
@@ -66,12 +71,14 @@ public static class WoffDecoder
             var orderByTag = new int[numTables];
             for (int i = 0; i < numTables; i++)
                 orderByTag[i] = i;
+
             Array.Sort(orderByTag, (a, b) => tags[a].CompareTo(tags[b]));
 
             int headerSize = 12;
             int recordSize = 16 * numTables;
             var outOffset = new int[numTables];
             int cursor = headerSize + recordSize;
+            
             foreach (int i in orderByTag)
             {
                 outOffset[i] = cursor;
@@ -83,12 +90,14 @@ public static class WoffDecoder
             // Offset table.
             WriteU32(sfnt, 0, flavor);
             WriteU16(sfnt, 4, (ushort)numTables);
+
             int maxPow2 = 1, entrySelector = 0;
             while (maxPow2 * 2 <= numTables)
             {
                 maxPow2 *= 2;
                 entrySelector++;
             }
+
             int searchRange = maxPow2 * 16;
             WriteU16(sfnt, 6, (ushort)searchRange);
             WriteU16(sfnt, 8, (ushort)entrySelector);
@@ -120,13 +129,16 @@ public static class WoffDecoder
         using var z = new ZLibStream(ms, CompressionMode.Decompress);
         var output = new byte[origLength];
         int read = 0;
+
         while (read < origLength)
         {
             int r = z.Read(output, read, origLength - read);
             if (r <= 0)
                 break;
+
             read += r;
         }
+
         return read == origLength ? output : null;
     }
 

@@ -1,3 +1,11 @@
+using static Broiler.Native.Windows.WindowNative;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -127,7 +135,7 @@ internal sealed class Direct2DDemoWindow : IDisposable
         {
             case WmCreate:
                 CreateGraphicsResources();
-                SetTimer(_hwnd, AnimationTimerId, AnimationTimerIntervalMs, IntPtr.Zero);
+                SetTimer(_hwnd, (nuint)AnimationTimerId, AnimationTimerIntervalMs, IntPtr.Zero);
                 return IntPtr.Zero;
 
             case WmSize:
@@ -154,7 +162,7 @@ internal sealed class Direct2DDemoWindow : IDisposable
                 return IntPtr.Zero;
 
             case WmDestroy:
-                KillTimer(_hwnd, AnimationTimerId);
+                KillTimer(_hwnd, (nuint)AnimationTimerId);
                 ReleaseGraphicsResources();
                 PostQuitMessage(0);
                 return IntPtr.Zero;
@@ -468,183 +476,4 @@ internal sealed class Direct2DDemoWindow : IDisposable
         return handle.Target as Direct2DDemoWindow;
     }
 
-    private static IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value)
-    {
-        return IntPtr.Size == 8
-            ? SetWindowLongPtr64(hwnd, index, value)
-            : new IntPtr(SetWindowLong32(hwnd, index, value.ToInt32()));
-    }
-
-    private static IntPtr GetWindowLongPtr(IntPtr hwnd, int index)
-    {
-        return IntPtr.Size == 8
-            ? GetWindowLongPtr64(hwnd, index)
-            : new IntPtr(GetWindowLong32(hwnd, index));
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-    private delegate IntPtr WndProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct WNDCLASSEX
-    {
-        public uint CbSize;
-        public uint Style;
-        public WndProc LpfnWndProc;
-        public int CbClsExtra;
-        public int CbWndExtra;
-        public IntPtr HInstance;
-        public IntPtr HIcon;
-        public IntPtr HCursor;
-        public IntPtr HbrBackground;
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string? LpszMenuName;
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string LpszClassName;
-        public IntPtr HIconSm;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private readonly struct RECT
-    {
-        public readonly int Left;
-        public readonly int Top;
-        public readonly int Right;
-        public readonly int Bottom;
-
-        public RECT(int left, int top, int right, int bottom)
-        {
-            Left = left;
-            Top = top;
-            Right = right;
-            Bottom = bottom;
-        }
-
-        public int Width => Right - Left;
-        public int Height => Bottom - Top;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
-    {
-        public int X;
-        public int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MSG
-    {
-        public IntPtr Hwnd;
-        public uint Message;
-        public IntPtr WParam;
-        public IntPtr LParam;
-        public uint Time;
-        public POINT Pt;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct CREATESTRUCT
-    {
-        public IntPtr LpCreateParams;
-        public IntPtr HInstance;
-        public IntPtr HMenu;
-        public IntPtr HwndParent;
-        public int Cy;
-        public int Cx;
-        public int Y;
-        public int X;
-        public int Style;
-        public IntPtr LpszName;
-        public IntPtr LpszClass;
-        public uint DwExStyle;
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern IntPtr GetModuleHandle(string? moduleName);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern ushort RegisterClassEx(ref WNDCLASSEX windowClass);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "CreateWindowExW")]
-    private static extern IntPtr CreateWindowEx(
-        uint exStyle,
-        string className,
-        string windowName,
-        uint style,
-        int x,
-        int y,
-        int width,
-        int height,
-        IntPtr hwndParent,
-        IntPtr menu,
-        IntPtr instance,
-        IntPtr param);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool AdjustWindowRectEx(ref RECT rect, uint style, [MarshalAs(UnmanagedType.Bool)] bool menu, uint exStyle);
-
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int index);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ShowWindow(IntPtr hwnd, int commandShow);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool UpdateWindow(IntPtr hwnd);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int GetMessage(out MSG message, IntPtr hwnd, uint filterMin, uint filterMax);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool TranslateMessage(ref MSG message);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr DispatchMessage(ref MSG message);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr DefWindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    private static extern void PostQuitMessage(int exitCode);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SetTimer(IntPtr hwnd, int eventId, uint elapsedMs, IntPtr timerFunc);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool KillTimer(IntPtr hwnd, int eventId);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool InvalidateRect(IntPtr hwnd, IntPtr rect, [MarshalAs(UnmanagedType.Bool)] bool erase);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ValidateRect(IntPtr hwnd, IntPtr rect);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
-
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindow(IntPtr hwnd);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern IntPtr LoadCursor(IntPtr instance, IntPtr cursorName);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongPtrW")]
-    private static extern IntPtr SetWindowLongPtr64(IntPtr hwnd, int index, IntPtr value);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SetWindowLongW")]
-    private static extern int SetWindowLong32(IntPtr hwnd, int index, int value);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetWindowLongPtrW")]
-    private static extern IntPtr GetWindowLongPtr64(IntPtr hwnd, int index);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetWindowLongW")]
-    private static extern int GetWindowLong32(IntPtr hwnd, int index);
 }

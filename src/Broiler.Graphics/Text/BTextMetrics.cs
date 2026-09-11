@@ -1,6 +1,8 @@
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Rendering;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 public readonly record struct BTextMetrics(
     BSize Size,

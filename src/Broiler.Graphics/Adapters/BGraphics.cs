@@ -1,15 +1,16 @@
 using System.Drawing;
 using System;
 using System.Collections.Generic;
+using Broiler.Graphics.Color;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
-public abstract class RGraphics : IDisposable
+public abstract class BGraphics : IDisposable
 {
     protected readonly IResourceFactory _adapter;
     protected readonly Stack<RectangleF> _clipStack = new();
 
-    protected RGraphics(IResourceFactory adapter, RectangleF initialClip)
+    protected BGraphics(IResourceFactory adapter, RectangleF initialClip)
     {
         ArgumentNullException.ThrowIfNull(adapter);
 
@@ -17,9 +18,9 @@ public abstract class RGraphics : IDisposable
         _clipStack.Push(initialClip);
     }
 
-    public RPen GetPen(BColor color) => _adapter.GetPen(color);
-    public RBrush GetSolidBrush(BColor color) => _adapter.GetSolidBrush(color);
-    public RBrush GetLinearGradientBrush(RectangleF rect, BColor color1, BColor color2, double angle) => _adapter.GetLinearGradientBrush(rect, color1, color2, angle);
+    public BPen GetPen(BColor color) => _adapter.GetPen(color);
+    public BBrush GetSolidBrush(BColor color) => _adapter.GetSolidBrush(color);
+    public BBrush GetLinearGradientBrush(RectangleF rect, BColor color1, BColor color2, double angle) => _adapter.GetLinearGradientBrush(rect, color1, color2, angle);
     public RectangleF GetClip() => _clipStack.Peek();
     public abstract void PopClip();
     public abstract void PushClip(RectangleF rect);
@@ -29,41 +30,32 @@ public abstract class RGraphics : IDisposable
     /// Pushes a rounded-rectangle clip onto the clip stack.
     /// Default implementation falls back to a rectangular clip.
     /// </summary>
-    public virtual void PushClipRounded(RectangleF rect,
-        double cornerNw, double cornerNwY,
-        double cornerNe, double cornerNeY,
-        double cornerSe, double cornerSeY,
-        double cornerSw, double cornerSwY)
-    {
-        PushClip(rect);
-    }
+    public virtual void PushClipRounded(RectangleF rect, double cornerNw, double cornerNwY, double cornerNe, 
+        double cornerNeY, double cornerSe, double cornerSeY, double cornerSw, double cornerSwY) => PushClip(rect);
 
     /// <summary>
     /// Pushes an arbitrary closed polygon clip onto the clip stack (CSS <c>clip-path: polygon()</c>).
     /// <paramref name="bounds"/> is the polygon's bounding box; the default implementation clips to
     /// it, which is what backends that cannot express a non-rectangular clip fall back to.
     /// </summary>
-    public virtual void PushClipPolygon(PointF[] points, RectangleF bounds)
-    {
-        PushClip(bounds);
-    }
+    public virtual void PushClipPolygon(PointF[] points, RectangleF bounds) => PushClip(bounds);
 
     public abstract object SetAntiAliasSmoothingMode();
     public abstract void ReturnPreviousSmoothingMode(object prevMode);
-    public abstract RBrush GetTextureBrush(RImage image, RectangleF dstRect, PointF translateTransformLocation);
-    public abstract RGraphicsPath GetGraphicsPath();
-    public abstract SizeF MeasureString(string str, RFont font);
-    public abstract void MeasureString(string str, RFont font, double maxWidth, out int charFit, out double charFitWidth);
-    public abstract void DrawString(string str, RFont font, BColor color, PointF point, SizeF size, bool rtl);
-    public abstract void DrawGradientString(string str, RFont font, RectangleF rect, PointF point, SizeF size, bool rtl, BColor[] colors, float[] positions, float angle);
-    public abstract void DrawLine(RPen pen, double x1, double y1, double x2, double y2);
-    public abstract void DrawRectangle(RPen pen, double x, double y, double width, double height);
-    public abstract void DrawRectangle(RBrush brush, double x, double y, double width, double height);
-    public abstract void DrawImage(RImage image, RectangleF destRect, RectangleF srcRect);
-    public abstract void DrawImage(RImage image, RectangleF destRect);
-    public abstract void DrawPath(RPen pen, RGraphicsPath path);
-    public abstract void DrawPath(RBrush brush, RGraphicsPath path);
-    public abstract void DrawPolygon(RBrush brush, PointF[] points);
+    public abstract BBrush GetTextureBrush(BImage image, RectangleF dstRect, PointF translateTransformLocation);
+    public abstract BGraphicsPath GetGraphicsPath();
+    public abstract SizeF MeasureString(string str, BFont font);
+    public abstract void MeasureString(string str, BFont font, double maxWidth, out int charFit, out double charFitWidth);
+    public abstract void DrawString(string str, BFont font, BColor color, PointF point, SizeF size, bool rtl);
+    public abstract void DrawGradientString(string str, BFont font, RectangleF rect, PointF point, SizeF size, bool rtl, BColor[] colors, float[] positions, float angle);
+    public abstract void DrawLine(BPen pen, double x1, double y1, double x2, double y2);
+    public abstract void DrawRectangle(BPen pen, double x, double y, double width, double height);
+    public abstract void DrawRectangle(BBrush brush, double x, double y, double width, double height);
+    public abstract void DrawImage(BImage image, RectangleF destRect, RectangleF srcRect);
+    public abstract void DrawImage(BImage image, RectangleF destRect);
+    public abstract void DrawPath(BPen pen, BGraphicsPath path);
+    public abstract void DrawPath(BBrush brush, BGraphicsPath path);
+    public abstract void DrawPolygon(BBrush brush, PointF[] points);
 
     /// <summary>
     /// Hints that the next opacity/blend layer contains only backend-neutral raster operations,
@@ -133,7 +125,7 @@ public abstract class RGraphics : IDisposable
     public virtual void PopViewportScale() { }
 
     /// <summary>
-    /// Creates an off-screen gradient image tile.  The returned <see cref="RImage"/>
+    /// Creates an off-screen gradient image tile.  The returned <see cref="BImage"/>
     /// can be used with <see cref="GetTextureBrush"/> for tiled gradient rendering.
     /// Default implementation returns <c>null</c> (platform may not support off-screen rendering).
     /// </summary>
@@ -142,7 +134,7 @@ public abstract class RGraphics : IDisposable
     /// <param name="colors">Gradient color stops.</param>
     /// <param name="positions">Relative positions (0.0–1.0) for each color stop.</param>
     /// <param name="angle">Gradient angle in degrees (0 = top, 90 = right, 180 = bottom).</param>
-    public virtual RImage? CreateLinearGradientTile(int width, int height, BColor[] colors, float[] positions, float angle) => null;
+    public virtual BImage? CreateLinearGradientTile(int width, int height, BColor[] colors, float[] positions, float angle) => null;
 
     /// <summary>
     /// Creates an off-screen bitmap tile filled with a radial gradient.
@@ -150,7 +142,7 @@ public abstract class RGraphics : IDisposable
     /// fractions (0.0–1.0) of the tile dimensions.
     /// Default implementation returns <c>null</c> (platform may not support off-screen rendering).
     /// </summary>
-    public virtual RImage? CreateRadialGradientTile(int width, int height, BColor[] colors, float[] positions, float centerX, float centerY) => null;
+    public virtual BImage? CreateRadialGradientTile(int width, int height, BColor[] colors, float[] positions, float centerX, float centerY) => null;
 
     /// <summary>
     /// Creates an off-screen bitmap tile filled with a conic (angular) gradient.
@@ -160,7 +152,7 @@ public abstract class RGraphics : IDisposable
     /// <paramref name="positions"/> are fractions of a full turn (0.0–1.0).
     /// Default implementation returns <c>null</c> (platform may not support off-screen rendering).
     /// </summary>
-    public virtual RImage? CreateConicGradientTile(int width, int height, BColor[] colors, float[] positions, float centerX, float centerY, float fromAngle) => null;
+    public virtual BImage? CreateConicGradientTile(int width, int height, BColor[] colors, float[] positions, float centerX, float centerY, float fromAngle) => null;
 
     public abstract void Dispose();
 }

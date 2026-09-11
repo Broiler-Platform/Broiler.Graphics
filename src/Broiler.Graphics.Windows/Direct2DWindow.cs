@@ -1,3 +1,9 @@
+using static Broiler.Native.Windows.WindowNative;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Windowing;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,94 +23,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private const string WindowClassName = "BroilerGraphicsDirect2DWindow";
     private const string RenderHostClassName = "BroilerGraphicsDirect2DRenderHost";
 
-    private const int ErrorClassAlreadyExists = 1410;
-    private const int CwUseDefault = unchecked((int)0x80000000);
-
-    private const uint CsHRedraw = 0x0002;
-    private const uint CsVRedraw = 0x0001;
-    private const uint WsOverlappedWindow = 0x00CF0000;
-    private const uint WsChild = 0x40000000;
-    private const uint WsVisible = 0x10000000;
-    private const uint WsClipChildren = 0x02000000;
-    private const uint WsClipSiblings = 0x04000000;
-    private const uint WsThickFrame = 0x00040000;
-    private const uint WsMaximizeBox = 0x00010000;
-
-    private const int SwShow = 5;
-    private const int SwMaximize = 3;
-    private const int SwMinimize = 6;
-    private const int SwRestore = 9;
-    private const int SizeMinimized = 1;
-    private const int SmCxScreen = 0;
-    private const int SmCyScreen = 1;
-    private const int SmCxSizeFrame = 32;
-    private const int SmCxPaddedBorder = 92;
-    private const int GwlUserData = -21;
-    private const int ColorWindow = 5;
-    private const int LogPixelsX = 88;
-
-    private const int HtTransparent = -1;
-    private const int HtClient = 1;
-    private const int HtCaption = 2;
-    private const int HtLeft = 10;
-    private const int HtRight = 11;
-    private const int HtTop = 12;
-    private const int HtTopLeft = 13;
-    private const int HtTopRight = 14;
-    private const int HtBottom = 15;
-    private const int HtBottomLeft = 16;
-    private const int HtBottomRight = 17;
-
-    private const int IconSmall = 0;
-    private const int IconBig = 1;
-    private const uint DibRgbColors = 0;
-    private const uint MonitorDefaultToNearest = 2;
-
-    private const uint WmNccreate = 0x0081;
-    private const uint WmNcdestroy = 0x0082;
-    private const uint WmCreate = 0x0001;
-    private const uint WmDestroy = 0x0002;
-    private const uint WmSize = 0x0005;
-    private const uint WmCommand = 0x0111;
-    private const uint WmPaint = 0x000F;
-    private const uint WmEraseBkgnd = 0x0014;
-    private const uint WmDpiChanged = 0x02E0;
-    private const uint WmTimer = 0x0113;
-    private const uint WmMouseMove = 0x0200;
-    private const uint WmLButtonDown = 0x0201;
-    private const uint WmLButtonUp = 0x0202;
-    private const uint WmRButtonDown = 0x0204;
-    private const uint WmRButtonUp = 0x0205;
-    private const uint WmMButtonDown = 0x0207;
-    private const uint WmMButtonUp = 0x0208;
-    private const uint WmMouseWheel = 0x020A;
-    private const uint WmMouseHWheel = 0x020E;
-    private const uint WmMouseLeave = 0x02A3;
-    private const uint WmKeyDown = 0x0100;
-    private const uint WmKeyUp = 0x0101;
-    private const uint WmChar = 0x0102;
-    private const uint WmSysKeyDown = 0x0104;
-    private const uint WmSetFocus = 0x0007;
-    private const uint WmClose = 0x0010;
-    private const uint WmSetIcon = 0x0080;
-    private const uint WmNccalcsize = 0x0083;
-    private const uint WmNchittest = 0x0084;
-    private const uint WmNcactivate = 0x0086;
-    private const uint WmNcLButtonDown = 0x00A1;
     private const uint WmInvoke = 0x8001;
-
-    private const int MkLButton = 0x0001;
-    private const int MkControl = 0x0008;
-    private const int MkShift = 0x0004;
-    private const int MkRButton = 0x0002;
-    private const int MkMButton = 0x0010;
-
-    private const int VkControl = 0x11;
-    private const int VkShift = 0x10;
-    private const int VkMenu = 0x12;
-
-    private const int WheelDelta = 120;
-    private const uint TmeLeave = 0x00000002;
     private const nuint AnimationTimerId = 1;
 
     private static readonly WndProc s_wndProc = WindowProc;
@@ -117,7 +36,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private GCHandle _selfHandle;
     private Direct2DRenderer? _renderer;
     private IBroilerSurface? _surface;
-    private readonly Dictionary<int, IDirect2DControl> _controls = [];
     private readonly Queue<Action> _postedCallbacks = new();
     private long _frameIndex;
     private int _nextControlId = 1000;
@@ -308,46 +226,12 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         return false;
     }
 
-    protected override BEditControl CreateEditControlCore(BControlOptions options)
-    {
-        ThrowIfDisposed();
-        EnsureNativeHandle();
-
-        int id = AllocateControlId();
-        var control = new Direct2DEditControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
-        _controls.Add(id, control);
-        return control;
-    }
-
-    protected override BButtonControl CreateButtonControlCore(BControlOptions options)
-    {
-        ThrowIfDisposed();
-        EnsureNativeHandle();
-
-        int id = AllocateControlId();
-        var control = new Direct2DButtonControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
-        _controls.Add(id, control);
-        return control;
-    }
-
-    protected override BLabelControl CreateLabelControlCore(BControlOptions options)
-    {
-        ThrowIfDisposed();
-        EnsureNativeHandle();
-
-        int id = AllocateControlId();
-        var control = new Direct2DLabelControl(this, id, options ?? throw new ArgumentNullException(nameof(options)));
-        _controls.Add(id, control);
-        return control;
-    }
-
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             BeginClosing();
             StopAnimationTimerCore();
-            DisposeControls();
             ReleaseGraphicsResources();
             DestroyRenderHost();
 
@@ -364,12 +248,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     }
 
     internal static IntPtr ModuleHandle => GetModuleHandle(null);
-
-    internal void UnregisterControl(IDirect2DControl control)
-    {
-        if (_controls.TryGetValue(control.Id, out IDirect2DControl? existing) && ReferenceEquals(existing, control))
-            _controls.Remove(control.Id);
-    }
 
     private void EnsureNativeWindow()
     {
@@ -681,8 +559,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
                 if (_closing)
                     return IntPtr.Zero;
 
-                if (HandleCommand(wParam, lParam))
-                    return IntPtr.Zero;
                 return DefWindowProc(_hwnd, message, wParam, lParam);
 
             case WmDpiChanged:
@@ -763,18 +639,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         _surface = null;
         _renderer?.Dispose();
         _renderer = null;
-    }
-
-    private void DisposeControls()
-    {
-        if (_controls.Count == 0)
-            return;
-
-        var controls = new List<IDirect2DControl>(_controls.Values);
-        _controls.Clear();
-
-        foreach (IDirect2DControl control in controls)
-            control.Dispose();
     }
 
     private void ResizeSurfaceAndNotify()
@@ -1035,16 +899,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             return 0;
 
         return (int)Math.Round(dip * DpiScale);
-    }
-
-    private bool HandleCommand(IntPtr wParam, IntPtr lParam)
-    {
-        int id = LowWord(wParam);
-        if (!_controls.TryGetValue(id, out IDirect2DControl? control))
-            return false;
-
-        control.HandleCommand(HighWord(wParam), lParam);
-        return true;
     }
 
     private static int LowWord(IntPtr value) => unchecked((ushort)((long)value & 0xFFFF));
@@ -1331,318 +1185,4 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         return parent == IntPtr.Zero ? null : FromHwnd(parent);
     }
 
-    private static IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value)
-    {
-        return IntPtr.Size == 8
-            ? SetWindowLongPtr64(hwnd, index, value)
-            : new IntPtr(SetWindowLong32(hwnd, index, value.ToInt32()));
-    }
-
-    private static IntPtr GetWindowLongPtr(IntPtr hwnd, int index)
-    {
-        return IntPtr.Size == 8
-            ? GetWindowLongPtr64(hwnd, index)
-            : new IntPtr(GetWindowLong32(hwnd, index));
-    }
-
-    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-    private delegate IntPtr WndProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct WNDCLASSEX
-    {
-        public uint CbSize;
-        public uint Style;
-        public WndProc LpfnWndProc;
-        public int CbClsExtra;
-        public int CbWndExtra;
-        public IntPtr HInstance;
-        public IntPtr HIcon;
-        public IntPtr HCursor;
-        public IntPtr HbrBackground;
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string? LpszMenuName;
-        [MarshalAs(UnmanagedType.LPWStr)]
-        public string LpszClassName;
-        public IntPtr HIconSm;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private readonly struct RECT(int left, int top, int right, int bottom)
-    {
-        public readonly int Left = left;
-        public readonly int Top = top;
-        public readonly int Right = right;
-        public readonly int Bottom = bottom;
-
-        public int Width => Right - Left;
-
-        public int Height => Bottom - Top;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
-    {
-        public int X;
-        public int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct TRACKMOUSEEVENT
-    {
-        public uint CbSize;
-        public uint DwFlags;
-        public IntPtr HwndTrack;
-        public uint DwHoverTime;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MSG
-    {
-        public IntPtr Hwnd;
-        public uint Message;
-        public IntPtr WParam;
-        public IntPtr LParam;
-        public uint Time;
-        public POINT Pt;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct CREATESTRUCT
-    {
-        public IntPtr LpCreateParams;
-        public IntPtr HInstance;
-        public IntPtr HMenu;
-        public IntPtr HwndParent;
-        public int Cy;
-        public int Cx;
-        public int Y;
-        public int X;
-        public int Style;
-        public IntPtr LpszName;
-        public IntPtr LpszClass;
-        public uint DwExStyle;
-    }
-
-    [LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16, EntryPoint = "GetModuleHandleW")]
-    private static partial IntPtr GetModuleHandle(string? moduleName);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern ushort RegisterClassEx(ref WNDCLASSEX windowClass);
-
-    [LibraryImport("user32.dll", EntryPoint = "CreateWindowExW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    private static partial IntPtr CreateWindowEx(
-        uint exStyle,
-        string className,
-        string windowName,
-        uint style,
-        int x,
-        int y,
-        int width,
-        int height,
-        IntPtr hwndParent,
-        IntPtr menu,
-        IntPtr instance,
-        IntPtr param);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AdjustWindowRectEx(ref RECT rect, uint style, [MarshalAs(UnmanagedType.Bool)] bool menu, uint exStyle);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AdjustWindowRectExForDpi(ref RECT rect, uint style, [MarshalAs(UnmanagedType.Bool)] bool menu, uint exStyle, uint dpi);
-
-    [LibraryImport("user32.dll")]
-    private static partial int GetSystemMetrics(int index);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool ShowWindow(IntPtr hwnd, int commandShow);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool UpdateWindow(IntPtr hwnd);
-
-    [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "GetMessageW")]
-    private static partial int GetMessage(out MSG message, IntPtr hwnd, uint filterMin, uint filterMax);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool TranslateMessage(ref MSG message);
-
-    [LibraryImport("user32.dll", EntryPoint = "DispatchMessageW")]
-    private static partial IntPtr DispatchMessage(ref MSG message);
-
-    [LibraryImport("user32.dll", EntryPoint = "DefWindowProcW")]
-    private static partial IntPtr DefWindowProc(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [LibraryImport("user32.dll")]
-    private static partial void PostQuitMessage(int exitCode);
-
-    [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "PostMessageW")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool InvalidateRect(IntPtr hwnd, IntPtr rect, [MarshalAs(UnmanagedType.Bool)] bool erase);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool ValidateRect(IntPtr hwnd, IntPtr rect);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool MoveWindow(IntPtr hwnd, int x, int y, int width, int height, [MarshalAs(UnmanagedType.Bool)] bool repaint);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool DestroyWindow(IntPtr hwnd);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr GetParent(IntPtr hwnd);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    private static partial UIntPtr SetTimer(IntPtr hwnd, nuint eventId, uint elapseMs, IntPtr timerFunc);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool KillTimer(IntPtr hwnd, nuint eventId);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr SetFocus(IntPtr hwnd);
-
-    [LibraryImport("user32.dll")]
-    private static partial short GetKeyState(int virtualKey);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool ScreenToClient(IntPtr hwnd, ref POINT point);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool TrackMouseEvent(ref TRACKMOUSEEVENT trackMouseEvent);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetClientRect(IntPtr hwnd, out RECT rect);
-
-    [LibraryImport("user32.dll")]
-    private static partial uint GetDpiForWindow(IntPtr hwnd);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    private static partial IntPtr GetDC(IntPtr hwnd);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    private static partial int ReleaseDC(IntPtr hwnd, IntPtr hdc);
-
-    [LibraryImport("gdi32.dll")]
-    private static partial int GetDeviceCaps(IntPtr hdc, int index);
-
-    [LibraryImport("user32.dll", SetLastError = true, EntryPoint = "LoadCursorW")]
-    private static partial IntPtr LoadCursor(IntPtr instance, IntPtr cursorName);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr GetSysColorBrush(int index);
-
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static partial IntPtr SetWindowLongPtr64(IntPtr hwnd, int index, IntPtr value);
-
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongW")]
-    private static partial int SetWindowLong32(IntPtr hwnd, int index, int value);
-
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    private static partial IntPtr GetWindowLongPtr64(IntPtr hwnd, int index);
-
-    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
-    private static partial int GetWindowLong32(IntPtr hwnd, int index);
-
-    [LibraryImport("user32.dll", EntryPoint = "SetWindowTextW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowText(IntPtr hwnd, string title);
-
-    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
-    private static partial IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool ReleaseCapture();
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsIconic(IntPtr hwnd);
-
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsZoomed(IntPtr hwnd);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetWindowRect(IntPtr hwnd, out RECT rect);
-
-    [LibraryImport("user32.dll")]
-    private static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
-
-    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool DestroyIcon(IntPtr icon);
-
-    [LibraryImport("user32.dll", SetLastError = true)]
-    private static partial IntPtr CreateIconIndirect(ref ICONINFO iconInfo);
-
-    [LibraryImport("gdi32.dll", SetLastError = true)]
-    private static partial IntPtr CreateDIBSection(
-        IntPtr hdc,
-        ref BITMAPINFOHEADER header,
-        uint usage,
-        out IntPtr bits,
-        IntPtr section,
-        uint offset);
-
-    [LibraryImport("gdi32.dll", SetLastError = true)]
-    private static partial IntPtr CreateBitmap(int width, int height, uint planes, uint bitsPerPixel, IntPtr bits);
-
-    [LibraryImport("gdi32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool DeleteObject(IntPtr gdiObject);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct MONITORINFO
-    {
-        public uint CbSize;
-        public RECT RcMonitor;
-        public RECT RcWork;
-        public uint DwFlags;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct ICONINFO
-    {
-        public int FIcon;
-        public int XHotspot;
-        public int YHotspot;
-        public IntPtr HbmMask;
-        public IntPtr HbmColor;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct BITMAPINFOHEADER
-    {
-        public uint BiSize;
-        public int BiWidth;
-        public int BiHeight;
-        public ushort BiPlanes;
-        public ushort BiBitCount;
-        public uint BiCompression;
-        public uint BiSizeImage;
-        public int BiXPelsPerMeter;
-        public int BiYPelsPerMeter;
-        public uint BiClrUsed;
-        public uint BiClrImportant;
-    }
 }

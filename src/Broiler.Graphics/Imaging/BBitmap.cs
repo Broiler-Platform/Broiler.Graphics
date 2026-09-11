@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Rendering;
 using Broiler.Media.Image;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>
 /// A dependency-free RGBA bitmap owned by Broiler.Graphics.
@@ -12,10 +14,7 @@ public sealed class BBitmap : IDisposable
     private readonly byte[] _rgba;
     private bool _disposed;
 
-    public BBitmap(int width, int height)
-        : this(width, height, new byte[checked(width * height * BPixelBuffer.BytesPerPixel)], takeOwnership: true)
-    {
-    }
+    public BBitmap(int width, int height) : this(width, height, new byte[checked(width * height * BPixelBuffer.BytesPerPixel)], takeOwnership: true) { }
 
     public BBitmap(BPixelBuffer pixels)
     {
@@ -34,8 +33,7 @@ public sealed class BBitmap : IDisposable
         long expected = (long)width * height * BPixelBuffer.BytesPerPixel;
         if (rgba.Length != expected)
             throw new ArgumentException(
-                $"Pixel buffer length {rgba.Length} does not match {width}x{height}x{BPixelBuffer.BytesPerPixel} = {expected}.",
-                nameof(rgba));
+                $"Pixel buffer length {rgba.Length} does not match {width}x{height}x{BPixelBuffer.BytesPerPixel} = {expected}.", nameof(rgba));
 
         Width = width;
         Height = height;
@@ -136,10 +134,7 @@ public sealed class BBitmap : IDisposable
         return new BBitmap(MediaImageBridge.Decode(data));
     }
 
-    public static BBitmap Decode(ReadOnlySpan<byte> data)
-    {
-        return new BBitmap(MediaImageBridge.Decode(data));
-    }
+    public static BBitmap Decode(ReadOnlySpan<byte> data) => new BBitmap(MediaImageBridge.Decode(data));
 
     public static BBitmap Decode(Stream stream)
     {
@@ -166,10 +161,7 @@ public sealed class BBitmap : IDisposable
         return Decode(File.ReadAllBytes(path));
     }
 
-    public void Dispose()
-    {
-        _disposed = true;
-    }
+    public void Dispose() => _disposed = true;
 
     /// <summary>
     /// Whether pixels of this bitmap may be written from several threads at once, given each
@@ -215,6 +207,7 @@ public sealed class BBitmap : IDisposable
     {
         if ((uint)x >= (uint)Width)
             throw new ArgumentOutOfRangeException(nameof(x));
+
         if ((uint)y >= (uint)Height)
             throw new ArgumentOutOfRangeException(nameof(y));
     }
@@ -223,9 +216,7 @@ public sealed class BBitmap : IDisposable
 
     private static void ValidateDimensions(int width, int height)
     {
-        if (width <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width));
-        if (height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(height));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
     }
 }

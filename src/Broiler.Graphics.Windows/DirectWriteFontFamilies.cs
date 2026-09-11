@@ -1,7 +1,9 @@
+using static Broiler.Native.Windows.Direct2D.DirectWriteFontFamiliesApi;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Graphics.Text;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
@@ -26,30 +28,6 @@ namespace Broiler.Graphics.Windows;
 /// </remarks>
 internal static class DirectWriteFontFamilies
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetSystemFontCollectionProc(IntPtr self, out IntPtr collection, [MarshalAs(UnmanagedType.Bool)] bool checkForUpdates);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate uint GetFontFamilyCountProc(IntPtr self);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetFontFamilyProc(IntPtr self, uint index, out IntPtr family);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetFamilyNamesProc(IntPtr self, out IntPtr names);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-    private delegate int FindLocaleNameProc(
-        IntPtr self,
-        [MarshalAs(UnmanagedType.LPWStr)] string localeName,
-        out uint index,
-        [MarshalAs(UnmanagedType.Bool)] out bool exists);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetStringLengthProc(IntPtr self, uint index, out uint length);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetStringProc(IntPtr self, uint index, IntPtr buffer, uint size);
 
     /// <summary>
     /// Offers this backend's font list, unless the application has already chosen one. Reports

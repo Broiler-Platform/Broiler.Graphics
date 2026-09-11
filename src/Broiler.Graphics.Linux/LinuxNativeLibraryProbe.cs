@@ -52,9 +52,8 @@ public static class LinuxNativeLibraryProbe
             if (string.IsNullOrWhiteSpace(libraryName))
                 continue;
 
-            if (NativeLibrary.TryLoad(libraryName, out IntPtr handle))
+            if (Broiler.Native.NativeLibraryProbe.IsAvailable(libraryName))
             {
-                NativeLibrary.Free(handle);
                 return new LinuxNativeLibraryStatus(
                     requirement.Id,
                     requirement.DisplayName,

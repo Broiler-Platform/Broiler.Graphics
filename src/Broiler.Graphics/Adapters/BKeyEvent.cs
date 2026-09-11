@@ -1,6 +1,6 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
-public sealed class RKeyEvent(bool control, bool aKeyCode, bool cKeyCode)
+public sealed class BKeyEvent(bool control, bool aKeyCode, bool cKeyCode)
 {
     public bool Control => control;
     public bool AKeyCode => aKeyCode;

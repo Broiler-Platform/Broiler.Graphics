@@ -1,6 +1,7 @@
+using Broiler.Graphics.Geometry;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Windowing;
 
 /// <summary>Mouse buttons, expressed as a bit flag so multiple held buttons can be reported together.</summary>
 [Flags]
@@ -16,21 +17,14 @@ public enum BMouseButtons
 /// A pointer (mouse) event. <see cref="Position"/> is in device-independent units relative to the
 /// top-left of the window's render content area (i.e. excluding any chrome the host reserves).
 /// </summary>
-public readonly struct BPointerEventArgs
+public readonly struct BPointerEventArgs(BPoint position, BMouseButtons buttons, BMouseButtons changedButton = BMouseButtons.None)
 {
-    public BPointerEventArgs(BPoint position, BMouseButtons buttons, BMouseButtons changedButton = BMouseButtons.None)
-    {
-        Position = position;
-        Buttons = buttons;
-        ChangedButton = changedButton;
-    }
+    public BPoint Position { get; } = position;
 
-    public BPoint Position { get; }
-
-    public BMouseButtons Buttons { get; }
+    public BMouseButtons Buttons { get; } = buttons;
 
     /// <summary>The mouse button that caused a button down/up event, or <see cref="BMouseButtons.None"/> otherwise.</summary>
-    public BMouseButtons ChangedButton { get; }
+    public BMouseButtons ChangedButton { get; } = changedButton;
 
     public bool LeftButton => (Buttons & BMouseButtons.Left) != 0;
 
@@ -51,71 +45,41 @@ public readonly struct BPointerEventArgs
 /// that dropped them left a host unable to tell the two gestures apart, however plainly the user had
 /// made the distinction.
 /// </remarks>
-public readonly struct BMouseWheelEventArgs
+public readonly struct BMouseWheelEventArgs(BPoint position, double delta, BMouseButtons buttons,
+    bool control = false, bool shift = false, bool alt = false, bool isHorizontal = false)
 {
-    public BMouseWheelEventArgs(
-        BPoint position,
-        double delta,
-        BMouseButtons buttons,
-        bool control = false,
-        bool shift = false,
-        bool alt = false,
-        bool isHorizontal = false)
-    {
-        Position = position;
-        Delta = delta;
-        Buttons = buttons;
-        Control = control;
-        Shift = shift;
-        Alt = alt;
-        IsHorizontal = isHorizontal;
-    }
+    public BPoint Position { get; } = position;
 
-    public BPoint Position { get; }
+    public double Delta { get; } = delta;
 
-    public double Delta { get; }
+    public BMouseButtons Buttons { get; } = buttons;
 
-    public BMouseButtons Buttons { get; }
+    public bool Control { get; } = control;
 
-    public bool Control { get; }
+    public bool Shift { get; } = shift;
 
-    public bool Shift { get; }
-
-    public bool Alt { get; }
+    public bool Alt { get; } = alt;
 
     /// <summary>True for a wheel that tilts, or a touchpad's sideways gesture.</summary>
-    public bool IsHorizontal { get; }
+    public bool IsHorizontal { get; } = isHorizontal;
 }
 
 /// <summary>A keyboard key event. <see cref="VirtualKey"/> is the platform virtual-key code.</summary>
-public readonly struct BKeyEventArgs
+public readonly struct BKeyEventArgs(int virtualKey, bool control, bool shift, bool alt)
 {
-    public BKeyEventArgs(int virtualKey, bool control, bool shift, bool alt)
-    {
-        VirtualKey = virtualKey;
-        Control = control;
-        Shift = shift;
-        Alt = alt;
-    }
+    public int VirtualKey { get; } = virtualKey;
 
-    public int VirtualKey { get; }
+    public bool Control { get; } = control;
 
-    public bool Control { get; }
+    public bool Shift { get; } = shift;
 
-    public bool Shift { get; }
-
-    public bool Alt { get; }
+    public bool Alt { get; } = alt;
 }
 
 /// <summary>A text-input event carrying a single translated character (e.g. from WM_CHAR).</summary>
-public readonly struct BTextInputEventArgs
+public readonly struct BTextInputEventArgs(char character)
 {
-    public BTextInputEventArgs(char character)
-    {
-        Character = character;
-    }
-
-    public char Character { get; }
+    public char Character { get; } = character;
 }
 
 /// <summary>Common virtual-key codes, kept backend-neutral so host apps need not reference Win32.</summary>

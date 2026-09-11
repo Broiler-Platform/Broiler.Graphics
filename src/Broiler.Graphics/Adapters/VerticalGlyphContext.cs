@@ -1,10 +1,12 @@
-namespace Broiler.Graphics;
+using System;
+
+namespace Broiler.Graphics.Adapters;
 
 /// <summary>
 /// PROTOTYPE bridge (vertical writing-mode flow, Stage 2): carries the
 /// clockwise glyph-rotation requested for the current text draw from the
 /// paint walker to the text shaper without widening the abstract
-/// <see cref="RGraphics.DrawString"/> signature (and every backend override).
+/// <see cref="BGraphics.DrawString"/> signature (and every backend override).
 ///
 /// The paint backend sets <see cref="RotationDeg"/> immediately before a
 /// <c>DrawString</c> call and resets it to 0 afterwards; the shaper reads it
@@ -13,7 +15,7 @@ namespace Broiler.Graphics;
 /// </summary>
 public static class VerticalGlyphContext
 {
-    [System.ThreadStatic]
+    [ThreadStatic]
     private static float _rotationDeg;
 
     public static float RotationDeg

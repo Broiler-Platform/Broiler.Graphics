@@ -1,3 +1,4 @@
+using static Broiler.Native.Windows.HwndNative;
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -154,7 +155,4 @@ public sealed class HwndVideoOutput : IHwndVideoOutput
             throw new ObjectDisposedException(nameof(HwndVideoOutput), "The borrowed HWND has been destroyed by its owner.");
     }
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool IsWindow(nint hwnd);
 }

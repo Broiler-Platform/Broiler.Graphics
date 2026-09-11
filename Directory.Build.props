@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
 
   <!-- Chain to a parent Directory.Build.props when one exists (in-tree build).
        Skipped for standalone / submodule builds. The path is captured in a
@@ -33,4 +33,10 @@
     <PackageProjectUrl>https://github.com/Broiler-Platform/Broiler.Graphics</PackageProjectUrl>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <BroilerNativeRoot Condition="'$(BroilerNativeRoot)' == '' And Exists('$(MSBuildThisFileDirectory)../Broiler.Native/src')">$(MSBuildThisFileDirectory)../Broiler.Native</BroilerNativeRoot>
+    <!-- Native projects are outside this solution; retain the caller's configuration. -->
+    <ShouldUnsetParentConfigurationAndPlatform>false</ShouldUnsetParentConfigurationAndPlatform>
+    <BroilerNativeVersion Condition="'$(BroilerNativeVersion)' == ''">0.1.0-preview.1</BroilerNativeVersion>
+  </PropertyGroup>
 </Project>

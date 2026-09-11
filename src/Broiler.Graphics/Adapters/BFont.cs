@@ -1,7 +1,8 @@
+using Broiler.Graphics.Text;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
-public abstract class RFont : ILayoutFont
+public abstract class BFont : ILayoutFont
 {
     public abstract double Size { get; }
     public abstract double Height { get; }
@@ -35,5 +36,5 @@ public abstract class RFont : ILayoutFont
     /// </summary>
     public virtual FontStyle Style => FontStyle.Regular;
 
-    public abstract double GetWhitespaceWidth(RGraphics graphics);
+    public abstract double GetWhitespaceWidth(BGraphics graphics);
 }

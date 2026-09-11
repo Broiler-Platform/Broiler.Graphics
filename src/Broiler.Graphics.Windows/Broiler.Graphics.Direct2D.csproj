@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -25,17 +25,21 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Mouse.Windows\Broiler.Input.Mouse.Windows.csproj" />
-    <ProjectReference Include="$(BroilerInputRoot)\src\Broiler.Input.Windows\Broiler.Input.Windows.csproj" />
+    <PackageReference Include="Broiler.Media.Video" Version="0.1.0-preview.10" />
+    <PackageReference Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.10" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
     <!-- Graphics.Windows owns the HWND-backed video presentation target (HwndVideoOutput),
          which implements Broiler.Media.Video.Windows' IHwndVideoOutput contract per the media
          roadmap §6.6/§7.5. It references only the Video ABSTRACTIONS, never a codec
          implementation — and the dependency runs this way only: Media references nothing
          here (Broiler.Media ADR 0006). -->
-    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Video\Broiler.Media.Video.csproj" />
-    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Video.Windows\Broiler.Media.Video.Windows.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj" Condition="Exists('$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj')" />
+    <PackageReference Include="Broiler.Native.Windows" Version="$(BroilerNativeVersion)" Condition="!Exists('$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj')" />
+  </ItemGroup>
 </Project>

@@ -1,6 +1,9 @@
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// Creates surfaces and replays render lists onto them. A renderer owns a backend device and must be

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Broiler.Graphics.Imaging;
 using Broiler.Media;
 using Broiler.Media.Image.Managed;
 

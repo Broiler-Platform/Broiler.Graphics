@@ -1,4 +1,4 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Windowing;
 
 /// <summary>
 /// The edge or corner a resize drag started from, for

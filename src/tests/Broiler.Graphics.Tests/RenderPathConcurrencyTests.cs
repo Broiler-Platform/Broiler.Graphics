@@ -1,3 +1,11 @@
+using Broiler.Graphics.Adapters;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -65,7 +73,7 @@ internal static class RenderPathConcurrencyTests
                                                                   from style in new[] { FontStyle.Regular, FontStyle.Bold }
                                                                   select (family, size, style)];
 
-        var seen = new ConcurrentDictionary<(string, double, FontStyle), ConcurrentDictionary<RFont, byte>>();
+        var seen = new ConcurrentDictionary<(string, double, FontStyle), ConcurrentDictionary<BFont, byte>>();
         RunOnAllThreads(index =>
         {
             // Each thread walks the key list from a different offset so they are
@@ -75,18 +83,18 @@ internal static class RenderPathConcurrencyTests
             for (int step = 0; step < keys.Length; step++)
             {
                 (string family, double size, FontStyle style) = keys[(step + index) % keys.Length];
-                RFont font = handler.GetCachedFont(family, size, style);
-                seen.GetOrAdd((family, size, style), _ => new ConcurrentDictionary<RFont, byte>())[font] = 0;
+                BFont font = handler.GetCachedFont(family, size, style);
+                seen.GetOrAdd((family, size, style), _ => new ConcurrentDictionary<BFont, byte>())[font] = 0;
             }
         });
 
         AssertEx.AreEqual(keys.Length, seen.Count, "Every requested key must be observed.");
-        foreach (KeyValuePair<(string, double, FontStyle), ConcurrentDictionary<RFont, byte>> entry in seen)
+        foreach (KeyValuePair<(string, double, FontStyle), ConcurrentDictionary<BFont, byte>> entry in seen)
         {
             AssertEx.AreEqual(
                 1,
                 entry.Value.Count,
-                $"Key {entry.Key} must resolve to exactly one shared RFont, saw {entry.Value.Count}.");
+                $"Key {entry.Key} must resolve to exactly one shared BFont, saw {entry.Value.Count}.");
         }
 
         // The cache must actually cache: a second sequential pass creates nothing.
@@ -108,9 +116,9 @@ internal static class RenderPathConcurrencyTests
         var creator = new CountingFontCreator();
         var handler = new FontsHandler(creator);
 
-        RFont lower = handler.GetCachedFont("verdana", 14, FontStyle.Regular);
-        RFont upper = handler.GetCachedFont("VERDANA", 14, FontStyle.Regular);
-        RFont mixed = handler.GetCachedFont("VerDaNa", 14, FontStyle.Regular);
+        BFont lower = handler.GetCachedFont("verdana", 14, FontStyle.Regular);
+        BFont upper = handler.GetCachedFont("VERDANA", 14, FontStyle.Regular);
+        BFont mixed = handler.GetCachedFont("VerDaNa", 14, FontStyle.Regular);
 
         AssertEx.IsTrue(ReferenceEquals(lower, upper), "Family match must ignore case.");
         AssertEx.IsTrue(ReferenceEquals(lower, mixed), "Family match must ignore case.");
@@ -474,7 +482,7 @@ internal static class RenderPathConcurrencyTests
 
         public int Created => Volatile.Read(ref _created);
 
-        public RFont CreateFont(string family, double size, FontStyle style)
+        public BFont CreateFont(string family, double size, FontStyle style)
         {
             Interlocked.Increment(ref _created);
             // Some work, so the window between "miss" and "publish" is wide enough
@@ -484,11 +492,11 @@ internal static class RenderPathConcurrencyTests
             return new StubFont(size);
         }
 
-        public RFont CreateFont(RFontFamily family, double size, FontStyle style) =>
+        public BFont CreateFont(BFontFamily family, double size, FontStyle style) =>
             CreateFont(family?.Name ?? string.Empty, size, style);
     }
 
-    private sealed class StubFont(double size) : RFont
+    private sealed class StubFont(double size) : BFont
     {
         public override double Size { get; } = size;
 
@@ -498,6 +506,6 @@ internal static class RenderPathConcurrencyTests
 
         public override double LeftPadding => 0;
 
-        public override double GetWhitespaceWidth(RGraphics graphics) => Size * 0.25;
+        public override double GetWhitespaceWidth(BGraphics graphics) => Size * 0.25;
     }
 }

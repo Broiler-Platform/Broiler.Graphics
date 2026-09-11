@@ -1,15 +1,29 @@
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Imaging;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// CPU raster canvas for drawing into <see cref="BBitmap"/> without a native graphics backend.
 /// </summary>
-public sealed class BCanvas : IDisposable
+public sealed class BCanvas(BBitmap bitmap) : IDisposable
 {
-    private readonly BBitmap _rootBitmap;
+    public enum BlendMode
+    {
+        normal,
+        multiply,
+        screen,
+        darken,
+        lighten,
+        overlay,
+        difference,
+        plus_lighter
+    }
+
+    private readonly BBitmap _rootBitmap = bitmap ?? throw new ArgumentNullException(nameof(bitmap));
     private readonly Stack<CanvasState> _stateStack = new();
     private readonly Stack<LayerState> _layerStack = new();
     private readonly List<ClipOperation> _clipOperations = [];
@@ -32,11 +46,6 @@ public sealed class BCanvas : IDisposable
     private PointF _translation;
     private float _scale = 1f;
 
-    public BCanvas(BBitmap bitmap)
-    {
-        _rootBitmap = bitmap ?? throw new ArgumentNullException(nameof(bitmap));
-    }
-
     public void Save() => _stateStack.Push(new CanvasState(_translation, _scale, _clipOperations.Count));
 
     public void Restore()
@@ -52,13 +61,12 @@ public sealed class BCanvas : IDisposable
             PopClip();
     }
 
-    public void Translate(float dx, float dy) =>
-        _translation = new PointF(_translation.X + dx, _translation.Y + dy);
+    public void Translate(float dx, float dy) => _translation = new PointF(_translation.X + dx, _translation.Y + dy);
 
     /// <summary>
     /// Composes a uniform scale about the surface origin onto the current transform, so subsequent
     /// draws map <c>point → point * scale + translation</c> (a document-root viewport zoom, e.g. a
-    /// pinch-zoom or <c>html { zoom }</c>). Uniform-only: <see cref="Broiler.Graphics.BCanvas"/> is a
+    /// pinch-zoom or <c>html { zoom }</c>). Uniform-only: <see cref="BCanvas"/> is a
     /// translate+uniform-scale rasterizer, not a full affine surface, which is exact for a viewport
     /// zoom. At scale <c>1</c> (the default) every draw path is byte-identical to the translate-only
     /// behaviour. Saved/restored with <see cref="Save"/>/<see cref="Restore"/>.
@@ -230,12 +238,7 @@ public sealed class BCanvas : IDisposable
     /// into is fixed for the whole fill, exactly as it is in the sequential path.
     /// </remarks>
     private static void ForEachBand(int minY, int maxY, int minX, int maxX, Action<int, int> band) =>
-        BRasterParallelism.ForEachBand(
-            minY,
-            maxY,
-            maxX - minX + 1,
-            BBitmap.SupportsConcurrentPixelWrites,
-            band);
+        BRasterParallelism.ForEachBand(minY, maxY, maxX - minX + 1, BBitmap.SupportsConcurrentPixelWrites, band);
 
     public void FillRect(RectangleF rect, BColor color)
     {
@@ -255,7 +258,7 @@ public sealed class BCanvas : IDisposable
                 for (int x = minX; x <= maxX; x++)
                 {
                     if (IsVisible(x, y))
-                        BlendPixel(target, x, y, color, "normal");
+                        BlendPixel(target, x, y, color, BlendMode.normal);
                 }
             }
         });
@@ -286,7 +289,7 @@ public sealed class BCanvas : IDisposable
 
                     float distance = DistanceToSegment(x + 0.5f, y + 0.5f, p1, p2);
                     if (distance <= radius)
-                        BlendPixel(target, x, y, color, "normal");
+                        BlendPixel(target, x, y, color, BlendMode.normal);
                 }
             }
         });
@@ -384,7 +387,7 @@ public sealed class BCanvas : IDisposable
                 for (int x = startX; x <= endX; x++)
                 {
                     if (IsVisible(x, y) && ContainsPolygonPoint(translated, x + 0.5f, y + 0.5f))
-                        BlendPixel(target, x, y, color, "normal");
+                        BlendPixel(target, x, y, color, BlendMode.normal);
                 }
             }
         });
@@ -506,7 +509,7 @@ public sealed class BCanvas : IDisposable
 
                     byte alpha = (byte)Math.Clamp((int)Math.Round(color.A * cov), 0, 255);
                     if (alpha != 0)
-                        BlendPixel(target, x, y, new BColor(color.R, color.G, color.B, alpha), "normal");
+                        BlendPixel(target, x, y, new BColor(color.R, color.G, color.B, alpha), BlendMode.normal);
                 }
             }
         });
@@ -570,7 +573,7 @@ public sealed class BCanvas : IDisposable
 
                     int srcX = Math.Clamp((int)Math.Floor(srcRect.Left + (normalizedX * srcRect.Width)), 0, source.Width - 1);
                     int srcY = Math.Clamp((int)Math.Floor(srcRect.Top + (normalizedY * srcRect.Height)), 0, source.Height - 1);
-                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), "normal");
+                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), BlendMode.normal);
                 }
             }
         });
@@ -621,7 +624,7 @@ public sealed class BCanvas : IDisposable
                         (int)Math.Floor(srcRect.Top + PositiveModulo(sampleY - translatedOrigin.Y, srcRect.Height)),
                         0,
                         source.Height - 1);
-                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), "normal");
+                    BlendPixel(target, x, y, source.GetPixel(srcX, srcY), BlendMode.normal);
                 }
             }
         });
@@ -671,7 +674,7 @@ public sealed class BCanvas : IDisposable
                     float sampleX = x + 0.5f;
                     float sampleY = y + 0.5f;
                     float t = (((sampleX - startPoint.X) * gradientX) + ((sampleY - startPoint.Y) * gradientY)) / gradientLengthSquared;
-                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, Math.Clamp(t, 0f, 1f)), "normal");
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, Math.Clamp(t, 0f, 1f)), BlendMode.normal);
                 }
             }
         });
@@ -718,7 +721,7 @@ public sealed class BCanvas : IDisposable
                     float dx = (x + 0.5f - cx) / rx;
                     float dy = (y + 0.5f - cy) / ry;
                     float t = Math.Clamp((float)Math.Sqrt((dx * dx) + (dy * dy)), 0f, 1f);
-                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), BlendMode.normal);
                 }
             }
         });
@@ -767,14 +770,14 @@ public sealed class BCanvas : IDisposable
                     float dy = y + 0.5f - cy;
                     float angleDeg = (float)(Math.Atan2(dx, -dy) * 180.0 / Math.PI);
                     float t = PositiveModulo(angleDeg - fromAngleDeg, 360f) / 360f;
-                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), "normal");
+                    BlendPixel(target, x, y, SampleGradientColor(colors, normalizedPositions, t), BlendMode.normal);
                 }
             }
         });
     }
 
     public void SaveOpacityLayer(float opacity) =>
-        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), opacity, "normal", CurrentClipBounds));
+        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), opacity, BlendMode.normal, CurrentClipBounds));
 
     public void RestoreOpacityLayer()
     {
@@ -782,8 +785,8 @@ public sealed class BCanvas : IDisposable
             CompositeLayer(_layerStack.Pop());
     }
 
-    public void SaveBlendLayer(string blendMode) =>
-        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), 1f, blendMode ?? "normal", CurrentClipBounds));
+    public void SaveBlendLayer(BlendMode? blendMode) =>
+        _layerStack.Push(new LayerState(new BBitmap(_rootBitmap.Width, _rootBitmap.Height), 1f, blendMode ?? BlendMode.normal, CurrentClipBounds));
 
     public void RestoreBlendLayer()
     {
@@ -901,7 +904,7 @@ public sealed class BCanvas : IDisposable
         return new BColor(color.R, color.G, color.B, alpha);
     }
 
-    private static void BlendPixel(BBitmap bitmap, int x, int y, BColor source, string blendMode)
+    private static void BlendPixel(BBitmap bitmap, int x, int y, BColor source, BlendMode blendMode)
     {
         if (source.A == 0)
             return;
@@ -911,42 +914,27 @@ public sealed class BCanvas : IDisposable
         bitmap.WritePixelUnchecked(x, y, CompositeSourceOver(blendedSource, destination));
     }
 
-    private static BColor ApplyBlendMode(BColor source, BColor destination, string blendMode)
+    private static BColor ApplyBlendMode(BColor source, BColor destination, BlendMode blendMode)
     {
-        if (string.Equals(blendMode, "multiply", StringComparison.OrdinalIgnoreCase))
+        return blendMode switch
         {
-            return new BColor(
-                (byte)((source.R * destination.R + 127) / 255),
-                (byte)((source.G * destination.G + 127) / 255),
-                (byte)((source.B * destination.B + 127) / 255),
-                source.A);
-        }
-
-        if (string.Equals(blendMode, "screen", StringComparison.OrdinalIgnoreCase))
-        {
-            return new BColor(
-                (byte)(255 - (((255 - source.R) * (255 - destination.R) + 127) / 255)),
-                (byte)(255 - (((255 - source.G) * (255 - destination.G) + 127) / 255)),
-                (byte)(255 - (((255 - source.B) * (255 - destination.B) + 127) / 255)),
-                source.A);
-        }
-
-        if (string.Equals(blendMode, "darken", StringComparison.OrdinalIgnoreCase))
-            return new BColor(Math.Min(source.R, destination.R), Math.Min(source.G, destination.G), Math.Min(source.B, destination.B), source.A);
-
-        if (string.Equals(blendMode, "lighten", StringComparison.OrdinalIgnoreCase))
-            return new BColor(Math.Max(source.R, destination.R), Math.Max(source.G, destination.G), Math.Max(source.B, destination.B), source.A);
-
-        if (string.Equals(blendMode, "overlay", StringComparison.OrdinalIgnoreCase))
-            return new BColor(OverlayChannel(source.R, destination.R), OverlayChannel(source.G, destination.G), OverlayChannel(source.B, destination.B), source.A);
-
-        if (string.Equals(blendMode, "difference", StringComparison.OrdinalIgnoreCase))
-            return new BColor((byte)Math.Abs(source.R - destination.R), (byte)Math.Abs(source.G - destination.G), (byte)Math.Abs(source.B - destination.B), source.A);
-
-        if (string.Equals(blendMode, "plus-lighter", StringComparison.OrdinalIgnoreCase))
-            return new BColor(AdditiveClampChannel(source.R, destination.R), AdditiveClampChannel(source.G, destination.G), AdditiveClampChannel(source.B, destination.B), source.A);
-
-        return source;
+            BlendMode.multiply => new BColor(
+                                        (byte)((source.R * destination.R + 127) / 255),
+                                        (byte)((source.G * destination.G + 127) / 255),
+                                        (byte)((source.B * destination.B + 127) / 255),
+                                        source.A),
+            BlendMode.screen => new BColor(
+                                        (byte)(255 - ((255 - source.R) * (255 - destination.R) + 127) / 255),
+                                        (byte)(255 - ((255 - source.G) * (255 - destination.G) + 127) / 255),
+                                        (byte)(255 - ((255 - source.B) * (255 - destination.B) + 127) / 255),
+                                        source.A),
+            BlendMode.darken => new BColor(Math.Min(source.R, destination.R), Math.Min(source.G, destination.G), Math.Min(source.B, destination.B), source.A),
+            BlendMode.lighten => new BColor(Math.Max(source.R, destination.R), Math.Max(source.G, destination.G), Math.Max(source.B, destination.B), source.A),
+            BlendMode.overlay => new BColor(OverlayChannel(source.R, destination.R), OverlayChannel(source.G, destination.G), OverlayChannel(source.B, destination.B), source.A),
+            BlendMode.difference => new BColor((byte)Math.Abs(source.R - destination.R), (byte)Math.Abs(source.G - destination.G), (byte)Math.Abs(source.B - destination.B), source.A),
+            BlendMode.plus_lighter => new BColor(AdditiveClampChannel(source.R, destination.R), AdditiveClampChannel(source.G, destination.G), AdditiveClampChannel(source.B, destination.B), source.A),
+            _ => source,
+        };
     }
 
     private static float[] NormalizeGradientPositions(int colorCount, IReadOnlyList<float>? positions)
@@ -1105,47 +1093,24 @@ public sealed class BCanvas : IDisposable
     /// Device-space box the clip admitted when the layer was pushed, or <c>null</c> when nothing
     /// had narrowed it. See <see cref="CompositeLayer"/>.
     /// </param>
-    private sealed record LayerState(BBitmap Bitmap, float Opacity, string BlendMode, RectangleF? ContentBounds);
+    private sealed record LayerState(BBitmap Bitmap, float Opacity, BlendMode BlendMode, RectangleF? ContentBounds);
 
-    private readonly record struct ClipOperation(
-        RectangleF Rect,
-        bool IsExclude,
-        bool IsRounded,
-        float CornerNw,
-        float CornerNwY,
-        float CornerNe,
-        float CornerNeY,
-        float CornerSe,
-        float CornerSeY,
-        float CornerSw,
-        float CornerSwY)
+    private readonly record struct ClipOperation(RectangleF Rect, bool IsExclude, bool IsRounded,
+        float CornerNw, float CornerNwY, float CornerNe, float CornerNeY,
+        float CornerSe, float CornerSeY, float CornerSw, float CornerSwY)
     {
         public static ClipOperation Include(RectangleF rect) => new(rect, false, false, 0, 0, 0, 0, 0, 0, 0, 0);
 
         public static ClipOperation Exclude(RectangleF rect) => new(rect, true, false, 0, 0, 0, 0, 0, 0, 0, 0);
 
-        public static ClipOperation IncludeRounded(
-            RectangleF rect,
-            float cornerNw,
-            float cornerNwY,
-            float cornerNe,
-            float cornerNeY,
-            float cornerSe,
-            float cornerSeY,
-            float cornerSw,
-            float cornerSwY) =>
+        public static ClipOperation IncludeRounded(RectangleF rect,
+            float cornerNw, float cornerNwY, float cornerNe, float cornerNeY,
+            float cornerSe, float cornerSeY, float cornerSw, float cornerSwY) =>
             new(rect, false, true, cornerNw, cornerNwY, cornerNe, cornerNeY, cornerSe, cornerSeY, cornerSw, cornerSwY);
 
-        public static ClipOperation ExcludeRounded(
-            RectangleF rect,
-            float cornerNw,
-            float cornerNwY,
-            float cornerNe,
-            float cornerNeY,
-            float cornerSe,
-            float cornerSeY,
-            float cornerSw,
-            float cornerSwY) =>
+        public static ClipOperation ExcludeRounded(RectangleF rect,
+            float cornerNw, float cornerNwY, float cornerNe, float cornerNeY,
+            float cornerSe, float cornerSeY, float cornerSw, float cornerSwY) =>
             new(rect, true, true, cornerNw, cornerNwY, cornerNe, cornerNeY, cornerSe, cornerSeY, cornerSw, cornerSwY);
 
         public bool Contains(float x, float y)
@@ -1193,6 +1158,7 @@ public sealed class BCanvas : IDisposable
         {
             float dx = (x - centerX) / radiusX;
             float dy = (y - centerY) / radiusY;
+            
             return ((dx * dx) + (dy * dy)) <= 1f;
         }
     }

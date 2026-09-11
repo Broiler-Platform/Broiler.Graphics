@@ -1,8 +1,9 @@
+using Broiler.Graphics.Geometry;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
-public abstract class RGraphicsPath : IDisposable
+public abstract class BGraphicsPath : IDisposable
 {
     public abstract void Start(double x, double y);
     public abstract void LineTo(double x, double y);

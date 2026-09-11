@@ -1,10 +1,11 @@
+using Broiler.Graphics.Text;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// Discovers a real sans-serif TrueType/OpenType face from the host and exposes
@@ -72,9 +73,8 @@ internal sealed class FallbackSystemFont
         if (string.IsNullOrWhiteSpace(family) || !BSystemFontFiles.HasResolver)
             return Shared;
 
-        FallbackSystemFont? resolved = ByFamily.GetOrAdd(
-            (family, bold, italic),
-            static key => TryLoadFamily(key.Family, key.Bold, key.Italic));
+        FallbackSystemFont? resolved = 
+            ByFamily.GetOrAdd((family, bold, italic), static key => TryLoadFamily(key.Family, key.Bold, key.Italic));
 
         return resolved ?? Shared;
     }

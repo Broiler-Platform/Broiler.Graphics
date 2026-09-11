@@ -1,3 +1,6 @@
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -148,7 +151,7 @@ internal static class RasterBandParallelismTests
         yield return ("blend layer", canvas =>
         {
             canvas.FillRect(Full, Green);
-            canvas.SaveBlendLayer("multiply");
+            canvas.SaveBlendLayer(BCanvas.BlendMode.multiply);
             canvas.FillRect(new RectangleF(20, 20, 260, 190), Blue);
             canvas.RestoreBlendLayer();
         });

@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Geometry;
 
 /// <summary>
 /// A 2D point in device-independent layout units. Uses <see cref="double"/> for layout precision.
@@ -31,6 +31,5 @@ public readonly struct BPoint : IEquatable<BPoint>
 
     public static bool operator !=(BPoint left, BPoint right) => !left.Equals(right);
 
-    public override string ToString() =>
-        string.Format(CultureInfo.InvariantCulture, "BPoint({0}, {1})", X, Y);
+    public override string ToString() => string.Format(CultureInfo.InvariantCulture, "BPoint({0}, {1})", X, Y);
 }

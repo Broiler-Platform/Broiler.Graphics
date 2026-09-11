@@ -1,7 +1,11 @@
+using static Broiler.Native.Windows.Direct2D.Direct2DImageStoreApi;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Resources;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
@@ -84,14 +88,6 @@ internal sealed class Direct2DImageStore : IDisposable
 /// <summary>One stored image: its size, premultiplied BGRA pixels, and (once drawn) its D2D bitmap.</summary>
 internal sealed class Direct2DImage(int width, int height, byte[] bgraPremultiplied) : IDisposable
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreateBitmapProc(
-        IntPtr self,
-        D2DNative.D2D1_SIZE_U size,
-        IntPtr sourceData,
-        uint pitch,
-        ref D2DNative.D2D1_BITMAP_PROPERTIES properties,
-        out IntPtr bitmap);
 
     private readonly ComPtr _bitmap = new(); // ID2D1Bitmap, created lazily
 

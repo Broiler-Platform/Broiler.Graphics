@@ -1,4 +1,9 @@
-namespace Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
+
+namespace Broiler.Graphics.RenderList;
 
 /// <summary>
 /// Base type for all recorded draw commands. The hierarchy is closed: the private constructor means
@@ -20,12 +25,7 @@ public abstract record BRenderCommand
     public sealed record FillRoundedRect(BRect Rect, BColor Color, double RadiusX, double RadiusY) : BRenderCommand;
 
     /// <summary>Strokes a rounded rectangle outline with a solid color and the given thickness.</summary>
-    public sealed record StrokeRoundedRect(
-        BRect Rect,
-        BColor Color,
-        double RadiusX,
-        double RadiusY,
-        double Thickness) : BRenderCommand;
+    public sealed record StrokeRoundedRect(BRect Rect, BColor Color, double RadiusX, double RadiusY, double Thickness) : BRenderCommand;
 
     /// <summary>
     /// Fills the triangle with the given corners with a solid color, using the same antialiasing
@@ -45,11 +45,7 @@ public abstract record BRenderCommand
     public sealed record DrawText(BTextRun Text, BPoint Origin) : BRenderCommand;
 
     /// <summary>Draws (a region of) an image into a destination rectangle.</summary>
-    public sealed record DrawImage(
-        BImageHandle Image,
-        BRect Source,
-        BRect Destination,
-        double Opacity) : BRenderCommand;
+    public sealed record DrawImage(BImageHandle Image, BRect Source, BRect Destination, double Opacity) : BRenderCommand;
 
     /// <summary>Pushes a rectangular clip onto the clip stack.</summary>
     public sealed record PushClip(BRect Rect) : BRenderCommand;

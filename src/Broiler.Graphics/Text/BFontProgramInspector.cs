@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>Why a font program was not accepted for inspection.</summary>
 public enum BFontProgramRejection
@@ -82,9 +82,7 @@ public sealed class BFontProgramInspection
 {
     private readonly Dictionary<int, int> _glyphForCodepoint;
 
-    internal BFontProgramInspection(
-        BFontProgramFormat format,
-        Dictionary<int, int> glyphForCodepoint)
+    internal BFontProgramInspection(BFontProgramFormat format, Dictionary<int, int> glyphForCodepoint)
     {
         Format = format;
         _glyphForCodepoint = glyphForCodepoint;
@@ -96,8 +94,7 @@ public sealed class BFontProgramInspection
     public int MappingCount => _glyphForCodepoint.Count;
 
     /// <summary>The glyph a character maps to, or 0 when the font maps none.</summary>
-    public int GlyphForCodepoint(int codepoint) =>
-        _glyphForCodepoint.TryGetValue(codepoint, out int glyph) ? glyph : 0;
+    public int GlyphForCodepoint(int codepoint) => _glyphForCodepoint.TryGetValue(codepoint, out int glyph) ? glyph : 0;
 
     /// <summary>Every character-to-glyph pair, in no particular order.</summary>
     public IEnumerable<KeyValuePair<int, int>> Mappings => _glyphForCodepoint;
@@ -169,11 +166,8 @@ public static class BFontProgramInspector
     /// <summary>
     /// Inspects a font program, or says why it was not accepted.
     /// </summary>
-    public static bool TryInspect(
-        ReadOnlySpan<byte> program,
-        BFontInspectionLimits? limits,
-        out BFontProgramInspection? inspection,
-        out BFontProgramRejection rejection)
+    public static bool TryInspect(ReadOnlySpan<byte> program, BFontInspectionLimits? limits,
+        out BFontProgramInspection? inspection, out BFontProgramRejection rejection)
     {
         limits ??= BFontInspectionLimits.Default;
         inspection = null;
@@ -264,9 +258,7 @@ public static class BFontProgramInspector
             return false;
         }
 
-        Dictionary<int, int>? mappings = ReadCharacterMap(
-            program.Slice(cmap.Offset, cmap.Length),
-            limits);
+        Dictionary<int, int>? mappings = ReadCharacterMap(program.Slice(cmap.Offset, cmap.Length), limits);
 
         if (mappings is null)
         {
@@ -286,9 +278,7 @@ public static class BFontProgramInspector
     /// Every read below is against the <c>cmap</c> slice, so a subtable offset
     /// that points outside the table cannot reach the rest of the program.
     /// </remarks>
-    private static Dictionary<int, int>? ReadCharacterMap(
-        ReadOnlySpan<byte> cmap,
-        BFontInspectionLimits limits)
+    private static Dictionary<int, int>? ReadCharacterMap(ReadOnlySpan<byte> cmap, BFontInspectionLimits limits)
     {
         if (cmap.Length < 4)
             return null;
@@ -337,10 +327,7 @@ public static class BFontProgramInspector
         _ => 0,
     };
 
-    private static bool ReadSubtable(
-        ReadOnlySpan<byte> subtable,
-        Dictionary<int, int> mappings,
-        BFontInspectionLimits limits)
+    private static bool ReadSubtable(ReadOnlySpan<byte> subtable, Dictionary<int, int> mappings, BFontInspectionLimits limits)
     {
         if (subtable.Length < 4)
             return false;
@@ -356,10 +343,7 @@ public static class BFontProgramInspector
     }
 
     /// <summary>Byte encoding: 256 single-byte codes.</summary>
-    private static bool ReadFormat0(
-        ReadOnlySpan<byte> subtable,
-        Dictionary<int, int> mappings,
-        BFontInspectionLimits limits)
+    private static bool ReadFormat0(ReadOnlySpan<byte> subtable, Dictionary<int, int> mappings, BFontInspectionLimits limits)
     {
         if (subtable.Length < 262)
             return false;
@@ -375,10 +359,7 @@ public static class BFontProgramInspector
     }
 
     /// <summary>Segment mapping to delta values: the usual BMP subtable.</summary>
-    private static bool ReadFormat4(
-        ReadOnlySpan<byte> subtable,
-        Dictionary<int, int> mappings,
-        BFontInspectionLimits limits)
+    private static bool ReadFormat4(ReadOnlySpan<byte> subtable, Dictionary<int, int> mappings, BFontInspectionLimits limits)
     {
         if (subtable.Length < 14)
             return false;
@@ -440,10 +421,7 @@ public static class BFontProgramInspector
     }
 
     /// <summary>Trimmed table mapping: a single contiguous run.</summary>
-    private static bool ReadFormat6(
-        ReadOnlySpan<byte> subtable,
-        Dictionary<int, int> mappings,
-        BFontInspectionLimits limits)
+    private static bool ReadFormat6(ReadOnlySpan<byte> subtable, Dictionary<int, int> mappings, BFontInspectionLimits limits)
     {
         if (subtable.Length < 10)
             return false;
@@ -464,10 +442,7 @@ public static class BFontProgramInspector
     }
 
     /// <summary>Segmented coverage: the subtable that reaches beyond the BMP.</summary>
-    private static bool ReadFormat12(
-        ReadOnlySpan<byte> subtable,
-        Dictionary<int, int> mappings,
-        BFontInspectionLimits limits)
+    private static bool ReadFormat12(ReadOnlySpan<byte> subtable, Dictionary<int, int> mappings, BFontInspectionLimits limits)
     {
         if (subtable.Length < 16)
             return false;
@@ -500,11 +475,7 @@ public static class BFontProgramInspector
     }
 
     /// <summary>Records a pair; false once the caller's budget is spent.</summary>
-    private static bool Add(
-        Dictionary<int, int> mappings,
-        int codepoint,
-        int glyph,
-        BFontInspectionLimits limits)
+    private static bool Add(Dictionary<int, int> mappings, int codepoint, int glyph, BFontInspectionLimits limits)
     {
         if (mappings.Count >= limits.MaxMappings)
             return false;
@@ -513,13 +484,10 @@ public static class BFontProgramInspector
         return true;
     }
 
-    private static string Tag(ReadOnlySpan<byte> data, int offset) =>
-        Encoding.ASCII.GetString(data.Slice(offset, 4));
+    private static string Tag(ReadOnlySpan<byte> data, int offset) => Encoding.ASCII.GetString(data.Slice(offset, 4));
 
-    private static int U16(ReadOnlySpan<byte> data, int offset) =>
-        (data[offset] << 8) | data[offset + 1];
+    private static int U16(ReadOnlySpan<byte> data, int offset) => (data[offset] << 8) | data[offset + 1];
 
     private static uint U32(ReadOnlySpan<byte> data, int offset) =>
-        ((uint)data[offset] << 24) | ((uint)data[offset + 1] << 16) |
-        ((uint)data[offset + 2] << 8) | data[offset + 3];
+        ((uint)data[offset] << 24) | ((uint)data[offset + 1] << 16) | ((uint)data[offset + 2] << 8) | data[offset + 3];
 }

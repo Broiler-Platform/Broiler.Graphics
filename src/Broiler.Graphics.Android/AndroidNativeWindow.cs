@@ -42,6 +42,7 @@ public static class AndroidNativeWindow
     {
         if (jniEnvironment == IntPtr.Zero)
             throw new ArgumentException("A JNIEnv pointer is required.", nameof(jniEnvironment));
+
         if (surface == IntPtr.Zero)
             throw new ArgumentException("A Surface handle is required.", nameof(surface));
 

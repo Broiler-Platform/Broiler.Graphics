@@ -1,28 +1,19 @@
 using System;
 using System.Globalization;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Geometry;
 
 /// <summary>
 /// An axis-aligned rectangle in device-independent layout units.
 /// </summary>
-public readonly struct BRect : IEquatable<BRect>
+public readonly struct BRect(double x, double y, double width, double height) : IEquatable<BRect>
 {
-    public double X { get; }
-    public double Y { get; }
-    public double Width { get; }
-    public double Height { get; }
+    public double X { get; } = x;
+    public double Y { get; } = y;
+    public double Width { get; } = width;
+    public double Height { get; } = height;
 
-    public BRect(double x, double y, double width, double height)
-    {
-        X = x;
-        Y = y;
-        Width = width;
-        Height = height;
-    }
-
-    public static BRect FromLTRB(double left, double top, double right, double bottom) =>
-        new(left, top, right - left, bottom - top);
+    public static BRect FromLTRB(double left, double top, double right, double bottom) => new(left, top, right - left, bottom - top);
 
     public static BRect Empty => new(0, 0, 0, 0);
 
@@ -36,8 +27,7 @@ public readonly struct BRect : IEquatable<BRect>
 
     public bool IsEmpty => Width <= 0 || Height <= 0;
 
-    public bool Contains(BPoint point) =>
-        point.X >= Left && point.X < Right && point.Y >= Top && point.Y < Bottom;
+    public bool Contains(BPoint point) => point.X >= Left && point.X < Right && point.Y >= Top && point.Y < Bottom;
 
     /// <summary>Returns the intersection of two rectangles, or <see cref="Empty"/> if they do not overlap.</summary>
     public BRect Intersect(BRect other)
@@ -64,6 +54,5 @@ public readonly struct BRect : IEquatable<BRect>
 
     public static bool operator !=(BRect left, BRect right) => !left.Equals(right);
 
-    public override string ToString() =>
-        string.Format(CultureInfo.InvariantCulture, "BRect({0}, {1}, {2}, {3})", X, Y, Width, Height);
+    public override string ToString() => string.Format(CultureInfo.InvariantCulture, "BRect({0}, {1}, {2}, {3})", X, Y, Width, Height);
 }

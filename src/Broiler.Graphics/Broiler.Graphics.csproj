@@ -10,6 +10,7 @@
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>CS0618</WarningsNotAsErrors>
     <RootNamespace>Broiler.Graphics</RootNamespace>
     <AssemblyName>Broiler.Graphics</AssemblyName>
     <Description>Platform-neutral graphics core for Broiler: BBitmap, BCanvas, deterministic CPU rasterization, text and font handling, and the render-list pipeline.</Description>
@@ -29,10 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Graphics depends only on the media image ABSTRACTION. Concrete codecs
-         (Broiler.Media.Image.Managed) are supplied by the application composition
-         root via BImageCodecs.Use(...); see Imaging/BImageCodecs.cs. -->
-    <ProjectReference Include="$(BroilerMediaRoot)\src\Broiler.Media.Image\Broiler.Media.Image.csproj" />
+    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.2" />
   </ItemGroup>
 
 </Project>

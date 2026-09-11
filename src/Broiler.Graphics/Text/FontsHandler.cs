@@ -1,10 +1,12 @@
 #nullable disable
+using Broiler.Graphics.Adapters;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Resolves and caches fonts by family/size/style.
@@ -21,7 +23,7 @@ public sealed class FontsHandler
 {
     private readonly IFontCreator _fontCreator;
     private readonly ConcurrentDictionary<string, string> _fontsMapping = new(StringComparer.InvariantCultureIgnoreCase);
-    private readonly ConcurrentDictionary<string, RFontFamily> _existingFontFamilies = new(StringComparer.InvariantCultureIgnoreCase);
+    private readonly ConcurrentDictionary<string, BFontFamily> _existingFontFamilies = new(StringComparer.InvariantCultureIgnoreCase);
 
     // Flat, not the three nested dictionaries this used to be. Nesting cannot be
     // made safe by swapping in ConcurrentDictionary at each level: the lookup was
@@ -29,28 +31,23 @@ public sealed class FontsHandler
     // threads missing on the same family both published one and whichever lost
     // took its already-cached sizes with it. One dictionary keyed by the whole
     // tuple has no such window, and it costs one hash instead of three.
-    private readonly ConcurrentDictionary<FontCacheKey, RFont> _fontsCache = new(FontCacheKeyComparer.Instance);
+    private readonly ConcurrentDictionary<FontCacheKey, BFont> _fontsCache = new(FontCacheKeyComparer.Instance);
 
     // Fonts carrying CSS font-feature-settings are cached separately, keyed by
     // family/size/style/features, so the common (no-feature) path is unchanged.
-    private readonly ConcurrentDictionary<string, RFont> _featuredFontsCache = new(StringComparer.InvariantCultureIgnoreCase);
+    private readonly ConcurrentDictionary<string, BFont> _featuredFontsCache = new(StringComparer.InvariantCultureIgnoreCase);
 
     public FontsHandler(IFontCreator fontCreator)
     {
         ArgumentNullException.ThrowIfNull(fontCreator);
-
         _fontCreator = fontCreator;
     }
 
-    public bool IsFontExists(string family)
-    {
-        return TryResolveAvailableFamily(family, out _);
-    }
+    public bool IsFontExists(string family) => TryResolveAvailableFamily(family, out _);
 
-    public void AddFontFamily(RFontFamily fontFamily)
+    public void AddFontFamily(BFontFamily fontFamily)
     {
         ArgumentNullException.ThrowIfNull(fontFamily);
-
         _existingFontFamilies[fontFamily.Name] = fontFamily;
     }
 
@@ -62,7 +59,7 @@ public sealed class FontsHandler
         _fontsMapping[fromFamily] = toFamily;
     }
 
-    public RFont GetCachedFont(string family, double size, Graphics.FontStyle style, string fontFeatures = null)
+    public BFont GetCachedFont(string family, double size, FontStyle style, string fontFeatures = null)
     {
         var resolvedFamily = ResolveFontFamily(family);
 
@@ -75,7 +72,7 @@ public sealed class FontsHandler
 
             featured = CreateFont(resolvedFamily, size, style);
             featured.FontFeatures = fontFeatures;
-            // GetOrAdd, not the indexer: RFont.FontFeatures is settable, so two
+            // GetOrAdd, not the indexer: BFont.FontFeatures is settable, so two
             // threads publishing different instances for one key would leave some
             // callers holding a font whose features another thread is still
             // writing. Whoever wins, every caller leaves with that same instance.
@@ -83,20 +80,20 @@ public sealed class FontsHandler
         }
 
         var key2 = new FontCacheKey(resolvedFamily, size, style);
-        if (_fontsCache.TryGetValue(key2, out RFont font))
+        if (_fontsCache.TryGetValue(key2, out BFont font))
             return font;
 
         // Deliberately not the GetOrAdd(key, factory) overload. CreateFont can
         // fall back to a different style and, on some adapters, touches host
         // font state; running it inside the dictionary's bucket is a wider
-        // window than running it outside and racing only on publication. RFont
+        // window than running it outside and racing only on publication. BFont
         // holds no unmanaged handle and is not IDisposable, so a loser's font is
         // ordinary garbage.
         return _fontsCache.GetOrAdd(key2, CreateFont(resolvedFamily, size, style));
     }
 
     /// <summary>Cache key for the no-features path: family, size and style together.</summary>
-    private readonly record struct FontCacheKey(string Family, double Size, Graphics.FontStyle Style);
+    private readonly record struct FontCacheKey(string Family, double Size, FontStyle Style);
 
     /// <summary>
     /// Compares <see cref="FontCacheKey"/> with the family matched exactly the way
@@ -164,9 +161,9 @@ public sealed class FontsHandler
         }
     }
 
-    private RFont CreateFont(string family, double size, Graphics.FontStyle style)
+    private BFont CreateFont(string family, double size, FontStyle style)
     {
-        RFontFamily fontFamily;
+        BFontFamily fontFamily;
 
         try
         {
@@ -177,7 +174,7 @@ public sealed class FontsHandler
         catch (Exception ex)
         {
             // handle possibility of no requested style exists for the font, use regular then
-            System.Diagnostics.Debug.WriteLine($"[HtmlRenderer] FontsHandler.GetCachedFont style fallback for '{family}': {ex.Message}");
+            Debug.WriteLine($"[HtmlRenderer] FontsHandler.GetCachedFont style fallback for '{family}': {ex.Message}");
             return _existingFontFamilies.TryGetValue(family, out fontFamily)
                 ? _fontCreator.CreateFont(fontFamily, size, FontStyle.Regular)
                 : _fontCreator.CreateFont(family, size, FontStyle.Regular);

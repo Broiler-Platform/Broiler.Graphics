@@ -1,6 +1,6 @@
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>
 /// A platform-neutral, tightly packed 32bpp pixel buffer in straight-alpha RGBA
@@ -15,17 +15,14 @@ public sealed class BPixelBuffer
     /// <summary>Creates a buffer that takes ownership of <paramref name="rgba"/>.</summary>
     public BPixelBuffer(int width, int height, byte[] rgba)
     {
-        if (width <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width));
-        if (height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(height));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         ArgumentNullException.ThrowIfNull(rgba);
 
         long expected = (long)width * height * BytesPerPixel;
         if (rgba.Length != expected)
             throw new ArgumentException(
-                $"Pixel buffer length {rgba.Length} does not match {width}x{height}x{BytesPerPixel} = {expected}.",
-                nameof(rgba));
+                $"Pixel buffer length {rgba.Length} does not match {width}x{height}x{BytesPerPixel} = {expected}.", nameof(rgba));
 
         Width = width;
         Height = height;

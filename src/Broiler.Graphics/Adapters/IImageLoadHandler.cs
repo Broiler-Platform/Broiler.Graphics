@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
 /// <summary>
 /// Abstraction for image loading handlers, letting layout/paint consume a
-/// resolved <see cref="RImage"/> without a direct dependency on the concrete
+/// resolved <see cref="BImage"/> without a direct dependency on the concrete
 /// <c>ImageLoadHandler</c> implementation.
 /// </summary>
 public interface IImageLoadHandler : IDisposable
@@ -14,7 +14,7 @@ public interface IImageLoadHandler : IDisposable
     /// <summary>
     /// The loaded image, or null if not yet loaded or failed.
     /// </summary>
-    RImage Image { get; }
+    BImage Image { get; }
 
     /// <summary>
     /// The sub-rectangle of the image to use, or <see cref="RectangleF.Empty"/> for the entire image.

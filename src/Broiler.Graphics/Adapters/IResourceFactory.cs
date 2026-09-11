@@ -1,10 +1,11 @@
+using Broiler.Graphics.Color;
 using System.Drawing;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
 public interface IResourceFactory
 {
-    RPen GetPen(BColor color);
-    RBrush GetSolidBrush(BColor color);
-    RBrush GetLinearGradientBrush(RectangleF rect, BColor color1, BColor color2, double angle);
+    BPen GetPen(BColor color);
+    BBrush GetSolidBrush(BColor color);
+    BBrush GetLinearGradientBrush(RectangleF rect, BColor color1, BColor color2, double angle);
 }

@@ -1,4 +1,4 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Windowing;
 
 /// <summary>Who draws a window's title bar, border, and system buttons.</summary>
 public enum BWindowChrome

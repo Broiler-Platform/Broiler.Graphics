@@ -1,3 +1,4 @@
+using static Broiler.Native.Windows.WindowNative;
 using System;
 using System.Runtime.InteropServices;
 
@@ -14,7 +15,4 @@ internal static class Program
         return window.Run();
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
 }

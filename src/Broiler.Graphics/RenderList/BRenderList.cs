@@ -1,20 +1,19 @@
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
 using System;
 using System.Collections.Generic;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.RenderList;
 
 /// <summary>
 /// An ordered, immutable-once-read recording of draw commands. Higher layers record into it; a
 /// backend replays it. The list is a pure data structure with no backend dependencies.
 /// </summary>
-public sealed class BRenderList
+public sealed class BRenderList(int capacity = 0)
 {
-    private readonly List<BRenderCommand> _commands;
-
-    public BRenderList(int capacity = 0)
-    {
-        _commands = capacity > 0 ? new List<BRenderCommand>(capacity) : [];
-    }
+    private readonly List<BRenderCommand> _commands = capacity > 0 ? new List<BRenderCommand>(capacity) : [];
 
     /// <summary>The recorded commands in the exact order they were issued.</summary>
     public IReadOnlyList<BRenderCommand> Commands => _commands;
@@ -23,8 +22,7 @@ public sealed class BRenderList
 
     public void Clear() => _commands.Clear();
 
-    public void FillRect(BRect rect, BColor color) =>
-        _commands.Add(new BRenderCommand.FillRect(rect, color));
+    public void FillRect(BRect rect, BColor color) => _commands.Add(new BRenderCommand.FillRect(rect, color));
 
     public void StrokeRect(BRect rect, BColor color, double thickness)
     {
@@ -38,6 +36,7 @@ public sealed class BRenderList
     {
         if (radiusX < 0)
             throw new ArgumentOutOfRangeException(nameof(radiusX), "Corner radius must be non-negative.");
+
         if (radiusY < 0)
             throw new ArgumentOutOfRangeException(nameof(radiusY), "Corner radius must be non-negative.");
 
@@ -54,8 +53,10 @@ public sealed class BRenderList
     {
         if (radiusX < 0)
             throw new ArgumentOutOfRangeException(nameof(radiusX), "Corner radius must be non-negative.");
+
         if (radiusY < 0)
             throw new ArgumentOutOfRangeException(nameof(radiusY), "Corner radius must be non-negative.");
+
         if (thickness < 0)
             throw new ArgumentOutOfRangeException(nameof(thickness), "Stroke thickness must be non-negative.");
 
@@ -96,17 +97,13 @@ public sealed class BRenderList
         _commands.Add(new BRenderCommand.DrawImage(image, source, destination, opacity));
     }
 
-    public void PushClip(BRect rect) =>
-        _commands.Add(new BRenderCommand.PushClip(rect));
+    public void PushClip(BRect rect) => _commands.Add(new BRenderCommand.PushClip(rect));
 
-    public void PopClip() =>
-        _commands.Add(new BRenderCommand.PopClip());
+    public void PopClip() => _commands.Add(new BRenderCommand.PopClip());
 
-    public void PushTransform(BMatrix3x2 transform) =>
-        _commands.Add(new BRenderCommand.PushTransform(transform));
+    public void PushTransform(BMatrix3x2 transform) => _commands.Add(new BRenderCommand.PushTransform(transform));
 
-    public void PopTransform() =>
-        _commands.Add(new BRenderCommand.PopTransform());
+    public void PopTransform() => _commands.Add(new BRenderCommand.PopTransform());
 
     /// <summary>
     /// Verifies that the clip and transform stacks are balanced and never underflow. Throws

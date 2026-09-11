@@ -1,4 +1,4 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>Font slant.</summary>
 public enum BFontSlant
@@ -43,11 +43,8 @@ public enum BFontWeight
 /// and <see cref="PointsToPixels"/> is what it converts with.
 /// </para>
 /// </remarks>
-public sealed record BFontStyle(
-    string FamilyName,
-    double Size,
-    BFontWeight Weight = BFontWeight.Normal,
-    BFontSlant Slant = BFontSlant.Normal)
+public sealed record BFontStyle(string FamilyName, double Size, 
+    BFontWeight Weight = BFontWeight.Normal, BFontSlant Slant = BFontSlant.Normal)
 {
     /// <summary>Points per inch.</summary>
     public const double PointsPerInch = 72.0;

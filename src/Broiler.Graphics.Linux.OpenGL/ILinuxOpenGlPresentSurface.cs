@@ -1,3 +1,7 @@
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+
 namespace Broiler.Graphics.Linux.OpenGL;
 
 internal interface ILinuxOpenGlPresentSurface : IBroilerSurface

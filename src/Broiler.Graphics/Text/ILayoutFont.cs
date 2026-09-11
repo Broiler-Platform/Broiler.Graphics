@@ -1,8 +1,8 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Font abstraction consumed by layout for text measurement and inline metrics.
-/// Exposes only the metrics layout reads from the renderer's <c>RFont</c> today,
+/// Exposes only the metrics layout reads from the renderer's <c>BFont</c> today,
 /// without binding consumers to a concrete graphics backend. Instances are
 /// resolved and measured through the layout environment.
 /// </summary>

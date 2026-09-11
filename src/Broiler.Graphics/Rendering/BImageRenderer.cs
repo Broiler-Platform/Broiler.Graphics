@@ -1,10 +1,16 @@
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// Platform-neutral renderer that replays <see cref="BRenderList"/> commands into
@@ -147,7 +153,7 @@ public sealed class BImageRenderer : IBroilerRenderer
                 break;
             case BRenderCommand.PushTransform c:
                 state.TransformStack.Push(state.CurrentTransform);
-                state.CurrentTransform = state.CurrentTransform * c.Transform;
+                state.CurrentTransform *= c.Transform;
                 break;
             case BRenderCommand.PopTransform:
                 state.CurrentTransform = state.TransformStack.Pop();
@@ -157,7 +163,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         }
     }
 
-    private void FillRect(BCanvas canvas, BRenderCommand.FillRect command, ReplayState state)
+    private static void FillRect(BCanvas canvas, BRenderCommand.FillRect command, ReplayState state)
     {
         if (command.Color.A == 0)
             return;
@@ -187,7 +193,7 @@ public sealed class BImageRenderer : IBroilerRenderer
     /// each pixel by a point-in-polygon test at the pixel centre, which is exactly the hard edge a
     /// triangle primitive exists to avoid.
     /// </summary>
-    private void FillTriangle(BCanvas canvas, BRenderCommand.FillTriangle command, ReplayState state)
+    private static void FillTriangle(BCanvas canvas, BRenderCommand.FillTriangle command, ReplayState state)
     {
         if (command.Color.A == 0)
             return;
@@ -214,8 +220,7 @@ public sealed class BImageRenderer : IBroilerRenderer
     /// Whether the transform maps rectangles to rectangles — no rotation and no skew, so an
     /// axis-aligned fill is exact and the polygon path is unnecessary.
     /// </summary>
-    private static bool IsAxisAligned(BMatrix3x2 transform) =>
-        Math.Abs(transform.M12) < 1e-6 && Math.Abs(transform.M21) < 1e-6;
+    private static bool IsAxisAligned(BMatrix3x2 transform) => Math.Abs(transform.M12) < 1e-6 && Math.Abs(transform.M21) < 1e-6;
 
     /// <summary>The rectangle's four corners in device space, or null when it is degenerate.</summary>
     private static PointF[]? TransformQuad(BRect rect, ReplayState state)
@@ -241,10 +246,9 @@ public sealed class BImageRenderer : IBroilerRenderer
         ];
     }
 
-    private static bool IsFinite(BPoint point) =>
-        double.IsFinite(point.X) && double.IsFinite(point.Y);
+    private static bool IsFinite(BPoint point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
 
-    private void StrokeRect(BCanvas canvas, BRenderCommand.StrokeRect command, ReplayState state)
+    private static void StrokeRect(BCanvas canvas, BRenderCommand.StrokeRect command, ReplayState state)
     {
         if (command.Color.A == 0 || command.Thickness <= 0)
             return;
@@ -256,7 +260,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         canvas.DrawRectangleStroke(rect, command.Color, (float)Math.Max(1.0, command.Thickness * CurrentAverageScale(state)));
     }
 
-    private void FillRoundedRect(BCanvas canvas, BRenderCommand.FillRoundedRect command, ReplayState state)
+    private static void FillRoundedRect(BCanvas canvas, BRenderCommand.FillRoundedRect command, ReplayState state)
     {
         if (command.Color.A == 0)
             return;
@@ -269,7 +273,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         canvas.FillRoundedRect(rect, command.Color, (float)(command.RadiusX * scale), (float)(command.RadiusY * scale));
     }
 
-    private void StrokeRoundedRect(BCanvas canvas, BRenderCommand.StrokeRoundedRect command, ReplayState state)
+    private static void StrokeRoundedRect(BCanvas canvas, BRenderCommand.StrokeRoundedRect command, ReplayState state)
     {
         if (command.Color.A == 0 || command.Thickness <= 0)
             return;
@@ -337,7 +341,7 @@ public sealed class BImageRenderer : IBroilerRenderer
             DrawTextWithBlockFont(canvas, run, command.Origin, fontSize, bold, state);
     }
 
-    private void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, ReplayState state)
+    private static void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, ReplayState state)
     {
         double advance = Math.Max(1.0, fontSize * 0.62);
         double glyphHeight = fontSize;
@@ -363,7 +367,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         }
     }
 
-    private void DrawTextWithSystemFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, FallbackSystemFont font, ReplayState state)
+    private static void DrawTextWithSystemFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, FallbackSystemFont font, ReplayState state)
     {
         double blockAdvance = Math.Max(1.0, fontSize * 0.62);
         double glyphHeight = fontSize;
@@ -428,16 +432,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         canvas.FillGlyphContours(device, color);
     }
 
-    private static void DrawFallbackGlyph(
-        BCanvas canvas,
-        char ch,
-        double x,
-        double y,
-        double width,
-        double height,
-        BColor color,
-        bool bold,
-        ReplayState state)
+    private static void DrawFallbackGlyph(BCanvas canvas, char ch, double x, double y, double width, double height, BColor color, bool bold, ReplayState state)
     {
         string[] pattern = GlyphPattern(ch);
         double cellW = width / 5.0;

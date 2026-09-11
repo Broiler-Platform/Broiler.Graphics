@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// The host's installed font files, indexed by the family and face names they carry.
@@ -39,7 +39,7 @@ internal sealed class InstalledFontScan
     private InstalledFontScan(Dictionary<string, FaceFiles> families)
     {
         _families = families;
-        Families = families.Keys.OrderBy(static family => family, StringComparer.OrdinalIgnoreCase).ToArray();
+        Families = [.. families.Keys.OrderBy(static family => family, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>The process-wide scan, run once on first use.</summary>
@@ -123,6 +123,7 @@ internal sealed class InstalledFontScan
         {
             yield return "/System/Library/Fonts";
             yield return "/Library/Fonts";
+
             string macHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (!string.IsNullOrEmpty(macHome))
                 yield return Path.Combine(macHome, "Library", "Fonts");
@@ -151,8 +152,7 @@ internal sealed class InstalledFontScan
 
         try
         {
-            return Directory
-                .EnumerateFiles(directory, "*", new EnumerationOptions
+            return Directory.EnumerateFiles(directory, "*", new EnumerationOptions
                 {
                     RecurseSubdirectories = true,
                     // A font directory is not the place to follow a link out of, and a cycle
@@ -160,8 +160,7 @@ internal sealed class InstalledFontScan
                     AttributesToSkip = FileAttributes.ReparsePoint,
                     IgnoreInaccessible = true,
                     MaxRecursionDepth = 8,
-                })
-                .Where(static file => FontExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                }).Where(static file => FontExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                 // Ordinal, so two machines with the same fonts build the same index whatever order
                 // their file systems hand the entries over in.
                 .OrderBy(static file => file, StringComparer.Ordinal);

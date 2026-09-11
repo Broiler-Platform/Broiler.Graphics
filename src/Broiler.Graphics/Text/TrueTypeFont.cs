@@ -1,10 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Threading;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Minimal managed TrueType/OpenType (glyf-outline) font parser.  Reads the
@@ -82,7 +83,7 @@ public sealed class TrueTypeFont
     /// decision to save memory that a single page does not spend.
     /// </para>
     /// </remarks>
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, List<PointF[]>> _glyphContours = new();
+    private readonly ConcurrentDictionary<int, List<PointF[]>> _glyphContours = new();
 
     public int UnitsPerEm { get; }
     public int Ascender { get; }
@@ -123,12 +124,8 @@ public sealed class TrueTypeFont
             // Tables sit back to back, so a read past a truncated OS/2 lands in
             // whatever follows and returns a permission from unrelated bytes —
             // which for this field is worse than returning nothing.
-            if (os2 == 0 ||
-                os2 + FsTypeEnd > (uint)_data.Length ||
-                _tableLengths.GetValueOrDefault("OS/2") < FsTypeEnd)
-            {
+            if (os2 == 0 || os2 + FsTypeEnd > (uint)_data.Length || _tableLengths.GetValueOrDefault("OS/2") < FsTypeEnd)
                 return BFontEmbeddingRights.Unknown;
-            }
 
             return BFontEmbeddingRights.FromFsType((ushort)ReadUInt16(os2 + 8));
         }
@@ -216,10 +213,7 @@ public sealed class TrueTypeFont
     }
 
     /// <summary>Maps a Unicode code point to a glyph index (0 = .notdef / missing).</summary>
-    public int GetGlyphIndex(int codepoint)
-    {
-        return _cmap.Value?.Map(codepoint) ?? 0;
-    }
+    public int GetGlyphIndex(int codepoint) => _cmap.Value?.Map(codepoint) ?? 0;
 
     /// <summary>Horizontal advance for a glyph, in font design units.</summary>
     public int GetAdvanceWidth(int glyphIndex)
@@ -281,8 +275,7 @@ public sealed class TrueTypeFont
 
     // ── Glyph outline parsing ─────────────────────────────────────────────
 
-    private void AppendGlyphContours(
-        int glyphIndex, List<PointF[]> output,
+    private void AppendGlyphContours(int glyphIndex, List<PointF[]> output,
         float dx, float dy, float a, float b, float c, float d, int depth)
     {
         if (depth > 8 || glyphIndex < 0 || glyphIndex >= _numGlyphs || _glyfOffset == 0)
@@ -393,8 +386,7 @@ public sealed class TrueTypeFont
         }
     }
 
-    private void AppendCompositeGlyph(
-        uint p, List<PointF[]> output,
+    private void AppendCompositeGlyph(uint p, List<PointF[]> output,
         float pdx, float pdy, float pa, float pb, float pc, float pd, int depth)
     {
         const int ARG_1_AND_2_ARE_WORDS = 0x0001;
@@ -466,7 +458,7 @@ public sealed class TrueTypeFont
     {
         int len = raw.Count;
         if (len == 0)
-            return Array.Empty<PointF>();
+            return [];
 
         // Insert implied on-curve points between consecutive off-curve points.
         var norm = new List<(PointF p, bool on)>(len * 2);
@@ -474,14 +466,15 @@ public sealed class TrueTypeFont
         {
             var cur = raw[i];
             norm.Add(cur);
-            var next = raw[(i + 1) % len];
-            if (!cur.on && !next.on)
-                norm.Add((Midpoint(cur.p, next.p), true));
+            
+            var (p, on) = raw[(i + 1) % len];
+            if (!cur.on && !on)
+                norm.Add((Midpoint(cur.p, p), true));
         }
 
         int firstOn = norm.FindIndex(q => q.on);
         if (firstOn < 0)
-            return Array.Empty<PointF>(); // degenerate (all off-curve)
+            return []; // degenerate (all off-curve)
 
         // Rotate so iteration starts on an on-curve point.
         int count = norm.Count;
@@ -493,16 +486,16 @@ public sealed class TrueTypeFont
         PointF last = startPoint;
         while (idx <= count)
         {
-            var q = norm[(firstOn + idx) % count];
-            if (q.on)
+            var (p, on) = norm[(firstOn + idx) % count];
+            if (on)
             {
-                output.Add(q.p);
-                last = q.p;
+                output.Add(p);
+                last = p;
                 idx++;
             }
             else
             {
-                PointF control = q.p;
+                PointF control = p;
                 PointF endPoint = norm[(firstOn + idx + 1) % count].p;
                 FlattenQuadratic(output, last, control, endPoint);
                 last = endPoint;
@@ -510,7 +503,7 @@ public sealed class TrueTypeFont
             }
         }
 
-        return output.ToArray();
+        return [.. output];
     }
 
     private static void FlattenQuadratic(List<PointF> output, PointF p0, PointF c, PointF p1)
@@ -526,8 +519,7 @@ public sealed class TrueTypeFont
         }
     }
 
-    private static PointF Midpoint(PointF a, PointF b) =>
-        new((a.X + b.X) * 0.5f, (a.Y + b.Y) * 0.5f);
+    private static PointF Midpoint(PointF a, PointF b) => new((a.X + b.X) * 0.5f, (a.Y + b.Y) * 0.5f);
 
     // ── cmap parsing ──────────────────────────────────────────────────────
 
@@ -645,15 +637,21 @@ public sealed class TrueTypeFont
         uint nGroups = ReadU32(_data, (int)offset + 12);
         var groups = new List<(uint start, uint end, uint startGlyph)>((int)Math.Min(nGroups, 100000));
         uint baseAddr = offset + 16;
+        
         for (uint i = 0; i < nGroups; i++)
         {
             uint g = baseAddr + i * 12;
-            if (g + 12 > _data.Length) break;
+        
+            if (g + 12 > _data.Length) 
+                break;
+            
             uint startChar = ReadU32(_data, (int)g);
             uint endChar = ReadU32(_data, (int)g + 4);
             uint startGlyph = ReadU32(_data, (int)g + 8);
+            
             groups.Add((startChar, endChar, startGlyph));
         }
+
         return new CmapLookup(null, groups);
     }
 
@@ -662,9 +660,10 @@ public sealed class TrueTypeFont
     private uint[] ReadLoca(uint locaOffset, int format, int numGlyphs)
     {
         if (locaOffset == 0 || numGlyphs <= 0)
-            return Array.Empty<uint>();
+            return [];
 
         var loca = new uint[numGlyphs + 1];
+        
         if (format == 0) // short: offsets are stored /2
         {
             for (int i = 0; i <= numGlyphs; i++)
@@ -675,6 +674,7 @@ public sealed class TrueTypeFont
             for (int i = 0; i <= numGlyphs; i++)
                 loca[i] = ReadU32(_data, (int)locaOffset + i * 4);
         }
+
         return loca;
     }
 
@@ -729,10 +729,13 @@ public sealed class TrueTypeFont
     public bool TryApplyLigature(string featureTag, IReadOnlyList<int> glyphs, int pos, out int ligature, out int componentCount)
     {
         var g = GetGsub();
+
         if (g != null)
             return g.TryLigate(featureTag, glyphs, pos, out ligature, out componentCount);
+
         ligature = 0;
         componentCount = 0;
+
         return false;
     }
 
@@ -767,12 +770,15 @@ public sealed class TrueTypeFont
         {
             if (fi < 0 || fi >= featureCount)
                 continue;
+
             uint frec = featureListOff + 2 + (uint)(fi * 6);
             string tag = ReadTag(frec);
             uint featOff = featureListOff + (uint)ReadUInt16(frec + 4);
             int lookupCount = ReadUInt16(featOff + 2);
+            
             if (!table.FeatureLookups.TryGetValue(tag, out var list))
                 table.FeatureLookups[tag] = list = [];
+            
             for (int k = 0; k < lookupCount; k++)
                 list.Add(ReadUInt16(featOff + 4 + (uint)(k * 2)));
         }
@@ -780,13 +786,16 @@ public sealed class TrueTypeFont
         int lookupCountTotal = ReadUInt16(lookupListOff);
         table.Lookups = [.. new object?[lookupCountTotal]];
         var needed = new HashSet<int>();
+        
         foreach (var kv in table.FeatureLookups)
             foreach (int li in kv.Value)
                 needed.Add(li);
+        
         foreach (int li in needed)
         {
             if (li < 0 || li >= lookupCountTotal)
                 continue;
+        
             uint lookupOff = lookupListOff + (uint)ReadUInt16(lookupListOff + 2 + (uint)(li * 2));
             table.Lookups[li] = ParseLookup(lookupOff);
         }
@@ -821,6 +830,7 @@ public sealed class TrueTypeFont
         int required = ReadUInt16(langSysOff + 2);
         if (required != 0xFFFF)
             featureIndices.Add(required);
+
         int count = ReadUInt16(langSysOff + 4);
         for (int i = 0; i < count; i++)
             featureIndices.Add(ReadUInt16(langSysOff + 6 + (uint)(i * 2)));
@@ -836,15 +846,19 @@ public sealed class TrueTypeFont
             var map = new Dictionary<int, int>();
             for (int s = 0; s < subCount; s++)
                 ParseSingleSubst(lookupOff + (uint)ReadUInt16(lookupOff + 6 + (uint)(s * 2)), map);
+            
             return new SingleSubst(map);
         }
+        
         if (type == 4)
         {
             var sets = new Dictionary<int, List<(int[] rest, int lig)>>();
             for (int s = 0; s < subCount; s++)
                 ParseLigatureSubst(lookupOff + (uint)ReadUInt16(lookupOff + 6 + (uint)(s * 2)), sets);
+
             return new LigatureSubst(sets);
         }
+        
         if (type == 7)
         {
             // Extension substitution: each subtable indirects to a real subtable
@@ -852,18 +866,22 @@ public sealed class TrueTypeFont
             // supported single/ligature forms.
             Dictionary<int, int>? singleMap = null;
             Dictionary<int, List<(int[] rest, int lig)>>? ligSets = null;
+            
             for (int s = 0; s < subCount; s++)
             {
                 uint sub = lookupOff + (uint)ReadUInt16(lookupOff + 6 + (uint)(s * 2));
                 int extType = ReadUInt16(sub + 2);
                 uint extOff = sub + ReadU32(_data, (int)sub + 4);
+                
                 if (extType == 1)
                     ParseSingleSubst(extOff, singleMap ??= []);
                 else if (extType == 4)
                     ParseLigatureSubst(extOff, ligSets ??= []);
             }
+            
             if (singleMap != null)
                 return new SingleSubst(singleMap);
+            
             if (ligSets != null)
                 return new LigatureSubst(ligSets);
         }
@@ -877,15 +895,18 @@ public sealed class TrueTypeFont
     {
         int format = ReadUInt16(subOff);
         var coverage = ParseCoverage(subOff + (uint)ReadUInt16(subOff + 2));
+        
         if (format == 1)
         {
             int delta = ReadInt16(subOff + 4);
+        
             foreach (int g in coverage)
                 map[g] = (g + delta) & 0xFFFF;
         }
         else if (format == 2)
         {
             int glyphCount = ReadUInt16(subOff + 4);
+            
             for (int i = 0; i < coverage.Count && i < glyphCount; i++)
                 map[coverage[i]] = ReadUInt16(subOff + 6 + (uint)(i * 2));
         }
@@ -895,23 +916,29 @@ public sealed class TrueTypeFont
     {
         if (ReadUInt16(subOff) != 1)
             return; // only LigatureSubstFormat1
+
         var coverage = ParseCoverage(subOff + (uint)ReadUInt16(subOff + 2));
         int ligSetCount = ReadUInt16(subOff + 4);
+        
         for (int i = 0; i < ligSetCount && i < coverage.Count; i++)
         {
             uint ligSetOff = subOff + (uint)ReadUInt16(subOff + 6 + (uint)(i * 2));
             int ligCount = ReadUInt16(ligSetOff);
             int firstGlyph = coverage[i];
+
             if (!sets.TryGetValue(firstGlyph, out var lst))
                 sets[firstGlyph] = lst = [];
+
             for (int j = 0; j < ligCount; j++)
             {
                 uint ligOff = ligSetOff + (uint)ReadUInt16(ligSetOff + 2 + (uint)(j * 2));
                 int ligGlyph = ReadUInt16(ligOff);
                 int compCount = ReadUInt16(ligOff + 2);
                 var rest = new int[Math.Max(0, compCount - 1)];
+
                 for (int k = 0; k < rest.Length; k++)
                     rest[k] = ReadUInt16(ligOff + 4 + (uint)(k * 2));
+
                 lst.Add((rest, ligGlyph));
             }
         }
@@ -921,6 +948,7 @@ public sealed class TrueTypeFont
     {
         var list = new List<int>();
         int fmt = ReadUInt16(covOff);
+
         if (fmt == 1)
         {
             int count = ReadUInt16(covOff + 2);
@@ -935,10 +963,12 @@ public sealed class TrueTypeFont
                 uint rec = covOff + 4 + (uint)(r * 6);
                 int start = ReadUInt16(rec);
                 int end = ReadUInt16(rec + 2);
+
                 for (int g = start; g <= end && g >= 0; g++)
                     list.Add(g);
             }
         }
+
         return list;
     }
 
@@ -946,6 +976,7 @@ public sealed class TrueTypeFont
     {
         if (offset + 4 > _data.Length)
             return string.Empty;
+
         return System.Text.Encoding.ASCII.GetString(_data, (int)offset, 4);
     }
 
@@ -973,6 +1004,7 @@ public sealed class TrueTypeFont
         var g = GetGpos();
         if (g != null)
             return g.TryMarkBase(baseGlyph, markGlyph, out dx, out dy);
+
         dx = dy = 0;
         return false;
     }
@@ -986,6 +1018,7 @@ public sealed class TrueTypeFont
         var g = GetGpos();
         if (g != null)
             return g.TryMarkMark(baseMark, attachingMark, out dx, out dy);
+
         dx = dy = 0;
         return false;
     }
@@ -1014,35 +1047,43 @@ public sealed class TrueTypeFont
         var markLookups = new List<int>();
         var mkmkLookups = new List<int>();
         int featureCount = ReadUInt16(featureListOff);
+
         foreach (int fi in featureIndices)
         {
             if (fi < 0 || fi >= featureCount)
                 continue;
+
             uint frec = featureListOff + 2 + (uint)(fi * 6);
             string tag = ReadTag(frec);
+
             if (tag != "mark" && tag != "mkmk")
                 continue;
+
             uint featOff = featureListOff + (uint)ReadUInt16(frec + 4);
             int lookupCount = ReadUInt16(featOff + 2);
             var dst = tag == "mark" ? markLookups : mkmkLookups;
+
             for (int k = 0; k < lookupCount; k++)
                 dst.Add(ReadUInt16(featOff + 4 + (uint)(k * 2)));
         }
 
         var table = new GposTable();
         int lookupCountTotal = ReadUInt16(lookupListOff);
+
         foreach (int li in markLookups)
-            ParseGposLookup(lookupListOff, lookupCountTotal, li, expectMarkBase: true, table);
+            ParseGposLookup(lookupListOff, lookupCountTotal, li, table);
+
         foreach (int li in mkmkLookups)
-            ParseGposLookup(lookupListOff, lookupCountTotal, li, expectMarkBase: false, table);
+            ParseGposLookup(lookupListOff, lookupCountTotal, li, table);
 
         return table.MarkBase.Count > 0 || table.MarkMark.Count > 0 ? table : null;
     }
 
-    private void ParseGposLookup(uint lookupListOff, int lookupCountTotal, int li, bool expectMarkBase, GposTable table)
+    private void ParseGposLookup(uint lookupListOff, int lookupCountTotal, int li, GposTable table)
     {
         if (li < 0 || li >= lookupCountTotal)
             return;
+
         uint lookupOff = lookupListOff + (uint)ReadUInt16(lookupListOff + 2 + (uint)(li * 2));
         int type = ReadUInt16(lookupOff);
         int subCount = ReadUInt16(lookupOff + 4);
@@ -1052,6 +1093,7 @@ public sealed class TrueTypeFont
             uint sub = lookupOff + (uint)ReadUInt16(lookupOff + 6 + (uint)(s * 2));
             int effectiveType = type;
             uint effectiveSub = sub;
+
             if (type == 9) // Extension positioning: unwrap.
             {
                 effectiveType = ReadUInt16(sub + 2);
@@ -1069,14 +1111,17 @@ public sealed class TrueTypeFont
     {
         var map = new Dictionary<int, (int cls, int x, int y)>();
         int markCount = ReadUInt16(markArrayOff);
+
         for (int i = 0; i < markCount && i < coverage.Count; i++)
         {
             uint rec = markArrayOff + 2 + (uint)(i * 4);
             int cls = ReadUInt16(rec);
             int anchorRel = ReadUInt16(rec + 2);
             (int x, int y) = anchorRel != 0 ? ReadAnchor(markArrayOff + (uint)anchorRel) : (0, 0);
+
             map[coverage[i]] = (cls, x, y);
         }
+
         return new MarkArrayData(map);
     }
 
@@ -1084,6 +1129,7 @@ public sealed class TrueTypeFont
     {
         var map = new Dictionary<int, (int x, int y)[]>();
         int baseCount = ReadUInt16(baseArrayOff);
+
         for (int i = 0; i < baseCount && i < coverage.Count; i++)
         {
             uint recBase = baseArrayOff + 2 + (uint)(i * markClassCount * 2);
@@ -1093,8 +1139,10 @@ public sealed class TrueTypeFont
                 int anchorRel = ReadUInt16(recBase + (uint)(c * 2));
                 anchors[c] = anchorRel != 0 ? ReadAnchor(baseArrayOff + (uint)anchorRel) : (0, 0);
             }
+
             map[coverage[i]] = anchors;
         }
+
         return map;
     }
 
@@ -1105,6 +1153,7 @@ public sealed class TrueTypeFont
         int markClassCount = ReadUInt16(subOff + 6);
         var marks = ParseMarkArray(subOff + (uint)ReadUInt16(subOff + 8), markCov);
         var bases = ParseBaseArray(subOff + (uint)ReadUInt16(subOff + 10), baseCov, markClassCount);
+
         return new MarkBasePos(marks, bases);
     }
 
@@ -1115,6 +1164,7 @@ public sealed class TrueTypeFont
         int markClassCount = ReadUInt16(subOff + 6);
         var mark1 = ParseMarkArray(subOff + (uint)ReadUInt16(subOff + 8), mark1Cov);
         var mark2 = ParseBaseArray(subOff + (uint)ReadUInt16(subOff + 10), mark2Cov, markClassCount);
+
         return new MarkMarkPos(mark1, mark2);
     }
 
@@ -1130,9 +1180,11 @@ public sealed class TrueTypeFont
         uint gdef = _tables.GetValueOrDefault("GDEF");
         if (gdef == 0)
             return null;
+
         int classDefRel = ReadUInt16(gdef + 4);
         if (classDefRel == 0)
             return null;
+
         return ParseClassDef(gdef + (uint)classDefRel);
     }
 
@@ -1160,6 +1212,7 @@ public sealed class TrueTypeFont
                     map[g] = cls;
             }
         }
+
         return new ClassDefTable(map);
     }
 
@@ -1173,6 +1226,7 @@ public sealed class TrueTypeFont
             foreach (var mb in MarkBase)
                 if (mb.Try(baseGlyph, markGlyph, out dx, out dy))
                     return true;
+
             dx = dy = 0;
             return false;
         }
@@ -1182,6 +1236,7 @@ public sealed class TrueTypeFont
             foreach (var mm in MarkMark)
                 if (mm.Try(baseMark, attachingMark, out dx, out dy))
                     return true;
+
             dx = dy = 0;
             return false;
         }
@@ -1196,6 +1251,7 @@ public sealed class TrueTypeFont
                 (cls, x, y) = m;
                 return true;
             }
+
             cls = x = y = 0;
             return false;
         }
@@ -1206,12 +1262,16 @@ public sealed class TrueTypeFont
         public bool Try(int baseGlyph, int markGlyph, out int dx, out int dy)
         {
             dx = dy = 0;
+
             if (!marks.TryGet(markGlyph, out int cls, out int mx, out int my))
                 return false;
+
             if (!bases.TryGetValue(baseGlyph, out var anchors) || cls >= anchors.Length)
                 return false;
+
             dx = anchors[cls].x - mx;
             dy = anchors[cls].y - my;
+
             return true;
         }
     }
@@ -1221,12 +1281,16 @@ public sealed class TrueTypeFont
         public bool Try(int baseMark, int attachingMark, out int dx, out int dy)
         {
             dx = dy = 0;
+
             if (!mark1.TryGet(attachingMark, out int cls, out int mx, out int my))
                 return false;
+
             if (!mark2.TryGetValue(baseMark, out var anchors) || cls >= anchors.Length)
                 return false;
+
             dx = anchors[cls].x - mx;
             dy = anchors[cls].y - my;
+
             return true;
         }
     }
@@ -1246,9 +1310,11 @@ public sealed class TrueTypeFont
         {
             if (!FeatureLookups.TryGetValue(tag, out var indices))
                 return glyph;
+
             foreach (int i in indices)
                 if (i >= 0 && i < Lookups.Count && Lookups[i] is SingleSubst ss && ss.TryMap(glyph, out int s))
                     return s;
+
             return glyph;
         }
 
@@ -1259,17 +1325,17 @@ public sealed class TrueTypeFont
                     if (i >= 0 && i < Lookups.Count && Lookups[i] is LigatureSubst ls
                         && ls.TryLigate(glyphs, pos, out lig, out count))
                         return true;
+
             lig = 0;
             count = 0;
+
             return false;
         }
     }
 
-    private sealed class SingleSubst
+    private sealed class SingleSubst(Dictionary<int, int> map)
     {
-        private readonly Dictionary<int, int> _map;
-        public SingleSubst(Dictionary<int, int> map) => _map = map;
-        public bool TryMap(int glyph, out int substitute) => _map.TryGetValue(glyph, out substitute);
+        public bool TryMap(int glyph, out int substitute) => map.TryGetValue(glyph, out substitute);
     }
 
     private sealed class LigatureSubst(Dictionary<int, List<(int[] rest, int lig)>> sets)
@@ -1278,11 +1344,14 @@ public sealed class TrueTypeFont
         {
             lig = 0;
             count = 0;
+            
             if (!sets.TryGetValue(glyphs[pos], out var ligs))
                 return false;
+            
             foreach (var (rest, l) in ligs)
             {
                 bool ok = true;
+
                 for (int k = 0; k < rest.Length; k++)
                 {
                     if (pos + 1 + k >= glyphs.Count || glyphs[pos + 1 + k] != rest[k])
@@ -1291,6 +1360,7 @@ public sealed class TrueTypeFont
                         break;
                     }
                 }
+
                 if (ok)
                 {
                     lig = l;
@@ -1298,6 +1368,7 @@ public sealed class TrueTypeFont
                     return true;
                 }
             }
+
             return false;
         }
     }
@@ -1313,10 +1384,11 @@ public sealed class TrueTypeFont
             if (groups != null)
             {
                 uint cp = (uint)codepoint;
-                foreach (var grp in groups)
+
+                foreach (var (start, end, startGlyph) in groups)
                 {
-                    if (cp >= grp.start && cp <= grp.end)
-                        return (int)(grp.startGlyph + (cp - grp.start));
+                    if (cp >= start && cp <= end)
+                        return (int)(startGlyph + (cp - start));
                 }
             }
 

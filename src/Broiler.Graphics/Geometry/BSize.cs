@@ -1,21 +1,15 @@
 using System;
 using System.Globalization;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Geometry;
 
 /// <summary>
 /// A 2D size (width/height) in device-independent layout units.
 /// </summary>
-public readonly struct BSize : IEquatable<BSize>
+public readonly struct BSize(double width, double height) : IEquatable<BSize>
 {
-    public double Width { get; }
-    public double Height { get; }
-
-    public BSize(double width, double height)
-    {
-        Width = width;
-        Height = height;
-    }
+    public double Width { get; } = width;
+    public double Height { get; } = height;
 
     public static BSize Empty => new(0, 0);
 
@@ -31,6 +25,5 @@ public readonly struct BSize : IEquatable<BSize>
 
     public static bool operator !=(BSize left, BSize right) => !left.Equals(right);
 
-    public override string ToString() =>
-        string.Format(CultureInfo.InvariantCulture, "BSize({0} x {1})", Width, Height);
+    public override string ToString() => string.Format(CultureInfo.InvariantCulture, "BSize({0} x {1})", Width, Height);
 }

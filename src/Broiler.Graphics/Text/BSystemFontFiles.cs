@@ -1,6 +1,8 @@
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Resolves a font family to a file on this machine. Returns false when the host has no face for

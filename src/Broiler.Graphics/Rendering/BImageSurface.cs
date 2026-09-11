@@ -1,6 +1,8 @@
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// In-memory bitmap surface used by <see cref="BImageRenderer"/>.
@@ -64,11 +66,9 @@ public sealed class BImageSurface : IBroilerSurface
         return size;
     }
 
-    private static double NormalizeDpiScale(double dpiScale) =>
-        IsPositiveFinite(dpiScale) ? dpiScale : 1.0;
+    private static double NormalizeDpiScale(double dpiScale) => IsPositiveFinite(dpiScale) ? dpiScale : 1.0;
 
-    private static bool IsPositiveFinite(double value) =>
-        value > 0 && !double.IsNaN(value) && !double.IsInfinity(value);
+    private static bool IsPositiveFinite(double value) => value > 0 && !double.IsNaN(value) && !double.IsInfinity(value);
 
     private static int ToPixelDimension(double dip, double dpiScale, string name)
     {

@@ -1,4 +1,4 @@
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// Platform-neutral pen dash style. Values match the historical

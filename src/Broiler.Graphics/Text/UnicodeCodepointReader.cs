@@ -1,5 +1,5 @@
 #nullable disable
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 public static class UnicodeCodepointReader
 {

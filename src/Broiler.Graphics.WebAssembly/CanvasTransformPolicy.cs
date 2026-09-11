@@ -1,3 +1,4 @@
+using Broiler.Graphics.Geometry;
 using System;
 
 namespace Broiler.Graphics.WebAssembly;

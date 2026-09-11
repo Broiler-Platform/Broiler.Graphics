@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// The thread budget <see cref="BCanvas"/> spends on scanline bands, and the partitioner its
@@ -167,12 +167,8 @@ internal static class BRasterParallelism
     private static int ReadConfiguredDegree()
     {
         string? configured = Environment.GetEnvironmentVariable(ThreadsEnvironmentVariable);
-        if (!string.IsNullOrWhiteSpace(configured) &&
-            int.TryParse(configured, out int threads) &&
-            threads > 0)
-        {
+        if (!string.IsNullOrWhiteSpace(configured) && int.TryParse(configured, out int threads) && threads > 0)
             return threads;
-        }
 
         return Environment.ProcessorCount;
     }
@@ -222,11 +218,7 @@ internal static class BRasterParallelism
         }
 
         int rowsPerBand = (rows + threads - 1) / threads;
-        Parallel.For(
-            0,
-            threads,
-            new ParallelOptions { MaxDegreeOfParallelism = threads },
-            i =>
+        Parallel.For(0, threads, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
             {
                 int from = minY + (i * rowsPerBand);
                 int to = Math.Min(from + rowsPerBand - 1, maxY);

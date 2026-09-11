@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Geometry;
 
 /// <summary>
 /// A 2D affine transform represented as a 3x2 matrix:
@@ -13,24 +13,14 @@ namespace Broiler.Graphics;
 /// where (M31, M32) is the translation. Uses <see cref="double"/> for layout precision;
 /// backends may convert to <c>float</c>.
 /// </summary>
-public readonly struct BMatrix3x2 : IEquatable<BMatrix3x2>
+public readonly struct BMatrix3x2(double m11, double m12, double m21, double m22, double m31, double m32) : IEquatable<BMatrix3x2>
 {
-    public double M11 { get; }
-    public double M12 { get; }
-    public double M21 { get; }
-    public double M22 { get; }
-    public double M31 { get; }
-    public double M32 { get; }
-
-    public BMatrix3x2(double m11, double m12, double m21, double m22, double m31, double m32)
-    {
-        M11 = m11;
-        M12 = m12;
-        M21 = m21;
-        M22 = m22;
-        M31 = m31;
-        M32 = m32;
-    }
+    public double M11 { get; } = m11;
+    public double M12 { get; } = m12;
+    public double M21 { get; } = m21;
+    public double M22 { get; } = m22;
+    public double M31 { get; } = m31;
+    public double M32 { get; } = m32;
 
     public static BMatrix3x2 Identity => new(1, 0, 0, 1, 0, 0);
 
@@ -69,7 +59,6 @@ public readonly struct BMatrix3x2 : IEquatable<BMatrix3x2>
 
     public static bool operator !=(BMatrix3x2 left, BMatrix3x2 right) => !left.Equals(right);
 
-    public override string ToString() => string.Format(
-        CultureInfo.InvariantCulture,
+    public override string ToString() => string.Format(CultureInfo.InvariantCulture,
         "BMatrix3x2[{0}, {1}, {2}, {3}, {4}, {5}]", M11, M12, M21, M22, M31, M32);
 }

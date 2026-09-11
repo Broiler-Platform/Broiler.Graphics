@@ -1,3 +1,5 @@
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
 using System;
 using System.Runtime.InteropServices;
 

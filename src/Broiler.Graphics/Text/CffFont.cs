@@ -1,9 +1,12 @@
 #nullable disable
+using Broiler.Graphics.Text;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
+using System.Text;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Parser and Type 2 charstring interpreter for the <c>CFF </c> table, so that
@@ -17,7 +20,7 @@ public sealed class CffFont
     private readonly byte[] _data;
     private readonly Range[] _charStrings;
     private readonly Range[] _globalSubrs;
-    private Range[] _localSubrs;            // non-CID fonts
+    private readonly Range[] _localSubrs;            // non-CID fonts
     private Range[][] _fdLocalSubrs;        // CID fonts: per-FD local subrs
     private byte[] _fdSelect;               // CID fonts: glyph → FD index
     private readonly int _globalBias;
@@ -28,7 +31,7 @@ public sealed class CffFont
 
     private readonly struct Range(int start, int end)
     {
-        public int Start { get; } = start; 
+        public int Start { get; } = start;
         public int End { get; } = end;
     }
 
@@ -103,7 +106,8 @@ public sealed class CffFont
 
         foreach (var contour in interp.Contours)
             if (contour.Count >= 2)
-                contours.Add(contour.ToArray());
+                contours.Add([.. contour]);
+
         return contours;
     }
 
@@ -117,12 +121,14 @@ public sealed class CffFont
         int fp = cffOffset + (int)fdArrayOp[0];
         var fdDicts = ReadIndex(ref fp);
         var perFd = new Range[fdDicts.Length][];
+
         for (int i = 0; i < fdDicts.Length; i++)
         {
             var fd = ParseDict(fdDicts[i]);
             if (fd.TryGetValue(18, out var priv) && priv.Length == 2)
                 perFd[i] = ParsePrivateLocalSubrs(cffOffset + (int)priv[1], (int)priv[0]);
         }
+
         _fdLocalSubrs = perFd;
         _fdSelect = ParseFdSelect(cffOffset + (int)fdSelectOp[0], _charStrings.Length);
     }
@@ -135,6 +141,7 @@ public sealed class CffFont
             int sp = privStart + (int)subrsOp[0];
             return ReadIndex(ref sp);
         }
+
         return null;
     }
 
@@ -151,13 +158,16 @@ public sealed class CffFont
         {
             int nRanges = U16(off + 1);
             int rp = off + 3;
+
             for (int r = 0; r < nRanges; r++)
             {
                 int first = U16(rp);
                 int fd = _data[rp + 2];
                 int next = U16(rp + 3);
+
                 for (int g = first; g < next && g < nGlyphs; g++)
                     sel[g] = (byte)fd;
+
                 rp += 3;
             }
         }
@@ -177,20 +187,24 @@ public sealed class CffFont
         int count = U16(p);
         p += 2;
         if (count == 0)
-            return Array.Empty<Range>();
+            return [];
 
         int offSize = _data[p++];
         var offsets = new int[count + 1];
+
         for (int i = 0; i <= count; i++)
         {
             int v = 0;
+
             for (int b = 0; b < offSize; b++)
                 v = (v << 8) | _data[p++];
+
             offsets[i] = v;
         }
 
         int dataBase = p - 1; // offsets are 1-based relative to here
         var ranges = new Range[count];
+
         for (int i = 0; i < count; i++)
             ranges[i] = new Range(dataBase + offsets[i], dataBase + offsets[i + 1]);
 
@@ -203,19 +217,23 @@ public sealed class CffFont
         var dict = new Dictionary<int, double[]>();
         var operands = new List<double>();
         int p = range.Start;
+
         while (p < range.End)
         {
             int b0 = _data[p];
             if (b0 <= 21) // operator
             {
                 int op = b0;
+
                 p++;
+
                 if (b0 == 12)
                 {
                     op = 1200 + _data[p];
                     p++;
                 }
-                dict[op] = operands.ToArray();
+
+                dict[op] = [.. operands];
                 operands.Clear();
             }
             else if (b0 == 28)
@@ -252,13 +270,14 @@ public sealed class CffFont
                 p++; // reserved
             }
         }
+
         return dict;
     }
 
     private double ParseReal(ref int p)
     {
         p++; // skip 30
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         bool done = false;
         while (!done && p < _data.Length)
         {
@@ -278,8 +297,7 @@ public sealed class CffFont
                 if (done) break;
             }
         }
-        return double.TryParse(sb.ToString(), System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0;
+        return double.TryParse(sb.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : 0;
     }
 
     private static int Bias(int count) => count < 1240 ? 107 : count < 33900 ? 1131 : 32768;
@@ -288,14 +306,9 @@ public sealed class CffFont
 
     // ── Type 2 charstring interpreter ────────────────────────────────────────
 
-    private sealed class Type2Interpreter
+    private sealed class Type2Interpreter(CffFont font, Range[] localSubrs, int localBias)
     {
         private const int CurveSegments = 8;
-
-        private readonly CffFont _font;
-        private readonly Range[] _localSubrs;
-        private readonly int _localBias;
-
         private readonly double[] _stack = new double[48];
         private int _sp;
         private double _x, _y;
@@ -306,17 +319,11 @@ public sealed class CffFont
         public List<List<PointF>> Contours { get; } = [];
         private List<PointF> _current;
 
-        public Type2Interpreter(CffFont font, Range[] localSubrs, int localBias)
-        {
-            _font = font;
-            _localSubrs = localSubrs;
-            _localBias = localBias;
-        }
-
         public void Finish()
         {
             if (_open && _current != null && _current.Count > 0)
                 Contours.Add(_current);
+
             _open = false;
         }
 
@@ -326,8 +333,10 @@ public sealed class CffFont
         {
             if (depth > 10)
                 return true;
-            byte[] d = _font._data;
+
+            byte[] d = font._data;
             int p = cs.Start;
+
             while (p < cs.End)
             {
                 int b0 = d[p++];
@@ -347,10 +356,14 @@ public sealed class CffFont
 
                 switch (b0)
                 {
-                    case 1: case 3: case 18: case 23: // h/v stem (hm)
+                    case 1:
+                    case 3:
+                    case 18:
+                    case 23: // h/v stem (hm)
                         CountStems();
                         break;
-                    case 19: case 20: // hintmask / cntrmask
+                    case 19:
+                    case 20: // hintmask / cntrmask
                         CountStems();
                         p += (_nStems + 7) / 8;
                         break;
@@ -386,25 +399,25 @@ public sealed class CffFont
                         _sp = 0;
                         break;
                     case 24: // rcurveline
-                    {
-                        int i = 0;
-                        for (; i + 5 < _sp - 2; i += 6)
-                            RelCurve(_stack[i], _stack[i + 1], _stack[i + 2], _stack[i + 3], _stack[i + 4], _stack[i + 5]);
-                        if (i + 1 < _sp)
-                            LineTo(_x + _stack[i], _y + _stack[i + 1]);
-                        _sp = 0;
-                        break;
-                    }
+                        {
+                            int i = 0;
+                            for (; i + 5 < _sp - 2; i += 6)
+                                RelCurve(_stack[i], _stack[i + 1], _stack[i + 2], _stack[i + 3], _stack[i + 4], _stack[i + 5]);
+                            if (i + 1 < _sp)
+                                LineTo(_x + _stack[i], _y + _stack[i + 1]);
+                            _sp = 0;
+                            break;
+                        }
                     case 25: // rlinecurve
-                    {
-                        int i = 0;
-                        for (; i + 1 < _sp - 6; i += 2)
-                            LineTo(_x + _stack[i], _y + _stack[i + 1]);
-                        if (i + 5 < _sp)
-                            RelCurve(_stack[i], _stack[i + 1], _stack[i + 2], _stack[i + 3], _stack[i + 4], _stack[i + 5]);
-                        _sp = 0;
-                        break;
-                    }
+                        {
+                            int i = 0;
+                            for (; i + 1 < _sp - 6; i += 2)
+                                LineTo(_x + _stack[i], _y + _stack[i + 1]);
+                            if (i + 5 < _sp)
+                                RelCurve(_stack[i], _stack[i + 1], _stack[i + 2], _stack[i + 3], _stack[i + 4], _stack[i + 5]);
+                            _sp = 0;
+                            break;
+                        }
                     case 26: VvCurveto(); break;
                     case 27: HhCurveto(); break;
                     case 30: VhHvCurveto(startHorizontal: false); break;
@@ -412,17 +425,17 @@ public sealed class CffFont
                     case 10: // callsubr
                         if (_sp > 0)
                         {
-                            int idx = (int)_stack[--_sp] + _localBias;
-                            if (_localSubrs != null && idx >= 0 && idx < _localSubrs.Length)
-                                if (Run(_localSubrs[idx], depth + 1)) return true;
+                            int idx = (int)_stack[--_sp] + localBias;
+                            if (localSubrs != null && idx >= 0 && idx < localSubrs.Length)
+                                if (Run(localSubrs[idx], depth + 1)) return true;
                         }
                         break;
                     case 29: // callgsubr
                         if (_sp > 0)
                         {
-                            int idx = (int)_stack[--_sp] + _font._globalBias;
-                            if (_font._globalSubrs != null && idx >= 0 && idx < _font._globalSubrs.Length)
-                                if (Run(_font._globalSubrs[idx], depth + 1)) return true;
+                            int idx = (int)_stack[--_sp] + font._globalBias;
+                            if (font._globalSubrs != null && idx >= 0 && idx < font._globalSubrs.Length)
+                                if (Run(font._globalSubrs[idx], depth + 1)) return true;
                         }
                         break;
                     case 11: // return
@@ -432,23 +445,24 @@ public sealed class CffFont
                         Finish();
                         return true;
                     case 12: // escape (two-byte operators: flex family)
-                    {
-                        int b1 = d[p++];
-                        switch (b1)
                         {
-                            case 34: Hflex(); break;
-                            case 35: Flex(); break;
-                            case 36: Hflex1(); break;
-                            case 37: Flex1(); break;
-                            default: _sp = 0; break;
+                            int b1 = d[p++];
+                            switch (b1)
+                            {
+                                case 34: Hflex(); break;
+                                case 35: Flex(); break;
+                                case 36: Hflex1(); break;
+                                case 37: Flex1(); break;
+                                default: _sp = 0; break;
+                            }
+                            break;
                         }
-                        break;
-                    }
                     default:
                         _sp = 0;
                         break;
                 }
             }
+
             return false;
         }
 
@@ -457,6 +471,7 @@ public sealed class CffFont
             // An odd argument count means the optional width precedes the stems.
             if (!_haveWidth && (_sp % 2) == 1)
                 _haveWidth = true;
+
             _nStems += _sp / 2;
             _sp = 0;
         }
@@ -465,12 +480,15 @@ public sealed class CffFont
         {
             if (_haveWidth)
                 return;
+
             _haveWidth = true;
+
             if (_sp > expectedArgs)
             {
                 // Drop the leading width operand.
                 for (int i = 1; i < _sp; i++)
                     _stack[i - 1] = _stack[i];
+
                 _sp--;
             }
         }
@@ -478,6 +496,7 @@ public sealed class CffFont
         private void MoveTo(double x, double y)
         {
             Finish();
+
             _x = x;
             _y = y;
             _current = [Pt(x, y)];
@@ -488,6 +507,7 @@ public sealed class CffFont
         {
             _x = x;
             _y = y;
+
             _current?.Add(Pt(x, y));
         }
 
@@ -497,7 +517,9 @@ public sealed class CffFont
             double cx1 = x0 + dx1, cy1 = y0 + dy1;
             double cx2 = cx1 + dx2, cy2 = cy1 + dy2;
             double x3 = cx2 + dx3, y3 = cy2 + dy3;
+
             FlattenCubic(x0, y0, cx1, cy1, cx2, cy2, x3, y3);
+
             _x = x3;
             _y = y3;
         }
@@ -509,6 +531,7 @@ public sealed class CffFont
                 double t = i / (double)CurveSegments;
                 double mt = 1 - t;
                 double a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, e = t * t * t;
+
                 _current?.Add(Pt(a * x0 + b * x1 + c * x2 + e * x3, a * y0 + b * y1 + c * y2 + e * y3));
             }
         }
@@ -516,12 +539,17 @@ public sealed class CffFont
         private void AlternatingLines(bool horizontalFirst)
         {
             bool horizontal = horizontalFirst;
+
             for (int i = 0; i < _sp; i++)
             {
-                if (horizontal) LineTo(_x + _stack[i], _y);
-                else LineTo(_x, _y + _stack[i]);
+                if (horizontal)
+                    LineTo(_x + _stack[i], _y);
+                else
+                    LineTo(_x, _y + _stack[i]);
+
                 horizontal = !horizontal;
             }
+
             _sp = 0;
         }
 
@@ -529,12 +557,19 @@ public sealed class CffFont
         {
             int i = 0;
             double dy1 = 0;
-            if ((_sp % 4) == 1) { dy1 = _stack[0]; i = 1; }
+
+            if ((_sp % 4) == 1)
+            {
+                dy1 = _stack[0];
+                i = 1;
+            }
+
             for (; i + 3 < _sp; i += 4)
             {
                 RelCurve(_stack[i], dy1, _stack[i + 1], _stack[i + 2], _stack[i + 3], 0);
                 dy1 = 0;
             }
+
             _sp = 0;
         }
 
@@ -542,12 +577,19 @@ public sealed class CffFont
         {
             int i = 0;
             double dx1 = 0;
-            if ((_sp % 4) == 1) { dx1 = _stack[0]; i = 1; }
+
+            if ((_sp % 4) == 1)
+            {
+                dx1 = _stack[0];
+                i = 1;
+            }
+
             for (; i + 3 < _sp; i += 4)
             {
                 RelCurve(dx1, _stack[i], _stack[i + 1], _stack[i + 2], 0, _stack[i + 3]);
                 dx1 = 0;
             }
+
             _sp = 0;
         }
 
@@ -555,17 +597,21 @@ public sealed class CffFont
         {
             bool horizontal = startHorizontal;
             int i = 0;
+
             while (i + 3 < _sp)
             {
                 bool last = (_sp - i) == 5;
                 double df = last ? _stack[i + 4] : 0;
+
                 if (horizontal)
                     RelCurve(_stack[i], 0, _stack[i + 1], _stack[i + 2], df, _stack[i + 3]);
                 else
                     RelCurve(0, _stack[i], _stack[i + 1], _stack[i + 2], _stack[i + 3], df);
+
                 i += 4;
                 horizontal = !horizontal;
             }
+
             _sp = 0;
         }
 
@@ -576,6 +622,7 @@ public sealed class CffFont
                 RelCurve(_stack[0], _stack[1], _stack[2], _stack[3], _stack[4], _stack[5]);
                 RelCurve(_stack[6], _stack[7], _stack[8], _stack[9], _stack[10], _stack[11]);
             }
+
             _sp = 0;
         }
 
@@ -586,6 +633,7 @@ public sealed class CffFont
                 RelCurve(_stack[0], 0, _stack[1], _stack[2], _stack[3], 0);
                 RelCurve(_stack[4], 0, _stack[5], -_stack[2], _stack[6], 0);
             }
+
             _sp = 0;
         }
 
@@ -597,6 +645,7 @@ public sealed class CffFont
                 double dy = _stack[1] + _stack[3] + _stack[7];
                 RelCurve(_stack[5], 0, _stack[6], _stack[7], _stack[8], -dy);
             }
+
             _sp = 0;
         }
 
@@ -606,16 +655,18 @@ public sealed class CffFont
             {
                 double dx = _stack[0] + _stack[2] + _stack[4] + _stack[6] + _stack[8];
                 double dy = _stack[1] + _stack[3] + _stack[5] + _stack[7] + _stack[9];
+
                 RelCurve(_stack[0], _stack[1], _stack[2], _stack[3], _stack[4], _stack[5]);
+
                 if (Math.Abs(dx) > Math.Abs(dy))
                     RelCurve(_stack[6], _stack[7], _stack[8], _stack[9], _stack[10], -dy);
                 else
                     RelCurve(_stack[6], _stack[7], _stack[8], _stack[9], -dx, _stack[10]);
             }
+
             _sp = 0;
         }
 
-        private PointF Pt(double x, double y) =>
-            new((float)(x * _font._unitScale), (float)(y * _font._unitScale));
+        private PointF Pt(double x, double y) => new((float)(x * font._unitScale), (float)(y * font._unitScale));
     }
 }

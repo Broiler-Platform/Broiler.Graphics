@@ -1,37 +1,15 @@
+using static Broiler.Native.Windows.Direct2D.DirectWriteTextMetricsProviderApi;
 using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Graphics.Text;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
 internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-    private delegate int CreateTextFormatProc(
-        IntPtr self,
-        [MarshalAs(UnmanagedType.LPWStr)] string fontFamilyName,
-        IntPtr fontCollection,
-        DWriteNative.DWRITE_FONT_WEIGHT fontWeight,
-        DWriteNative.DWRITE_FONT_STYLE fontStyle,
-        DWriteNative.DWRITE_FONT_STRETCH fontStretch,
-        float fontSize,
-        [MarshalAs(UnmanagedType.LPWStr)] string localeName,
-        out IntPtr textFormat);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-    private delegate int CreateTextLayoutProc(
-        IntPtr self,
-        [MarshalAs(UnmanagedType.LPWStr)] string text,
-        uint textLength,
-        IntPtr textFormat,
-        float maxWidth,
-        float maxHeight,
-        out IntPtr textLayout);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GetMetricsProc(IntPtr self, out DWriteNative.DWRITE_TEXT_METRICS metrics);
 
     private static readonly Lazy<DirectWriteTextMetricsProvider?> Shared = new(TryCreate, isThreadSafe: true);
 
@@ -83,8 +61,8 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
             _factory.Pointer,
             DirectWriteText.ResolveFontFamily(font.FamilyName),
             IntPtr.Zero,
-            DWriteNative.ToDWrite(font.Weight),
-            DWriteNative.ToDWrite(font.Slant),
+            DWriteConversions.ToDWrite(font.Weight),
+            DWriteConversions.ToDWrite(font.Slant),
             DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
             DirectWriteText.ToFontSize(font.Size),
             DirectWriteText.CurrentLocaleName(),

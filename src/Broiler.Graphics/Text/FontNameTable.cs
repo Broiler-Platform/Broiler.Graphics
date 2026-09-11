@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Reads the family and face names out of a font file's <c>name</c> table.
@@ -70,6 +70,7 @@ internal static class FontNameTable
             var names = new FaceName[fonts];
             int found = 0;
             Span<byte> offset = stackalloc byte[4];
+
             for (uint index = 0; index < fonts; index++)
             {
                 if (!TryReadAt(stream, 12 + index * 4, offset))
@@ -88,6 +89,7 @@ internal static class FontNameTable
     private static bool TryReadFace(FileStream stream, long sfntOffset, out FaceName name)
     {
         name = default;
+
         if (!TryFindTable(stream, sfntOffset, 0x6E616D65u /* 'name' */, out long tableOffset, out uint tableLength))
             return false;
 
@@ -180,11 +182,13 @@ internal static class FontNameTable
         for (int index = 0; index < tables; index++)
         {
             ReadOnlySpan<byte> entry = directory.AsSpan(index * 16, 16);
+
             if (ReadTag(entry) != wanted)
                 continue;
 
             tableOffset = ReadUInt32(entry[8..]);
             tableLength = ReadUInt32(entry[12..]);
+
             return tableOffset >= 0 && tableLength > 0;
         }
 
@@ -234,7 +238,7 @@ internal static class FontNameTable
 
     private static uint ReadTag(ReadOnlySpan<byte> value) => ReadUInt32(value);
 
-    private static uint ReadUInt32(ReadOnlySpan<byte> value) =>
+    private static uint ReadUInt32(ReadOnlySpan<byte> value) => 
         ((uint)value[0] << 24) | ((uint)value[1] << 16) | ((uint)value[2] << 8) | value[3];
 
     private static int ReadUInt16(ReadOnlySpan<byte> value) => (value[0] << 8) | value[1];

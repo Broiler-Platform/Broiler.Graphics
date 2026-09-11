@@ -1,6 +1,7 @@
+using static Broiler.Native.Windows.Direct2D.Direct2DDeviceApi;
 using System;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
@@ -16,8 +17,6 @@ namespace Broiler.Graphics.Windows;
 /// </remarks>
 internal sealed class Direct2DDevice : IDisposable
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreateD2DDeviceProc(IntPtr self, IntPtr dxgiDevice, out IntPtr d2dDevice);
 
     // --- Native object slots (where each DirectX object lives) ---
     private readonly ComPtr _d3dDevice = new();          // ID3D11Device

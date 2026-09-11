@@ -1,7 +1,15 @@
+using static Broiler.Native.Windows.Direct2D.Direct2DRendererApi;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Resources;
+using Broiler.Graphics.Text;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
@@ -12,129 +20,6 @@ namespace Broiler.Graphics.Windows;
 /// </summary>
 public sealed class Direct2DRenderer : IBroilerRenderer
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void BeginDrawProc(IntPtr self);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int EndDrawProc(IntPtr self, IntPtr tag1, IntPtr tag2);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void ClearProc(IntPtr self, in D2DNative.D2D1_COLOR_F color);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void SetAntialiasModeProc(IntPtr self, D2DNative.D2D1_ANTIALIAS_MODE antialiasMode);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void SetTextAntialiasModeProc(IntPtr self, D2DNative.D2D1_TEXT_ANTIALIAS_MODE textAntialiasMode);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void SetTransformProc(IntPtr self, in D2DNative.D2D1_MATRIX_3X2_F transform);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreateSolidColorBrushProc(
-        IntPtr self,
-        in D2DNative.D2D1_COLOR_F color,
-        IntPtr brushProperties,
-        out IntPtr solidColorBrush);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void FillRectangleProc(IntPtr self, in D2DNative.D2D1_RECT_F rect, IntPtr brush);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void GetFactoryProc(IntPtr self, out IntPtr factory);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreatePathGeometryProc(IntPtr self, out IntPtr pathGeometry);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int PathGeometryOpenProc(IntPtr self, out IntPtr sink);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void GeometrySinkSetFillModeProc(IntPtr self, D2DNative.D2D1_FILL_MODE fillMode);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void GeometrySinkBeginFigureProc(
-        IntPtr self,
-        D2DNative.D2D1_POINT_2F startPoint,
-        D2DNative.D2D1_FIGURE_BEGIN figureBegin);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void GeometrySinkAddLinesProc(
-        IntPtr self,
-        [In] D2DNative.D2D1_POINT_2F[] points,
-        uint pointsCount);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void GeometrySinkEndFigureProc(IntPtr self, D2DNative.D2D1_FIGURE_END figureEnd);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int GeometrySinkCloseProc(IntPtr self);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void FillGeometryProc(IntPtr self, IntPtr geometry, IntPtr brush, IntPtr opacityBrush);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void DrawRectangleProc(
-        IntPtr self,
-        in D2DNative.D2D1_RECT_F rect,
-        IntPtr brush,
-        float strokeWidth,
-        IntPtr strokeStyle);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void FillRoundedRectangleProc(
-        IntPtr self,
-        in D2DNative.D2D1_ROUNDED_RECT roundedRect,
-        IntPtr brush);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void DrawRoundedRectangleProc(
-        IntPtr self,
-        in D2DNative.D2D1_ROUNDED_RECT roundedRect,
-        IntPtr brush,
-        float strokeWidth,
-        IntPtr strokeStyle);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-    private delegate int CreateTextFormatProc(
-        IntPtr self,
-        [MarshalAs(UnmanagedType.LPWStr)] string fontFamilyName,
-        IntPtr fontCollection,
-        DWriteNative.DWRITE_FONT_WEIGHT fontWeight,
-        DWriteNative.DWRITE_FONT_STYLE fontStyle,
-        DWriteNative.DWRITE_FONT_STRETCH fontStretch,
-        float fontSize,
-        [MarshalAs(UnmanagedType.LPWStr)] string localeName,
-        out IntPtr textFormat);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-    private delegate void DrawTextProc(
-        IntPtr self,
-        [MarshalAs(UnmanagedType.LPWStr)] string text,
-        uint textLength,
-        IntPtr textFormat,
-        in D2DNative.D2D1_RECT_F layoutRect,
-        IntPtr brush,
-        D2DNative.D2D1_DRAW_TEXT_OPTIONS options,
-        DWriteNative.DWRITE_MEASURING_MODE measuringMode);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void DrawBitmapProc(
-        IntPtr self,
-        IntPtr bitmap,
-        in D2DNative.D2D1_RECT_F destination,
-        float opacity,
-        uint interpolation,
-        in D2DNative.D2D1_RECT_F source);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void PushAxisAlignedClipProc(
-        IntPtr self,
-        in D2DNative.D2D1_RECT_F clipRect,
-        D2DNative.D2D1_ANTIALIAS_MODE antialiasMode);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void PopAxisAlignedClipProc(IntPtr self);
 
     private readonly Direct2DDevice _device;
     private readonly Direct2DImageStore _images = new();
@@ -512,8 +397,8 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             _device.DWriteFactory.Pointer,
             DirectWriteText.ResolveFontFamily(font.FamilyName),
             IntPtr.Zero,
-            DWriteNative.ToDWrite(font.Weight),
-            DWriteNative.ToDWrite(font.Slant),
+            DWriteConversions.ToDWrite(font.Weight),
+            DWriteConversions.ToDWrite(font.Slant),
             DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
             DirectWriteText.ToFontSize(font.Size),
             DirectWriteText.CurrentLocaleName(),

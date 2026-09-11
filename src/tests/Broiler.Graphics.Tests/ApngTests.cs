@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Broiler.Graphics.Imaging;
 using Broiler.Media.Image;
 using Spec = Broiler.Graphics.Tests.PngFormatBuilder.ApngFrameSpec;
 

@@ -1,4 +1,7 @@
-namespace Broiler.Graphics;
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Rendering;
+
+namespace Broiler.Graphics.Windowing;
 
 /// <summary>Platform-neutral settings used when creating a render window.</summary>
 public sealed record BWindowOptions

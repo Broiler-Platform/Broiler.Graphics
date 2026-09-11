@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
 /// <summary>
 /// Provides backend-neutral default CSS font-family fallback mappings.
@@ -52,6 +52,6 @@ public static class FontFamilyFallbackPolicy
         return mappings;
     }
 
-    private static string? FirstAvailable(HashSet<string> availableFamilies, params string[] candidates)
-        => Array.Find(candidates, availableFamilies.Contains);
+    private static string? FirstAvailable(HashSet<string> availableFamilies, params string[] candidates) => 
+        Array.Find(candidates, availableFamilies.Contains);
 }

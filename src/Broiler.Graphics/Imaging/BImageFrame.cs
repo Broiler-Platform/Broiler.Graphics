@@ -1,6 +1,6 @@
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>
 /// One frame of an animated image: the fully-composited pixels for this point in
@@ -13,10 +13,8 @@ public sealed class BImageFrame
     public BImageFrame(BPixelBuffer pixels, int delayNumerator, int delayDenominator)
     {
         ArgumentNullException.ThrowIfNull(pixels);
-        if (delayNumerator < 0)
-            throw new ArgumentOutOfRangeException(nameof(delayNumerator));
-        if (delayDenominator < 0)
-            throw new ArgumentOutOfRangeException(nameof(delayDenominator));
+        ArgumentOutOfRangeException.ThrowIfNegative(delayNumerator);
+        ArgumentOutOfRangeException.ThrowIfNegative(delayDenominator);
 
         Pixels = pixels;
         DelayNumerator = delayNumerator;
@@ -33,6 +31,5 @@ public sealed class BImageFrame
     public int DelayDenominator { get; }
 
     /// <summary>The display duration. A 0 denominator is interpreted as hundredths of a second.</summary>
-    public TimeSpan Delay =>
-        TimeSpan.FromSeconds(DelayNumerator / (double)(DelayDenominator == 0 ? 100 : DelayDenominator));
+    public TimeSpan Delay => TimeSpan.FromSeconds(DelayNumerator / (double)(DelayDenominator == 0 ? 100 : DelayDenominator));
 }

@@ -1,6 +1,6 @@
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Resources;
 
 /// <summary>
 /// Identifies the kind of resource a <see cref="BResourceHandle"/> refers to.
@@ -18,16 +18,10 @@ public enum BResourceKind : byte
 /// An opaque, value-type handle to a backend resource. The Core never dereferences it; backends map
 /// the <see cref="Id"/> to their own native object table. Equality is by (kind, id).
 /// </summary>
-public readonly struct BResourceHandle : IEquatable<BResourceHandle>
+public readonly struct BResourceHandle(BResourceKind kind, ulong id) : IEquatable<BResourceHandle>
 {
-    public BResourceKind Kind { get; }
-    public ulong Id { get; }
-
-    public BResourceHandle(BResourceKind kind, ulong id)
-    {
-        Kind = kind;
-        Id = id;
-    }
+    public BResourceKind Kind { get; } = kind;
+    public ulong Id { get; } = id;
 
     public static BResourceHandle None => default;
 

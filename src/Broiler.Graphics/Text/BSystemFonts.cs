@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Lists the font families installed on this machine. Returning nothing is legal and means the host
@@ -34,7 +34,7 @@ public delegate IEnumerable<string> BFontFamilyEnumerator();
 /// </remarks>
 public static class BSystemFonts
 {
-    private static readonly object Gate = new();
+    private static readonly Lock Gate = new();
     private static volatile BFontFamilyEnumerator? _enumerator;
 
     // Volatile because the fast path reads it without taking the lock: a font list is asked for on

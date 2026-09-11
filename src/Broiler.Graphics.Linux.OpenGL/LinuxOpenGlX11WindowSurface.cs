@@ -1,3 +1,7 @@
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;

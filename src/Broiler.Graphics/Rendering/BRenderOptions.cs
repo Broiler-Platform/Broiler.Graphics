@@ -1,4 +1,6 @@
-namespace Broiler.Graphics;
+using Broiler.Graphics.Geometry;
+
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>Pixel layout of a surface's backing buffer.</summary>
 public enum BPixelFormat
@@ -13,11 +15,7 @@ public enum BPixelFormat
 /// Immutable description used to create a surface. Kept platform-neutral; backends translate the
 /// fields into their own swap-chain / render-target descriptors.
 /// </summary>
-public readonly record struct BSurfaceDescriptor(
-    BSize Size,
-    double DpiScale,
-    BPixelFormat PixelFormat = BPixelFormat.Bgra8,
-    bool EnableTransparency = false)
+public readonly record struct BSurfaceDescriptor(BSize Size, double DpiScale, BPixelFormat PixelFormat = BPixelFormat.Bgra8, bool EnableTransparency = false)
 {
     public static BSurfaceDescriptor Default(BSize size) => new(size, 1.0);
 }
@@ -25,10 +23,7 @@ public readonly record struct BSurfaceDescriptor(
 /// <summary>
 /// Renderer-wide options that tune quality vs. performance. Immutable.
 /// </summary>
-public readonly record struct BRenderOptions(
-    bool Antialias = true,
-    bool VSync = true,
-    bool SubpixelText = true)
+public readonly record struct BRenderOptions(bool Antialias = true, bool VSync = true, bool SubpixelText = true)
 {
     public static BRenderOptions Default => new();
 }

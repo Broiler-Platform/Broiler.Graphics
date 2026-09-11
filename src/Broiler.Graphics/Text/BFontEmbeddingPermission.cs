@@ -1,6 +1,4 @@
-using System;
-
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// What a font's own <c>OS/2</c> <c>fsType</c> field says about embedding it.
@@ -51,14 +49,11 @@ public enum BFontEmbeddingPermission
 /// <summary>
 /// A font's declared embedding permissions, as read from <c>OS/2</c>.
 /// </summary>
-public readonly record struct BFontEmbeddingRights(
-    BFontEmbeddingPermission Permission,
-    bool NoSubsetting,
-    bool BitmapEmbeddingOnly,
-    ushort RawFsType)
+public readonly record struct BFontEmbeddingRights(BFontEmbeddingPermission Permission, 
+    bool NoSubsetting, bool BitmapEmbeddingOnly, ushort RawFsType)
 {
     /// <summary>What a font with no readable <c>OS/2</c> table reports.</summary>
-    public static BFontEmbeddingRights Unknown { get; } =
+    public static BFontEmbeddingRights Unknown { get; } = 
         new(BFontEmbeddingPermission.Unknown, NoSubsetting: false, BitmapEmbeddingOnly: false, RawFsType: 0);
 
     /// <summary>
@@ -85,8 +80,7 @@ public readonly record struct BFontEmbeddingRights(
             : (fsType & 0x0008) != 0 ? BFontEmbeddingPermission.Editable
             : BFontEmbeddingPermission.Installable;
 
-        return new BFontEmbeddingRights(
-            permission,
+        return new BFontEmbeddingRights(permission,
             NoSubsetting: (fsType & 0x0100) != 0,
             BitmapEmbeddingOnly: (fsType & 0x0200) != 0,
             RawFsType: fsType);

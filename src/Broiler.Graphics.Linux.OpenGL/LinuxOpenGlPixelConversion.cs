@@ -1,3 +1,4 @@
+using Broiler.Graphics.Imaging;
 using System;
 
 namespace Broiler.Graphics.Linux.OpenGL;

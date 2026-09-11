@@ -1,6 +1,7 @@
+using Broiler.Graphics.Geometry;
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Rendering;
 
 /// <summary>
 /// A drawable target (window swap-chain, off-screen bitmap, etc.). Owns backend GPU resources and

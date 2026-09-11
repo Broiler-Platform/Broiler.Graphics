@@ -1,3 +1,4 @@
+using Broiler.Graphics.Color;
 using System.Drawing;
 
 namespace Broiler.Graphics.Adapters;

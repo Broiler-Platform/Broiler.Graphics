@@ -1,3 +1,4 @@
+using Broiler.Graphics.Imaging;
 using System;
 
 namespace Broiler.Graphics.Android;
@@ -35,10 +36,8 @@ internal static class AndroidGlesPixelConversion
 
     public static BBitmap FromBottomUpRgba(int width, int height, byte[] bottomUpRgba)
     {
-        if (width <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width));
-        if (height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(height));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         ArgumentNullException.ThrowIfNull(bottomUpRgba);
 
         int rowBytes = checked(width * BPixelBuffer.BytesPerPixel);

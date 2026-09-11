@@ -1,9 +1,9 @@
-using System;
-using System.Diagnostics.CodeAnalysis;
 using Broiler.Media;
 using Broiler.Media.Image;
+using System;
+using System.Diagnostics.CodeAnalysis;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Imaging;
 
 /// <summary>How a <see cref="BImageResource"/> holds its image.</summary>
 public enum BImagePayloadKind
@@ -63,13 +63,8 @@ public sealed class BImageResource
     private readonly BPixelBuffer? _pixels;
     private readonly string? _mediaType;
 
-    private BImageResource(
-        BImagePayloadKind kind,
-        ReadOnlyMemory<byte> encoded,
-        BPixelBuffer? pixels,
-        string? mediaType,
-        int? pixelWidth,
-        int? pixelHeight)
+    private BImageResource(BImagePayloadKind kind, ReadOnlyMemory<byte> encoded, BPixelBuffer? pixels,
+        string? mediaType, int? pixelWidth, int? pixelHeight)
     {
         Kind = kind;
         _encoded = encoded;
@@ -112,16 +107,14 @@ public sealed class BImageResource
     /// Pass nulls when the source said nothing and let
     /// <see cref="FromEncoded(ReadOnlyMemory{byte}, string)"/> inspect instead.
     /// </remarks>
-    public static BImageResource FromEncoded(
-        ReadOnlyMemory<byte> bytes,
-        string mediaType,
-        int? pixelWidth,
-        int? pixelHeight)
+    public static BImageResource FromEncoded(ReadOnlyMemory<byte> bytes, string mediaType, int? pixelWidth, int? pixelHeight)
     {
         if (string.IsNullOrWhiteSpace(mediaType))
             throw new ArgumentException("An encoded image resource names its media type.", nameof(mediaType));
+
         if (pixelWidth is <= 0)
             throw new ArgumentOutOfRangeException(nameof(pixelWidth), pixelWidth, "A stated pixel width is positive.");
+
         if (pixelHeight is <= 0)
             throw new ArgumentOutOfRangeException(nameof(pixelHeight), pixelHeight, "A stated pixel height is positive.");
 
@@ -170,6 +163,7 @@ public sealed class BImageResource
 
         bytes = default;
         mediaType = null;
+
         return false;
     }
 

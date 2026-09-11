@@ -1,6 +1,6 @@
 using System;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Text;
 
 /// <summary>
 /// Platform-neutral font style flags. Values match the historical

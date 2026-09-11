@@ -17,12 +17,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input\Broiler.Input.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Keyboard\Broiler.Input.Keyboard.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Keyboard.Linux\Broiler.Input.Keyboard.Linux.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Linux\Broiler.Input.Linux.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Mouse\Broiler.Input.Mouse.csproj" />
-    <ProjectReference Include="..\..\..\Broiler.Input\src\Broiler.Input.Mouse.Linux\Broiler.Input.Mouse.Linux.csproj" />
+    <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj" />
     <ProjectReference Include="..\..\Broiler.Graphics.Linux.OpenGL\Broiler.Graphics.Linux.OpenGL.csproj" />
     <ProjectReference Include="..\..\Broiler.Graphics.Linux.Vulkan\Broiler.Graphics.Linux.Vulkan.csproj" />

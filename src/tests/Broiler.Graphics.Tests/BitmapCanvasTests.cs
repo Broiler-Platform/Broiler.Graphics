@@ -1,3 +1,6 @@
+using Broiler.Graphics.Color;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
 using System;
 using System.Collections.Generic;
 using System.Drawing;

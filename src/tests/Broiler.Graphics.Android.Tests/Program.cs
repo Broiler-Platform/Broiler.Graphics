@@ -1,3 +1,8 @@
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Graphics.RenderList;
+using Broiler.Native.Android;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -280,7 +285,7 @@ internal static class Program
         AssertTrue(source.Length > 0, "The graphics assembly is loadable.");
 
         MethodInfo? roots = typeof(BImageRenderer).Assembly
-            .GetType("Broiler.Graphics.FallbackSystemFont")
+            .GetType("Broiler.Graphics.Rendering.FallbackSystemFont")
             ?.GetMethod("FontRoots", BindingFlags.NonPublic | BindingFlags.Static);
         AssertTrue(roots is not null, "FallbackSystemFont.FontRoots is present.");
 

@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Color;
 
 /// <summary>
 /// A non-premultiplied straight-alpha RGBA color with 8 bits per channel.
@@ -13,26 +13,17 @@ namespace Broiler.Graphics;
 /// without the Windows-only <c>System.Drawing.Common</c> dependency.
 /// </para>
 /// </summary>
-public readonly partial struct BColor : IEquatable<BColor>
+public readonly partial struct BColor(byte r, byte g, byte b, byte a = 255) : IEquatable<BColor>
 {
     // Distinguishes the Empty sentinel (default(BColor)) from a real color that
     // happens to be (0,0,0,0). Mirrors System.Drawing.Color, where
     // Color.Empty != Color.FromArgb(0, 0, 0, 0).
-    private readonly bool _valid;
+    private readonly bool _valid = true;
 
-    public byte R { get; }
-    public byte G { get; }
-    public byte B { get; }
-    public byte A { get; }
-
-    public BColor(byte r, byte g, byte b, byte a = 255)
-    {
-        R = r;
-        G = g;
-        B = b;
-        A = a;
-        _valid = true;
-    }
+    public byte R { get; } = r;
+    public byte G { get; } = g;
+    public byte B { get; } = b;
+    public byte A { get; } = a;
 
     /// <summary>
     /// The uninitialized sentinel — <c>default(BColor)</c>. <see cref="IsEmpty"/>
@@ -102,9 +93,12 @@ public readonly partial struct BColor : IEquatable<BColor>
     public static BColor Green => new(0, 128, 0);
     public static BColor Blue => new(0, 0, 255);
 
-    public bool Equals(BColor other) =>
-        _valid == other._valid &&
-        R == other.R && G == other.G && B == other.B && A == other.A;
+    public bool Equals(BColor other) => 
+        _valid == other._valid && 
+        R == other.R && 
+        G == other.G && 
+        B == other.B && 
+        A == other.A;
 
     public override bool Equals(object? obj) => obj is BColor other && Equals(other);
 
@@ -114,8 +108,7 @@ public readonly partial struct BColor : IEquatable<BColor>
 
     public static bool operator !=(BColor left, BColor right) => !left.Equals(right);
 
-    public override string ToString() =>
-        IsEmpty
+    public override string ToString() => IsEmpty
             ? "BColor [Empty]"
             : string.Format(CultureInfo.InvariantCulture, "#{0:X2}{1:X2}{2:X2}{3:X2}", A, R, G, B);
 

@@ -1,9 +1,10 @@
+using Broiler.Graphics.Color;
 using System;
 using System.Drawing;
 
-namespace Broiler.Graphics;
+namespace Broiler.Graphics.Adapters;
 
-public abstract class RImage : IDisposable
+public abstract class BImage : IDisposable
 {
     public abstract double Width { get; }
     public abstract double Height { get; }
@@ -60,8 +61,7 @@ public abstract class RImage : IDisposable
     /// Attempts to sample a representative color from a source rectangle within
     /// the image. Defaults to the uniform-color fast path when available.
     /// </summary>
-    public virtual bool TryGetSampledColor(RectangleF sourceRect, out BColor color)
-        => TryGetUniformColor(out color);
+    public virtual bool TryGetSampledColor(RectangleF sourceRect, out BColor color) => TryGetUniformColor(out color);
 
     public abstract void Dispose();
 }

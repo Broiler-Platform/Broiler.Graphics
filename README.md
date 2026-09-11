@@ -9,6 +9,13 @@ handling, and the render-list pipeline — plus one presentation backend per pla
 Image *decoding* deliberately lives outside this component: the core depends only on the
 `Broiler.Media.Image` abstraction, and the application supplies the concrete codecs.
 
+Native API declarations live in `Broiler.Native.Windows`, `Broiler.Native.Linux`,
+and `Broiler.Native.Android`. A sibling `Broiler.Native` checkout supplies project
+references; set `BroilerNativeRoot` for another location. Without sources, builds
+use `BroilerNativeVersion` packages (initially `0.1.0-preview.1`). Publish Native
+before releasing the migrated backends. Explicit uses of native driver descriptions
+or OpenGL/Vulkan exception types now require their `Broiler.Native` namespaces.
+
 > **Preview release.** `0.1.0-preview.1` is the first published preview. Public APIs and
 > behaviour are not frozen and may change before `1.0`. The Windows backend uses native
 > interop, and the rendering path is fed untrusted image data through codecs the

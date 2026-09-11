@@ -1,44 +1,15 @@
+using static Broiler.Native.Windows.Direct2D.Direct2DOffscreenSurfaceApi;
 using System;
 using System.Runtime.InteropServices;
-using Broiler.Graphics.Windows.Native;
+using Broiler.Graphics.Geometry;
+using Broiler.Graphics.Imaging;
+using Broiler.Graphics.Rendering;
+using Broiler.Native.Windows.Direct2D;
 
 namespace Broiler.Graphics.Windows;
 
 internal sealed class Direct2DOffscreenSurface : IDirect2DSurface
 {
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreateDeviceContextProc(
-        IntPtr self,
-        D2DNative.D2D1_DEVICE_CONTEXT_OPTIONS options,
-        out IntPtr deviceContext);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CreateBitmap1Proc(
-        IntPtr self,
-        D2DNative.D2D1_SIZE_U size,
-        IntPtr sourceData,
-        uint pitch,
-        ref D2DNative.D2D1_BITMAP_PROPERTIES1 bitmapProperties,
-        out IntPtr bitmap);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int CopyFromBitmapProc(
-        IntPtr self,
-        IntPtr destinationPoint,
-        IntPtr bitmap,
-        IntPtr sourceRect);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int MapProc(
-        IntPtr self,
-        D2DNative.D2D1_MAP_OPTIONS options,
-        out D2DNative.D2D1_MAPPED_RECT mappedRect);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate int UnmapProc(IntPtr self);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate void SetTargetProc(IntPtr self, IntPtr image);
 
     private readonly Direct2DDevice _device;
     private readonly ComPtr _d2dContext = new();
