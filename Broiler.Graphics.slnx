@@ -1,12 +1,4 @@
 <Solution>
-  <Configurations>
-    <BuildType Name="Debug" />
-    <BuildType Name="Release" />
-    <BuildType Name="Debug-Linux" />
-    <BuildType Name="Release-Linux" />
-    <BuildType Name="Debug-Windows" />
-    <BuildType Name="Release-Windows" />
-  </Configurations>
   <Folder Name="/solution items/">
     <File Path="Directory.Build.props" />
     <File Path="LICENSE" />
@@ -23,104 +15,52 @@
   </Folder>
   <Folder Name="/src/">
     <!-- Platform-neutral core: builds under every configuration. -->
-    <Project Path="src/Broiler.Graphics/Broiler.Graphics.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <Project Path="src/Broiler.Graphics/Broiler.Graphics.csproj" />
     <!-- Windows-only (net10.0-windows): builds under the *-Windows configurations exclusively. -->
     <Project Path="src/Broiler.Graphics.Windows/Broiler.Graphics.Direct2D.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Linux|*" />
-      <Build Project="false" Solution="Release-Linux|*" />
+      <Build Project="false" />
     </Project>
     <!-- Linux-only: build under the *-Linux configurations exclusively. -->
     <Project Path="src/Broiler.Graphics.Linux/Broiler.Graphics.Linux.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
+      <Build Project="false" />
     </Project>
     <Project Path="src/Broiler.Graphics.Linux.OpenGL/Broiler.Graphics.Linux.OpenGL.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
+      <Build Project="false" />
     </Project>
     <Project Path="src/Broiler.Graphics.Linux.Vulkan/Broiler.Graphics.Linux.Vulkan.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
+      <Build Project="false" />
     </Project>
     <!-- Android reaches EGL / OpenGL ES through P/Invoke, so it needs no android
          workload and builds everywhere; it carries its own *-Linux configurations. -->
-    <Project Path="src/Broiler.Graphics.Android/Broiler.Graphics.Android.csproj">
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <Project Path="src/Broiler.Graphics.Android/Broiler.Graphics.Android.csproj" />
     <!-- The browser interop is platform-gated, so the library builds without a
          browser-wasm RID under every configuration. -->
-    <Project Path="src/Broiler.Graphics.WebAssembly/Broiler.Graphics.WebAssembly.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <Project Path="src/Broiler.Graphics.WebAssembly/Broiler.Graphics.WebAssembly.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="src/tests/Broiler.Graphics.Tests/Broiler.Graphics.Tests.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <Project Path="src/tests/Broiler.Graphics.Tests/Broiler.Graphics.Tests.csproj" />
     <!-- Windows-only: builds under the *-Windows configurations exclusively. -->
     <Project Path="src/tests/Broiler.Graphics.Windows.Tests/Broiler.Graphics.Windows.Tests.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Linux|*" />
-      <Build Project="false" Solution="Release-Linux|*" />
+      <Build Project="false" />
     </Project>
     <!-- Linux-only: builds under the *-Linux configurations exclusively. -->
     <Project Path="src/tests/Broiler.Graphics.Linux.Tests/Broiler.Graphics.Linux.Tests.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
+      <Build Project="false" />
     </Project>
-    <Project Path="src/tests/Broiler.Graphics.Android.Tests/Broiler.Graphics.Android.Tests.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
-    <Project Path="src/tests/Broiler.Graphics.WebAssembly.Tests/Broiler.Graphics.WebAssembly.Tests.csproj">
-      <BuildType Project="Debug" Solution="Debug-Linux|*" />
-      <BuildType Project="Release" Solution="Release-Linux|*" />
-      <BuildType Project="Debug" Solution="Debug-Windows|*" />
-      <BuildType Project="Release" Solution="Release-Windows|*" />
-    </Project>
+    <Project Path="src/tests/Broiler.Graphics.Android.Tests/Broiler.Graphics.Android.Tests.csproj" />
+    <Project Path="src/tests/Broiler.Graphics.WebAssembly.Tests/Broiler.Graphics.WebAssembly.Tests.csproj" />
   </Folder>
   <Folder Name="/demos/">
     <!-- Windows-only: builds under the *-Windows configurations exclusively. -->
     <Project Path="src/demos/Broiler.Graphics.Windows.Demo/Broiler.Graphics.Windows.Demo.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Linux|*" />
-      <Build Project="false" Solution="Release-Linux|*" />
+      <Build Project="false" />
     </Project>
     <!-- Linux-only: builds under the *-Linux configurations exclusively. It reaches outside
          the component, to Broiler.Input, as Broiler.Graphics.Windows now does for the mouse
          provider; neither one's Broiler.Input projects are listed here, and the build
          follows the ProjectReferences to them. -->
     <Project Path="src/demos/Broiler.Graphics.Linux.Demo/Broiler.Graphics.Linux.Demo.csproj">
-      <Build Project="false" Solution="Debug|*" />
-      <Build Project="false" Solution="Release|*" />
-      <Build Project="false" Solution="Debug-Windows|*" />
-      <Build Project="false" Solution="Release-Windows|*" />
+      <Build Project="false" />
     </Project>
   </Folder>
 </Solution>

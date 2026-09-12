@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -13,13 +13,13 @@
     <Description>Android EGL / OpenGL ES presentation backend for Broiler.Graphics.</Description>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Configurations>Debug;Release;Debug-Linux;Release-Linux</Configurations>
-  </PropertyGroup>
-
   <ItemGroup>
     <!-- The test runner reaches the internal geometry and pixel-conversion helpers. -->
     <InternalsVisibleTo Include="Broiler.Graphics.Android.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Broiler.Native.Android" Version="0.1.0-preview.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,8 +28,4 @@
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="$(BroilerNativeRoot)/src/Broiler.Native.Android/Broiler.Native.Android.csproj" Condition="Exists('$(BroilerNativeRoot)/src/Broiler.Native.Android/Broiler.Native.Android.csproj')" />
-    <PackageReference Include="Broiler.Native.Android" Version="$(BroilerNativeVersion)" Condition="!Exists('$(BroilerNativeRoot)/src/Broiler.Native.Android/Broiler.Native.Android.csproj')" />
-  </ItemGroup>
 </Project>

@@ -11,15 +11,10 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Configurations>Debug;Release;Debug-Linux;Release-Linux</Configurations>
-    <RuntimeIdentifier Condition="'$(Configuration)' == 'Debug-Linux' Or '$(Configuration)' == 'Release-Linux'">linux-x64</RuntimeIdentifier>
-  </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
     <PackageReference Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
-    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.11" />
   </ItemGroup>
 
   <ItemGroup>

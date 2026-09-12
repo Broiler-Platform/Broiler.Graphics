@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.2" />
+    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.11" />
   </ItemGroup>
 
 </Project>

@@ -1,3 +1,4 @@
+using static Broiler.Native.Windows.Direct2D.DWriteNative;
 using static Broiler.Native.Windows.Direct2D.Direct2DRendererApi;
 using System;
 using System.Collections.Generic;

@@ -12,17 +12,9 @@
     <PackageTags>broiler;graphics;rendering;linux;vulkan</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Configurations>Debug;Release;Debug-Linux;Release-Linux</Configurations>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
     <ProjectReference Include="..\Broiler.Graphics.Linux\Broiler.Graphics.Linux.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="$(BroilerNativeRoot)/src/Broiler.Native.Linux/Broiler.Native.Linux.csproj" Condition="Exists('$(BroilerNativeRoot)/src/Broiler.Native.Linux/Broiler.Native.Linux.csproj')" />
-    <PackageReference Include="Broiler.Native.Linux" Version="$(BroilerNativeVersion)" Condition="!Exists('$(BroilerNativeRoot)/src/Broiler.Native.Linux/Broiler.Native.Linux.csproj')" />
-  </ItemGroup>
 </Project>

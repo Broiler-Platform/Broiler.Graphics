@@ -1,3 +1,4 @@
+using static Broiler.Native.Windows.Direct2D.DWriteNative;
 using static Broiler.Native.Windows.Direct2D.DirectWriteTextMetricsProviderApi;
 using System;
 using System.Collections.Concurrent;

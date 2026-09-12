@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -15,18 +15,15 @@
     <PackageTags>broiler;graphics;rendering;windows;direct2d;directwrite</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Configurations>Debug;Release;Debug-Windows;Release-Windows</Configurations>
-  </PropertyGroup>
-
   <ItemGroup>
     <!-- The backend test runner reaches a few internals (image store, BGRA conversion). -->
     <InternalsVisibleTo Include="Broiler.Graphics.Windows.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Media.Video" Version="0.1.0-preview.10" />
-    <PackageReference Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.10" />
+    <PackageReference Include="Broiler.Media.Video" Version="0.1.0-preview.11" />
+    <PackageReference Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.11" />
+    <PackageReference Include="Broiler.Native.Windows" Version="0.1.0-preview.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,8 +35,4 @@
          here (Broiler.Media ADR 0006). -->
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj" Condition="Exists('$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj')" />
-    <PackageReference Include="Broiler.Native.Windows" Version="$(BroilerNativeVersion)" Condition="!Exists('$(BroilerNativeRoot)/src/Broiler.Native.Windows/Broiler.Native.Windows.csproj')" />
-  </ItemGroup>
 </Project>

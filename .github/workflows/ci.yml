@@ -8,6 +8,11 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  # Native previews are published to GitHub Packages. This also covers pack's restore.
+  NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -26,27 +31,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The neutral core, the WebAssembly and Android backends, and the
-          # three Linux ones. This configuration excludes every net10.0-windows
-          # project, so no Windows host is involved.
-          - os: ubuntu-latest
-            configuration: Release-Linux
-          # The neutral core, the WebAssembly and Android backends, and the
-          # Direct2D one. The Direct2D backend and its runner target
-          # net10.0-windows, so this is the only leg that builds them.
           - os: windows-latest
-            configuration: Release-Windows
+            configuration: Release
 
     steps:
-      # Broiler.Media supplies the image/video abstractions and the managed
-      # codecs the runners compose with, Broiler.Input the evdev providers the
-      # Linux demo needs; both are project references, so nothing restores
-      # without them. One level only: Broiler.Media declares Broiler.Graphics as
-      # a submodule of its own and recursing would clone this repository again.
       - name: Check out
         uses: actions/checkout@v7
-        with:
-          submodules: true
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -61,22 +51,16 @@ jobs:
       - name: Test
         run: bash ./eng/run-tests.sh ${{ matrix.configuration }}
 
-      # Proves the packages still build from this commit. No single
-      # configuration produces the whole set - Release-Windows omits the three
-      # Linux packages and Release-Linux omits the Windows one - so both are
-      # packed here. The Windows host can do both, because the Linux libraries
-      # are plain net10.0 with no runtime identifier. Publishing is a separate,
-      # deliberate action - see .github/workflows/publish.yml.
+      - name: Test preview version selection
+        run: node --test eng/resolve-preview-version.test.mjs
+
       - name: Pack
-        if: matrix.os == 'windows-latest'
         run: |
-          dotnet pack Broiler.Graphics.slnx -c Release-Windows --nologo -o ./artifacts
-          dotnet pack Broiler.Graphics.slnx -c Release-Linux   --nologo -o ./artifacts
+          dotnet pack Broiler.Graphics.slnx -c Release --nologo -o ./artifacts
           echo "Packed:"
           ls -1 ./artifacts
 
       - name: Upload packages
-        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v7
         with:
           name: nuget-packages

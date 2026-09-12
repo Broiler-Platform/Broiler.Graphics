@@ -12,16 +12,11 @@
     <PackageTags>broiler;graphics;rendering;linux</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <Configurations>Debug;Release;Debug-Linux;Release-Linux</Configurations>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BroilerNativeRoot)/src/Broiler.Native/Broiler.Native.csproj" Condition="Exists('$(BroilerNativeRoot)/src/Broiler.Native/Broiler.Native.csproj')" />
-    <PackageReference Include="Broiler.Native" Version="$(BroilerNativeVersion)" Condition="!Exists('$(BroilerNativeRoot)/src/Broiler.Native/Broiler.Native.csproj')" />
+    <PackageReference Include="Broiler.Native.Linux" Version="0.1.0-preview.3" />
   </ItemGroup>
 </Project>

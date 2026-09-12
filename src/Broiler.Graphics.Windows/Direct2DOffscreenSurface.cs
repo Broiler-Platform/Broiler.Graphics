@@ -1,3 +1,4 @@
+using static Broiler.Native.Windows.Direct2D.D2DNative;
 using static Broiler.Native.Windows.Direct2D.Direct2DOffscreenSurfaceApi;
 using System;
 using System.Runtime.InteropServices;
