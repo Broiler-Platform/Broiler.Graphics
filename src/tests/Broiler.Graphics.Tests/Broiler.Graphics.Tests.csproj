@@ -20,4 +20,7 @@
     <ProjectReference Include="..\..\Broiler.Graphics\Broiler.Graphics.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/CpuPresentationTests.cs" Link="CpuPresentationTests.cs" />
+  </ItemGroup>
 </Project>

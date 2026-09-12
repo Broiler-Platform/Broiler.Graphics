@@ -45,6 +45,13 @@ internal static class Program
             ("vulkan strict device creation is linux-only", VulkanStrictDeviceCreationIsLinuxOnly),
         };
 
+        Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "OpenGL CPU fallback",
+            () => new LinuxOpenGlRenderer(new LinuxOpenGlRendererOptions(TryCreateEglContext: false)),
+            surface => ((LinuxOpenGlSurface)surface).ReadToBitmap());
+        Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "Vulkan CPU fallback",
+            () => new LinuxVulkanRenderer(new LinuxVulkanRendererOptions(TryCreateVulkanDevice: false)),
+            surface => ((LinuxVulkanSurface)surface).ReadToBitmap());
+
         int failures = 0;
         foreach ((string name, Action body) in tests)
         {

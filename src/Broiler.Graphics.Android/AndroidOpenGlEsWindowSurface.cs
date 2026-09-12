@@ -32,6 +32,8 @@ public sealed class AndroidOpenGlEsWindowSurface : IAndroidPresentSurface
     private BSurfaceDescriptor _descriptor;
     private AndroidOpenGlEsSession? _session;
     private BBitmap? _lastFrame;
+    private readonly BCpuFrameBuffer _cpuFrame = new();
+
     private IntPtr _nativeWindow;
     private string _diagnostic = "No Android surface has been attached yet.";
     private bool _disposed;
@@ -40,6 +42,15 @@ public sealed class AndroidOpenGlEsWindowSurface : IAndroidPresentSurface
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _descriptor = AndroidSurfaceGeometry.Validate(descriptor);
+    }
+
+    BCpuFrameBuffer ICpuRenderSurface.CpuFrame
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _cpuFrame;
+        }
     }
 
     public BSize Size => _descriptor.Size;
@@ -146,8 +157,7 @@ public sealed class AndroidOpenGlEsWindowSurface : IAndroidPresentSurface
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        _lastFrame?.Dispose();
-        _lastFrame = bitmap.Copy();
+        bitmap.CopyTo(ref _lastFrame);
 
         if (_session is null || !_session.HasSurface)
         {
@@ -198,6 +208,7 @@ public sealed class AndroidOpenGlEsWindowSurface : IAndroidPresentSurface
             return;
 
         _disposed = true;
+        _cpuFrame.Dispose();
         _session?.Dispose();
         _lastFrame?.Dispose();
         _nativeWindow = IntPtr.Zero;

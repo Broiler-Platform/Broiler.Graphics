@@ -58,9 +58,8 @@ public readonly struct CanvasFrame
     /// <summary>
     /// When true, the planner could not represent the frame natively and the caller
     /// must present the whole frame through the CPU raster fallback instead of the
-    /// batched Canvas stream. With the bounding-box transform policy every current
-    /// render command is representable, so this is a defensive forward-compatibility
-    /// signal rather than an expected path.
+    /// batched Canvas stream. Rotated and sheared rectangle fills require this path
+    /// to preserve their geometry; unknown future commands also request fallback.
     /// </summary>
     public bool RequiresCpuFallback { get; }
 

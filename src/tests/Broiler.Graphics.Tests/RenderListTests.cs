@@ -12,6 +12,8 @@ internal static class RenderListTests
 {
     internal static void Register(List<(string Name, Action Body)> tests)
     {
+        tests.Add(("Command view rejects mutation and follows recording", CommandViewIsReadOnly));
+        tests.Add(("Validation tracks mutations and recovery", ValidationTracksMutations));
         tests.Add(("RenderList records commands in order", RecordsInOrder));
         tests.Add(("RenderList preserves command payloads", PreservesPayloads));
         tests.Add(("Validate accepts balanced clips", BalancedClipsValidate));
@@ -138,4 +140,40 @@ internal static class RenderListTests
         AssertEx.AreNotEqual(a, c);
         AssertEx.IsFalse(a.Equals(c));
     }
+    private static void CommandViewIsReadOnly()
+    {
+        var list = new BRenderList();
+        IReadOnlyList<BRenderCommand> view = list.Commands;
+        var mutable = (IList<BRenderCommand>)view;
+        AssertEx.Throws<NotSupportedException>(() => mutable.Add(new BRenderCommand.PopClip()));
+        list.FillRect(new BRect(0, 0, 1, 1), BColor.Red);
+        AssertEx.AreEqual(1, view.Count);
+        AssertEx.Throws<NotSupportedException>(() => mutable[0] = new BRenderCommand.PopClip());
+        AssertEx.Throws<NotSupportedException>(() => mutable.Clear());
+        list.Clear();
+        AssertEx.AreEqual(0, view.Count);
+    }
+
+    private static void ValidationTracksMutations()
+    {
+        var list = new BRenderList();
+        list.Validate();
+        list.PushClip(new BRect(0, 0, 1, 1));
+        AssertEx.Throws<InvalidOperationException>(list.Validate);
+        AssertEx.Throws<InvalidOperationException>(list.Validate);
+        list.PopClip();
+        list.Validate();
+        list.Validate();
+        list.PopTransform();
+        AssertEx.Throws<InvalidOperationException>(list.Validate);
+        list.Clear();
+        list.Validate();
+        list.PushTransform(BMatrix3x2.Identity);
+        AssertEx.Throws<InvalidOperationException>(list.Validate);
+        list.PopTransform();
+        list.Validate();
+        list.PopClip();
+        AssertEx.Throws<InvalidOperationException>(list.Validate);
+    }
+
 }

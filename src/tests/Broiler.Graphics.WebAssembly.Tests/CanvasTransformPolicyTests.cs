@@ -6,8 +6,8 @@ namespace Broiler.Graphics.WebAssembly.Tests;
 
 /// <summary>
 /// Tests the axis-aligned bounding-box transform policy: translation and axis-aligned
-/// scaling are exact, and rotation/shear collapse to the transformed bounding box exactly
-/// as the CPU reference renderer does.
+/// scaling are exact. Rectangle strokes, images, rounded rectangles, and clips use
+/// transformed bounds; rotated and sheared fills take the separate CPU fallback path.
 /// </summary>
 internal static class CanvasTransformPolicyTests
 {

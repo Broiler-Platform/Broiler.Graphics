@@ -4,7 +4,7 @@ using Broiler.Graphics.RenderList;
 
 namespace Broiler.Graphics.Linux.OpenGL;
 
-internal interface ILinuxOpenGlPresentSurface : IBroilerSurface
+internal interface ILinuxOpenGlPresentSurface : IBroilerSurface, ICpuRenderSurface
 {
     BSurfaceDescriptor Descriptor { get; }
 

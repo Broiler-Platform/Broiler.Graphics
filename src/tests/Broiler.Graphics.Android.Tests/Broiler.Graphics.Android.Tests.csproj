@@ -16,4 +16,7 @@
     <ProjectReference Include="..\..\Broiler.Graphics.Android\Broiler.Graphics.Android.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/CpuPresentationTests.cs" Link="CpuPresentationTests.cs" />
+  </ItemGroup>
 </Project>

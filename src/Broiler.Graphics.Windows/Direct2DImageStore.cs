@@ -20,7 +20,6 @@ namespace Broiler.Graphics.Windows;
 internal sealed class Direct2DImageStore : IDisposable
 {
     private readonly Dictionary<ulong, Direct2DImage> _entries = [];
-    private ulong _nextId;
     private bool _disposed;
 
     /// <summary>Stores decoded pixels and returns a handle that carries the pixel size.</summary>
@@ -29,7 +28,7 @@ internal sealed class Direct2DImageStore : IDisposable
         ArgumentNullException.ThrowIfNull(pixels);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        ulong id = ++_nextId;
+        ulong id = BResourceIds.NextImageId();
         _entries[id] = new Direct2DImage(pixels.Width, pixels.Height, ToBgraPremultiplied(pixels));
         return BImageHandle.FromId(id, new BSize(pixels.Width, pixels.Height));
     }

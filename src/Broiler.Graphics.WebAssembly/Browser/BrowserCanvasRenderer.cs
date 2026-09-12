@@ -1,5 +1,4 @@
 using Broiler.Graphics.Color;
-using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Imaging;
 using Broiler.Graphics.Rendering;
 using Broiler.Graphics.RenderList;
@@ -26,9 +25,9 @@ namespace Broiler.Graphics.WebAssembly;
 /// </para>
 /// <para>
 /// If the planner ever reports that a frame is not natively representable it is presented
-/// whole through the CPU raster fallback (<see cref="BImageRenderer"/> + putImageData). With the
-/// bounding-box transform policy no current command triggers this; it is a forward-compatibility
-/// safety net.
+/// whole through the CPU raster fallback (<see cref="BImageRenderer"/> + putImageData).
+/// Rotated and sheared rectangle fills use this path to preserve the CPU renderer's
+/// polygon geometry.
 /// </para>
 /// </summary>
 [SupportedOSPlatform("browser")]
@@ -38,7 +37,7 @@ public sealed class BrowserCanvasRenderer : IDisposable
     private readonly BImageRenderer _resources = new();
     private readonly HashSet<ulong> _liveImages = [];
 
-    private BImageSurface? _fallbackSurface;
+    private readonly CanvasCpuFallback _fallback = new();
     private long _frameIndex;
     private bool _disposed;
 
@@ -133,25 +132,11 @@ public sealed class BrowserCanvasRenderer : IDisposable
         double cssWidth,
         double cssHeight)
     {
-        EnsureFallbackSurface(cssWidth, cssHeight, dpiScale);
-        BImageSurface surface = _fallbackSurface!;
-        _resources.Render(surface, renderList, new BFrameContext(clearColor, _frameIndex, BRenderOptions.Default));
-        byte[] rgba = surface.Bitmap.ToPixelBuffer(copy: false).Rgba;
+        BBitmap bitmap = _fallback.Render(_resources, renderList,
+            backingWidth, backingHeight, dpiScale, cssWidth, cssHeight,
+            new BFrameContext(clearColor, _frameIndex, BRenderOptions.Default));
+        byte[] rgba = bitmap.ToPixelBuffer(copy: false).Rgba;
         CanvasInterop.PresentImageData(backingWidth, backingHeight, rgba, cssWidth, cssHeight);
-    }
-
-    private void EnsureFallbackSurface(double cssWidth, double cssHeight, double dpiScale)
-    {
-        var size = new BSize(cssWidth, cssHeight);
-        if (_fallbackSurface is null)
-        {
-            _fallbackSurface = (BImageSurface)_resources.CreateSurface(
-                new BSurfaceDescriptor(size, dpiScale, BPixelFormat.Rgba8, EnableTransparency: false));
-            return;
-        }
-
-        if (!_fallbackSurface.Size.Equals(size) || !_fallbackSurface.DpiScale.Equals(dpiScale))
-            _fallbackSurface.Resize(size, dpiScale);
     }
 
     private static string[] CopyStrings(IReadOnlyList<string> strings)
@@ -172,8 +157,7 @@ public sealed class BrowserCanvasRenderer : IDisposable
             return;
 
         _disposed = true;
-        _fallbackSurface?.Dispose();
-        _fallbackSurface = null;
+        _fallback.Dispose();
         _resources.Dispose();
         _liveImages.Clear();
         CanvasInterop.Dispose();

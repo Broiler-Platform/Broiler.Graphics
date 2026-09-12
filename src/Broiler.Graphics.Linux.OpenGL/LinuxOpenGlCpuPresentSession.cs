@@ -176,6 +176,7 @@ internal sealed class LinuxOpenGlCpuPresentSession : IDisposable
             return;
 
         _disposed = true;
+        _uploadBuffer = [];
         if (_display != IntPtr.Zero)
         {
             // Bind the context on the disposing thread so GL object deletion is
@@ -357,10 +358,14 @@ internal sealed class LinuxOpenGlCpuPresentSession : IDisposable
             0);
     }
 
+    private byte[] _uploadBuffer = [];
+
     private void Upload(BBitmap bitmap)
     {
-        byte[] bottomUp = LinuxOpenGlPixelConversion.ToBottomUpRgba(bitmap);
-        GCHandle handle = GCHandle.Alloc(bottomUp, GCHandleType.Pinned);
+        if (_uploadBuffer.Length != bitmap.Rgba.Length)
+            _uploadBuffer = new byte[bitmap.Rgba.Length];
+        LinuxOpenGlPixelConversion.CopyToBottomUpRgba(bitmap, _uploadBuffer);
+        GCHandle handle = GCHandle.Alloc(_uploadBuffer, GCHandleType.Pinned);
         try
         {
             _gl.BindTexture(LinuxOpenGlFunctions.GL_TEXTURE_2D, _texture);

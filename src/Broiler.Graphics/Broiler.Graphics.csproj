@@ -18,6 +18,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Backends share internal geometry, resource allocation, and CPU frame storage. -->
+    <InternalsVisibleTo Include="Broiler.Graphics.Windows" />
+    <InternalsVisibleTo Include="Broiler.Graphics.WebAssembly" />
+    <InternalsVisibleTo Include="Broiler.Graphics.Android" />
+    <InternalsVisibleTo Include="Broiler.Graphics.Linux.OpenGL" />
+    <InternalsVisibleTo Include="Broiler.Graphics.Linux.Vulkan" />
     <!-- The test runner reaches selected internals for core graphics coverage. -->
     <InternalsVisibleTo Include="Broiler.Graphics.Tests" />
     <!--

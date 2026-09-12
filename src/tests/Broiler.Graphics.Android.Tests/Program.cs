@@ -42,6 +42,10 @@ internal static class Program
             ("fallback font list covers android system fonts", FallbackFontCoversAndroid),
         };
 
+        Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "Android pbuffer",
+            () => new AndroidOpenGlEsRenderer(NoGpuOptions()),
+            surface => ((AndroidOpenGlEsSurface)surface).ReadToBitmap());
+
         int failures = 0;
         foreach ((string name, Action body) in tests)
         {

@@ -28,6 +28,8 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
     private LinuxOpenGlCpuPresentSession? _session;
     private BSurfaceDescriptor _descriptor;
     private BBitmap? _lastFrame;
+    private readonly BCpuFrameBuffer _cpuFrame = new();
+
     private string _diagnostic = "X11/EGL window surface has not been initialized.";
     private bool _isFocused;
     private bool _closeRequested;
@@ -42,6 +44,15 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
         _title = string.IsNullOrWhiteSpace(title) ? DefaultTitle : title;
         _descriptor = ValidateDescriptor(descriptor);
         CreateWindowAndSession();
+    }
+
+    BCpuFrameBuffer ICpuRenderSurface.CpuFrame
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _cpuFrame;
+        }
     }
 
     public BSize Size => _descriptor.Size;
@@ -168,8 +179,7 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        _lastFrame?.Dispose();
-        _lastFrame = bitmap.Copy();
+        bitmap.CopyTo(ref _lastFrame);
 
         if (_session is null)
             return;
@@ -215,6 +225,7 @@ public sealed class LinuxOpenGlX11WindowSurface : ILinuxOpenGlPresentSurface
             return;
 
         _disposed = true;
+        _cpuFrame.Dispose();
         _session?.Dispose();
         _lastFrame?.Dispose();
 

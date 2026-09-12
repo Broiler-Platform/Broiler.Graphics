@@ -83,7 +83,7 @@ public sealed class AndroidOpenGlEsRenderer : IBroilerRenderer
 
         renderList.Validate();
 
-        using BBitmap frame = _cpuRenderer.RenderToImage(renderList, presentSurface.Descriptor, frameContext);
+        BBitmap frame = presentSurface.CpuFrame.Render(_cpuRenderer, presentSurface.Descriptor, renderList, frameContext);
         presentSurface.Present(frame, frameContext.Options.VSync);
     }
 

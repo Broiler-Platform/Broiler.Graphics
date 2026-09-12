@@ -12,6 +12,8 @@ public sealed class LinuxOpenGlSurface : ILinuxOpenGlPresentSurface
     private BSurfaceDescriptor _descriptor;
     private LinuxOpenGlCpuPresentSession? _session;
     private BBitmap? _lastFrame;
+    private readonly BCpuFrameBuffer _cpuFrame = new();
+
     private string _diagnostic = "OpenGL presentation has not been initialized.";
     private bool _disposed;
 
@@ -20,6 +22,15 @@ public sealed class LinuxOpenGlSurface : ILinuxOpenGlPresentSurface
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _descriptor = ValidateDescriptor(descriptor);
         TryCreateSession();
+    }
+
+    BCpuFrameBuffer ICpuRenderSurface.CpuFrame
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _cpuFrame;
+        }
     }
 
     public BSize Size => _descriptor.Size;
@@ -86,8 +97,7 @@ public sealed class LinuxOpenGlSurface : ILinuxOpenGlPresentSurface
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(bitmap);
 
-        _lastFrame?.Dispose();
-        _lastFrame = bitmap.Copy();
+        bitmap.CopyTo(ref _lastFrame);
 
         if (_session is null)
             return;
@@ -132,6 +142,7 @@ public sealed class LinuxOpenGlSurface : ILinuxOpenGlPresentSurface
             return;
 
         _disposed = true;
+        _cpuFrame.Dispose();
         _session?.Dispose();
         _lastFrame?.Dispose();
     }

@@ -25,6 +25,7 @@ internal static class WindowsImageTests
         tests.Add(("BGRA conversion zeroes fully transparent pixels", BgraConversionTransparent));
         tests.Add(("Image store add/get/remove lifecycle", StoreLifecycle));
         tests.Add(("Image store rejects unknown handles", StoreRejectsUnknown));
+        tests.Add(("Image IDs are isolated across Direct2D stores and CPU renderers", ImageIdsAreIsolated));
         tests.Add(("Renderer CreateImage decodes encoded bytes", RendererCreateImageDecodes));
         tests.Add(("Renderer CreateImage rejects garbage bytes", RendererRejectsGarbage));
         tests.Add(("Renderer CreateImage(BPixelBuffer) and release", RendererCreateFromPixels));
@@ -186,4 +187,21 @@ internal static class WindowsImageTests
         }
         return px;
     }
+    private static void ImageIdsAreIsolated()
+    {
+        using var first = new Direct2DImageStore();
+        using var second = new Direct2DImageStore();
+        using var cpu = new BImageRenderer();
+        var pixels = new BPixelBuffer(1, 1, [255, 0, 0, 255]);
+        var a = first.Add(pixels);
+        var b = second.Add(pixels);
+        var c = cpu.CreateImage(pixels);
+        Assert.True(a.Handle != b.Handle && b.Handle != c.Handle && a.Handle != c.Handle,
+            "All backends share the resource ID allocator.");
+        Assert.Throws<ArgumentException>(() => second.Get(a));
+        Assert.Throws<ArgumentException>(() => second.Get(c));
+        Assert.True(!second.Remove(a), "Foreign release must not remove a local image.");
+        Assert.AreEqual(1, second.Count);
+    }
+
 }

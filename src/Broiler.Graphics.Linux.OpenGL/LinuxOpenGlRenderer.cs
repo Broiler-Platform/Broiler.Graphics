@@ -78,7 +78,7 @@ public sealed class LinuxOpenGlRenderer : IBroilerRenderer
         if (openGlSurface.TryReplayNative(renderList, frameContext, frameContext.Options.VSync, out _))
             return;
 
-        using BBitmap frame = _cpuRenderer.RenderToImage(renderList, openGlSurface.Descriptor, frameContext);
+        BBitmap frame = openGlSurface.CpuFrame.Render(_cpuRenderer, openGlSurface.Descriptor, renderList, frameContext);
         openGlSurface.Present(frame, frameContext.Options.VSync);
     }
 

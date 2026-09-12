@@ -333,6 +333,7 @@ internal sealed class AndroidOpenGlEsSession : IDisposable
             return;
 
         _disposed = true;
+        _uploadBuffer = [];
 
         AndroidEglNative.MakeCurrent(_display, AndroidEglNative.EGL_NO_SURFACE, AndroidEglNative.EGL_NO_SURFACE, AndroidEglNative.EGL_NO_CONTEXT);
 
@@ -386,10 +387,14 @@ internal sealed class AndroidOpenGlEsSession : IDisposable
             0);
     }
 
+    private byte[] _uploadBuffer = [];
+
     private void Upload(BBitmap bitmap)
     {
-        byte[] bottomUp = AndroidGlesPixelConversion.ToBottomUpRgba(bitmap);
-        GCHandle handle = GCHandle.Alloc(bottomUp, GCHandleType.Pinned);
+        if (_uploadBuffer.Length != bitmap.Rgba.Length)
+            _uploadBuffer = new byte[bitmap.Rgba.Length];
+        AndroidGlesPixelConversion.CopyToBottomUpRgba(bitmap, _uploadBuffer);
+        GCHandle handle = GCHandle.Alloc(_uploadBuffer, GCHandleType.Pinned);
         try
         {
             AndroidGlesNative.BindTexture(AndroidGlesNative.GL_TEXTURE_2D, _texture);

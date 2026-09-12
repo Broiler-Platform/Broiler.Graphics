@@ -21,6 +21,16 @@ public sealed class BImageSurface : IBroilerSurface
         _bitmap = new BBitmap(PixelWidth, PixelHeight);
     }
 
+    /// <summary>Uses an explicit backing size supplied by a presentation target.</summary>
+    internal BImageSurface(BSurfaceDescriptor descriptor, int pixelWidth, int pixelHeight)
+    {
+        _size = ValidateSize(descriptor.Size);
+        _dpiScale = NormalizeDpiScale(descriptor.DpiScale);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelWidth);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelHeight);
+        _bitmap = new BBitmap(pixelWidth, pixelHeight);
+    }
+
     public BSize Size => _size;
 
     public double DpiScale => _dpiScale;
@@ -38,11 +48,25 @@ public sealed class BImageSurface : IBroilerSurface
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _size = ValidateSize(size);
-        _dpiScale = NormalizeDpiScale(dpiScale);
+        BSize newSize = ValidateSize(size);
+        double newDpiScale = NormalizeDpiScale(dpiScale);
+        var replacement = new BBitmap(
+            ToPixelDimension(newSize.Width, newDpiScale, nameof(size)),
+            ToPixelDimension(newSize.Height, newDpiScale, nameof(size)));
 
-        _bitmap.Dispose();
-        _bitmap = new BBitmap(PixelWidth, PixelHeight);
+        BBitmap previous = _bitmap;
+        _bitmap = replacement;
+        _size = newSize;
+        _dpiScale = newDpiScale;
+        previous.Dispose();
+    }
+
+    /// <summary>Transfers the bitmap to its caller and ends this surface's lifetime.</summary>
+    internal BBitmap DetachBitmap()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _disposed = true;
+        return _bitmap;
     }
 
     public void Dispose()

@@ -7,7 +7,7 @@ namespace Broiler.Graphics.Android;
 /// The surface contract <see cref="AndroidOpenGlEsRenderer"/> presents through, mirroring
 /// <c>ILinuxOpenGlPresentSurface</c>.
 /// </summary>
-internal interface IAndroidPresentSurface : IBroilerSurface
+internal interface IAndroidPresentSurface : IBroilerSurface, ICpuRenderSurface
 {
     BSurfaceDescriptor Descriptor { get; }
 

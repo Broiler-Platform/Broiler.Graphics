@@ -34,6 +34,10 @@ internal static class Program
         RasterBandParallelismTests.Register(tests);
         SystemFontTests.Register(tests);
 
+        Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "CPU",
+            () => new Broiler.Graphics.Rendering.BImageRenderer(),
+            surface => ((Broiler.Graphics.Rendering.BImageSurface)surface).Bitmap.Copy());
+
         int passed = 0;
         var failures = new List<string>();
 

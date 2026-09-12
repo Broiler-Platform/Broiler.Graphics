@@ -3,161 +3,116 @@ using Broiler.Graphics.Geometry;
 using Broiler.Graphics.Imaging;
 using Broiler.Graphics.Rendering;
 using Broiler.Graphics.RenderList;
-using Broiler.Graphics.Resources;
 using System;
 using System.Collections.Generic;
 
 namespace Broiler.Graphics.Tests;
 
-/// <summary>
-/// Tests for resource disposal lifecycle. Uses in-test fakes implementing the Core interfaces so the
-/// tests stay platform-neutral (no backend dependency).
-/// </summary>
+/// <summary>Exercises production CPU renderer and surface lifetimes.</summary>
 internal static class LifecycleTests
 {
     internal static void Register(List<(string Name, Action Body)> tests)
     {
-        tests.Add(("Disposing a surface marks it disposed", SurfaceDisposeFlag));
-        tests.Add(("Surface throws after disposal", SurfaceThrowsAfterDispose));
-        tests.Add(("Renderer disposes its surfaces", RendererDisposesSurfaces));
-        tests.Add(("Double dispose is safe and idempotent", DoubleDisposeIsSafe));
-        tests.Add(("Render rejects foreign surface", RenderRejectsForeignSurface));
+        tests.Add(("Disposed CPU surface rejects access and replay", SurfaceThrowsAfterDispose));
+        tests.Add(("CPU renderer leaves caller-owned surface alive", CallerOwnsSurface));
+        tests.Add(("CPU renderer disposal is idempotent and rejects operations", RendererDisposal));
+        tests.Add(("CPU renderer rejects incompatible surface", RenderRejectsForeignSurface));
+        tests.Add(("Failed CPU resize preserves pixels and descriptor", FailedResizePreservesSurface));
+        tests.Add(("Successful CPU resize replaces bitmap", ResizeReplacesBitmap));
+        tests.Add(("RenderToImage result survives subsequent renders and disposal", RenderedImageIsOwnedByCaller));
     }
 
-    private static void SurfaceDisposeFlag()
-    {
-        var surface = new FakeSurface(new BSize(800, 600), 1.0);
-        AssertEx.IsFalse(surface.IsDisposed);
-        surface.Dispose();
-        AssertEx.IsTrue(surface.IsDisposed);
-    }
+    private static readonly BSurfaceDescriptor Descriptor = BSurfaceDescriptor.Default(new BSize(10, 10));
 
     private static void SurfaceThrowsAfterDispose()
     {
-        var surface = new FakeSurface(new BSize(800, 600), 1.0);
+        using var renderer = new BImageRenderer();
+        var surface = (BImageSurface)renderer.CreateSurface(Descriptor);
+        BBitmap pixels = surface.Bitmap;
         surface.Dispose();
-        AssertEx.Throws<ObjectDisposedException>(() => surface.Resize(new BSize(640, 480), 1.0));
+        surface.Dispose();
+        AssertEx.Throws<ObjectDisposedException>(() => surface.Resize(new BSize(5, 5), 1));
+        AssertEx.Throws<ObjectDisposedException>(() => _ = surface.Bitmap);
+        AssertEx.Throws<ObjectDisposedException>(() => pixels.GetPixel(0, 0));
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.Render(surface, new BRenderList(), BFrameContext.Default));
     }
 
-    private static void RendererDisposesSurfaces()
+    private static void CallerOwnsSurface()
     {
-        var renderer = new FakeRenderer();
-        var surface = (FakeSurface)renderer.CreateSurface(BSurfaceDescriptor.Default(new BSize(100, 100)));
-
-        AssertEx.IsFalse(surface.IsDisposed);
+        var renderer = new BImageRenderer();
+        using var surface = (BImageSurface)renderer.CreateSurface(Descriptor);
         renderer.Dispose();
-        AssertEx.IsTrue(surface.IsDisposed, "Renderer should dispose surfaces it created.");
+        surface.Bitmap.SetPixel(0, 0, BColor.Red);
+        AssertEx.AreEqual(BColor.Red, surface.Bitmap.GetPixel(0, 0));
+        surface.Resize(new BSize(5, 5), 2);
+        AssertEx.AreEqual(10, surface.Bitmap.Width);
     }
 
-    private static void DoubleDisposeIsSafe()
+    private static void RendererDisposal()
     {
-        var renderer = new FakeRenderer();
+        var renderer = new BImageRenderer();
+        using var surface = new BImageSurface(Descriptor);
+        var pixels = new BPixelBuffer(1, 1, [255, 0, 0, 255]);
+        var image = renderer.CreateImage(pixels);
         renderer.Dispose();
-        renderer.Dispose(); // must not throw
-        AssertEx.AreEqual(1, renderer.DisposeCount, "Dispose body should run only once.");
+        renderer.Dispose();
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.CreateSurface(Descriptor));
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.CreateImage(pixels));
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.ReleaseImage(image));
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.Render(surface, new BRenderList(), BFrameContext.Default));
+        AssertEx.Throws<ObjectDisposedException>(() => renderer.RenderToImage(new BRenderList(), Descriptor, BFrameContext.Default));
     }
 
     private static void RenderRejectsForeignSurface()
     {
-        var renderer = new FakeRenderer();
-        var foreign = new FakeSurface(new BSize(10, 10), 1.0);
-        var list = new BRenderList();
-        list.FillRect(new BRect(0, 0, 1, 1), BColor.Black);
-
-        AssertEx.Throws<ArgumentException>(
-            () => renderer.Render(foreign, list, BFrameContext.Default));
+        using var renderer = new BImageRenderer();
+        using var incompatible = new IncompatibleSurface();
+        AssertEx.Throws<ArgumentException>(() => renderer.Render(incompatible, new BRenderList(), BFrameContext.Default));
     }
 
-    // --- In-test fakes -----------------------------------------------------------------------------
-
-    private sealed class FakeSurface : IBroilerSurface
+    private static void FailedResizePreservesSurface()
     {
-        public FakeSurface(BSize size, double dpiScale)
-        {
-            Size = size;
-            DpiScale = dpiScale;
-        }
-
-        public BSize Size { get; private set; }
-        public double DpiScale { get; private set; }
-        public bool IsDisposed { get; private set; }
-        public bool OwnedByRenderer { get; init; }
-
-        public void Resize(BSize size, double dpiScale)
-        {
-            ObjectDisposedException.ThrowIf(IsDisposed, this);
-            Size = size;
-            DpiScale = dpiScale;
-        }
-
-        public void Dispose() => IsDisposed = true;
+        using var surface = new BImageSurface(Descriptor);
+        BBitmap original = surface.Bitmap;
+        original.SetPixel(0, 0, BColor.Red);
+        AssertEx.Throws<ArgumentOutOfRangeException>(() => surface.Resize(new BSize(double.MaxValue, 10), 2));
+        AssertEx.AreEqual(Descriptor.Size, surface.Size);
+        AssertEx.AreEqual(Descriptor.DpiScale, surface.DpiScale);
+        AssertEx.IsTrue(ReferenceEquals(original, surface.Bitmap));
+        AssertEx.AreEqual(BColor.Red, original.GetPixel(0, 0));
+        // Dimensions fit individually, but their RGBA byte count overflows before allocation.
+        AssertEx.Throws<OverflowException>(() => surface.Resize(new BSize(50_000, 50_000), 1));
+        AssertEx.AreEqual(BColor.Red, surface.Bitmap.GetPixel(0, 0));
+        using var renderer = new BImageRenderer();
+        renderer.Render(surface, new BRenderList(), new BFrameContext(BColor.Blue));
+        AssertEx.AreEqual(BColor.Blue, surface.Bitmap.GetPixel(0, 0));
     }
 
-    private sealed class FakeRenderer : IBroilerRenderer
+    private static void ResizeReplacesBitmap()
     {
-        private readonly List<FakeSurface> _surfaces = new();
-        private bool _disposed;
+        using var surface = new BImageSurface(Descriptor);
+        BBitmap original = surface.Bitmap;
+        surface.Resize(new BSize(3, 4), 2);
+        AssertEx.AreEqual(6, surface.Bitmap.Width);
+        AssertEx.AreEqual(8, surface.Bitmap.Height);
+        AssertEx.Throws<ObjectDisposedException>(() => original.GetPixel(0, 0));
+    }
 
-        public int DisposeCount { get; private set; }
+    private static void RenderedImageIsOwnedByCaller()
+    {
+        var renderer = new BImageRenderer();
+        using BBitmap first = renderer.RenderToImage(new BRenderList(), Descriptor, new BFrameContext(BColor.Red));
+        using BBitmap second = renderer.RenderToImage(new BRenderList(), Descriptor, new BFrameContext(BColor.Blue));
+        renderer.Dispose();
+        AssertEx.AreEqual(BColor.Red, first.GetPixel(0, 0));
+        AssertEx.AreEqual(BColor.Blue, second.GetPixel(0, 0));
+    }
 
-        public IBroilerSurface CreateSurface(BSurfaceDescriptor descriptor)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            var surface = new FakeSurface(descriptor.Size, descriptor.DpiScale) { OwnedByRenderer = true };
-            _surfaces.Add(surface);
-            return surface;
-        }
-
-        public void Render(IBroilerSurface surface, BRenderList renderList, BFrameContext frameContext)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            ArgumentNullException.ThrowIfNull(surface);
-            ArgumentNullException.ThrowIfNull(renderList);
-
-            if (surface is not FakeSurface fake || !fake.OwnedByRenderer || !_surfaces.Contains(fake))
-                throw new ArgumentException("Surface was not created by this renderer.", nameof(surface));
-
-            renderList.Validate();
-            // A real backend would replay here; the fake just validates ownership and the list.
-        }
-
-        public BBitmap RenderToImage(BRenderList renderList, BSurfaceDescriptor descriptor, BFrameContext frameContext)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            ArgumentNullException.ThrowIfNull(renderList);
-            renderList.Validate();
-
-            return new BBitmap(
-                Math.Max(1, (int)Math.Ceiling(descriptor.Size.Width * descriptor.DpiScale)),
-                Math.Max(1, (int)Math.Ceiling(descriptor.Size.Height * descriptor.DpiScale)));
-        }
-
-        private ulong _nextImageId;
-
-        public BImageHandle CreateImage(ReadOnlySpan<byte> encodedImage)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return CreateImage(new BPixelBuffer(1, 1, new byte[4]));
-        }
-
-        public BImageHandle CreateImage(BPixelBuffer pixels)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            ArgumentNullException.ThrowIfNull(pixels);
-            return BImageHandle.FromId(++_nextImageId, new BSize(pixels.Width, pixels.Height));
-        }
-
-        public void ReleaseImage(BImageHandle image) => ObjectDisposedException.ThrowIf(_disposed, this);
-
-        public void Dispose()
-        {
-            if (_disposed)
-                return;
-            _disposed = true;
-            DisposeCount++;
-            foreach (FakeSurface surface in _surfaces)
-                surface.Dispose();
-            _surfaces.Clear();
-        }
+    private sealed class IncompatibleSurface : IBroilerSurface
+    {
+        public BSize Size => new(10, 10);
+        public double DpiScale => 1;
+        public void Resize(BSize size, double dpiScale) => throw new NotSupportedException();
+        public void Dispose() { }
     }
 }

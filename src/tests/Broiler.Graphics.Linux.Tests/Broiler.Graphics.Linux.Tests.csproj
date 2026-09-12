@@ -23,4 +23,7 @@
     <ProjectReference Include="..\..\Broiler.Graphics.Linux.Vulkan\Broiler.Graphics.Linux.Vulkan.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/CpuPresentationTests.cs" Link="CpuPresentationTests.cs" />
+  </ItemGroup>
 </Project>

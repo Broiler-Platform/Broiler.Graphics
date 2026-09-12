@@ -92,6 +92,22 @@ public sealed class BBitmap : IDisposable
         return new BBitmap(Width, Height, _rgba);
     }
 
+    /// <summary>Updates a retained frame without reallocating an unchanged-size buffer.</summary>
+    internal void CopyTo(ref BBitmap? destination)
+    {
+        ThrowIfDisposed();
+        if (destination is null || destination._disposed || destination.Width != Width || destination.Height != Height)
+        {
+            BBitmap replacement = Copy();
+            destination?.Dispose();
+            destination = replacement;
+        }
+        else
+        {
+            _rgba.AsSpan().CopyTo(destination._rgba);
+        }
+    }
+
     public BBitmap ResizeNearest(int width, int height)
     {
         ThrowIfDisposed();

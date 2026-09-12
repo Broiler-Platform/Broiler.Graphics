@@ -65,8 +65,17 @@ public sealed class LinuxVulkanRenderer : IBroilerRenderer
             throw new ArgumentException("Surface was not created by this renderer.", nameof(surface));
 
         renderList.Validate();
-        using BBitmap frame = _cpuRenderer.RenderToImage(renderList, vulkanSurface.Descriptor, frameContext);
-        vulkanSurface.Present(frame, frameContext.Options.VSync);
+        if (surface is ICpuRenderSurface cpuSurface)
+        {
+            BBitmap frame = cpuSurface.CpuFrame.Render(_cpuRenderer, vulkanSurface.Descriptor, renderList, frameContext);
+            vulkanSurface.Present(frame, frameContext.Options.VSync);
+        }
+        else
+        {
+            // Preserve support for external implementations of the public surface contract.
+            using BBitmap frame = _cpuRenderer.RenderToImage(renderList, vulkanSurface.Descriptor, frameContext);
+            vulkanSurface.Present(frame, frameContext.Options.VSync);
+        }
     }
 
     public BBitmap RenderToImage(BRenderList renderList, BSurfaceDescriptor descriptor, BFrameContext frameContext)

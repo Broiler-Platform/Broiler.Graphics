@@ -1,6 +1,7 @@
 using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
+using Broiler.Graphics.Rendering;
 using Broiler.Graphics.Text;
 using System;
 using System.Collections.Generic;
@@ -22,8 +23,8 @@ namespace Broiler.Graphics.WebAssembly;
 /// implementing clip/transform pops as naive Canvas <c>save</c>/<c>restore</c>.
 /// </para>
 /// <para>
-/// Transform semantics follow <see cref="CanvasTransformPolicy"/> (axis-aligned
-/// bounding-box emulation), keeping the CPU renderer a pixel-exact oracle.
+/// Transform semantics follow <see cref="CanvasTransformPolicy"/>. Rectangle fills
+/// under rotation or shear use whole-frame CPU fallback to preserve their shape.
 /// </para>
 /// A single planner instance is reused across frames; its buffers grow to a steady size
 /// and are then reused with no per-frame full-frame allocation.
@@ -140,6 +141,13 @@ public sealed class CanvasFramePlanner
     {
         if (command.Color.A == 0)
             return;
+
+        if (!BRenderGeometry.IsAxisAligned(_current * _pixelScale))
+        {
+            // Native fillRect would paint the enclosing box. Preserve the CPU polygon fill.
+            _fallback = true;
+            return;
+        }
 
         BRect rect = Device(command.Rect);
         if (!CanvasTransformPolicy.IsDrawable(rect))

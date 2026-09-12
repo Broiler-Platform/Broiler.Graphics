@@ -22,16 +22,20 @@ internal static class AndroidGlesPixelConversion
 
         int rowBytes = checked(bitmap.Width * BPixelBuffer.BytesPerPixel);
         byte[] bottomUp = new byte[checked(rowBytes * bitmap.Height)];
-        ReadOnlySpan<byte> source = bitmap.Rgba;
-
-        for (int y = 0; y < bitmap.Height; y++)
-        {
-            int sourceOffset = y * rowBytes;
-            int destinationOffset = (bitmap.Height - y - 1) * rowBytes;
-            source.Slice(sourceOffset, rowBytes).CopyTo(bottomUp.AsSpan(destinationOffset, rowBytes));
-        }
-
+        CopyToBottomUpRgba(bitmap, bottomUp);
         return bottomUp;
+    }
+
+    internal static void CopyToBottomUpRgba(BBitmap bitmap, Span<byte> destination)
+    {
+        int rowBytes = checked(bitmap.Width * BPixelBuffer.BytesPerPixel);
+        if (destination.Length != bitmap.Rgba.Length)
+            throw new ArgumentException("Destination length must match the bitmap.", nameof(destination));
+
+        ReadOnlySpan<byte> source = bitmap.Rgba;
+        for (int y = 0; y < bitmap.Height; y++)
+            source.Slice(y * rowBytes, rowBytes).CopyTo(
+                destination.Slice((bitmap.Height - y - 1) * rowBytes, rowBytes));
     }
 
     public static BBitmap FromBottomUpRgba(int width, int height, byte[] bottomUpRgba)

@@ -17,6 +17,8 @@ internal static class CanvasFramePlannerTests
 {
     internal static void Register(List<(string Name, Action Body)> tests)
     {
+        tests.Add(("Rotated and sheared fills require CPU fallback", TransformedFillsUseFallback));
+        tests.Add(("Fallback resets on the next frame", FallbackResets));
         tests.Add(("FillRect encodes device rect and color", FillRectEncodes));
         tests.Add(("Transparent fill is dropped", TransparentFillDropped));
         tests.Add(("Translation bakes into device rect", TranslationBakes));
@@ -261,7 +263,7 @@ internal static class CanvasFramePlannerTests
         list.PopClip();
 
         CanvasFrame frame = Plan(list);
-        AssertEx.IsFalse(frame.RequiresCpuFallback, "Bounding-box policy represents every current command.");
+        AssertEx.IsFalse(frame.RequiresCpuFallback, "This scene uses only natively supported transforms.");
         List<ReplayOp> ops = ReplayStream.Parse(frame);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.FillRect) >= 1);
         AssertEx.IsTrue(ops.Count(CanvasReplayOp.StrokeRect) == 1);
@@ -299,4 +301,42 @@ internal static class CanvasFramePlannerTests
         AssertEx.AreEqual(3, b.OpCount);
         AssertEx.AreEqual(1, ReplayStream.Parse(b).Count(CanvasReplayOp.SetClip));
     }
+    private static void TransformedFillsUseFallback()
+    {
+        BMatrix3x2[] transforms =
+        [
+            new(1, 1, -1, 1, 10, 0),
+            new(1, 0, 0.5, 1, 0, 0),
+            new(0, 1, -1, 0, 10, 0),
+        ];
+        foreach (BMatrix3x2 transform in transforms)
+        {
+            var list = new BRenderList();
+            list.PushTransform(transform);
+            list.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
+            list.PopTransform();
+            CanvasFrame frame = Plan(list);
+            AssertEx.IsTrue(frame.RequiresCpuFallback);
+            AssertEx.AreEqual(0, frame.OpCount, "Must not emit the incorrect bounding-box fill.");
+        }
+        var reflected = new BRenderList();
+        reflected.PushTransform(BMatrix3x2.Scale(-1, 1));
+        reflected.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
+        reflected.PopTransform();
+        AssertEx.IsFalse(Plan(reflected).RequiresCpuFallback);
+    }
+
+    private static void FallbackResets()
+    {
+        var planner = new CanvasFramePlanner();
+        var list = new BRenderList();
+        list.PushTransform(new BMatrix3x2(1, 1, 0, 1, 0, 0));
+        list.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
+        list.PopTransform();
+        AssertEx.IsTrue(planner.Plan(list, 20, 20, 1, BColor.White).RequiresCpuFallback);
+        list.Clear();
+        list.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
+        AssertEx.IsFalse(planner.Plan(list, 20, 20, 1, BColor.White).RequiresCpuFallback);
+    }
+
 }

@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Run after dotnet build Broiler.Media.slnx using the same configuration.
+# Run after dotnet build Broiler.Graphics.slnx using the same configuration.
 # Tests are self-hosted console runners; dotnet test cannot discover them.
+# The host's platform suite is built explicitly because the solution excludes it.
 set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 configuration="${1:-${CONFIGURATION:-Release}}"
 case "$configuration" in
@@ -15,6 +18,11 @@ run_suite() {
   local project="src/tests/$name/$name.csproj"
   echo
   echo "=== $name ($configuration) ==="
+  if [[ "${2:-}" == --build ]] && ! dotnet build "$project" -c "$configuration" --nologo; then
+    echo "FAIL $name (build)" >&2
+    failed="$failed $name"
+    return
+  fi
   if dotnet run --project "$project" -c "$configuration" --no-build; then
     echo "OK   $name"
   else
@@ -24,18 +32,16 @@ run_suite() {
 }
 
 for suite in \
-  Broiler.Media.Tests \
-  Broiler.Media.Audio.Tests \
-  Broiler.Media.Audio.Managed.Tests \
-  Broiler.Media.Video.Tests \
-  Broiler.Media.Image.Tests \
-  Broiler.Media.Image.Managed.Tests; do
+  Broiler.Graphics.Tests \
+  Broiler.Graphics.WebAssembly.Tests \
+  Broiler.Graphics.Android.Tests; do
   run_suite "$suite"
 done
 
 case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) run_suite Broiler.Media.Video.MediaFoundation.Tests ;;
-  *) echo 'Skipping Media Foundation tests: Windows is required.' ;;
+  MINGW*|MSYS*|CYGWIN*) run_suite Broiler.Graphics.Windows.Tests --build ;;
+  Linux*) run_suite Broiler.Graphics.Linux.Tests --build ;;
+  *) echo 'Skipping platform suites: Windows or Linux is required.' ;;
 esac
 
 echo

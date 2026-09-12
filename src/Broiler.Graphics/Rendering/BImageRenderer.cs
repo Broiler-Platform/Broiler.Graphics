@@ -8,7 +8,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Threading;
 
 namespace Broiler.Graphics.Rendering;
 
@@ -25,13 +24,8 @@ namespace Broiler.Graphics.Rendering;
 /// </summary>
 public sealed class BImageRenderer : IBroilerRenderer
 {
-    // Concurrent, and interlocked handle allocation with it. Both are on the
-    // render path through a renderer that hosts share, so `++_nextImageId` was a
-    // read-modify-write that could hand two images the same handle — the second
-    // CreateImage then overwrote the first's bitmap and the first drew the wrong
-    // picture, with nothing thrown and nothing logged.
+    // IDs are shared across backends so a foreign handle cannot alias a local image.
     private readonly ConcurrentDictionary<ulong, BBitmap> _images = new();
-    private long _nextImageId;
     private volatile bool _disposed;
 
     /// <summary>
@@ -66,7 +60,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(pixels);
 
-        ulong id = (ulong)Interlocked.Increment(ref _nextImageId);
+        ulong id = BResourceIds.NextImageId();
         _images[id] = new BBitmap(pixels.Width, pixels.Height, (byte[])pixels.Rgba.Clone(), takeOwnership: true);
         return BImageHandle.FromId(id, new BSize(pixels.Width, pixels.Height));
     }
@@ -105,7 +99,7 @@ public sealed class BImageRenderer : IBroilerRenderer
 
         using var surface = new BImageSurface(descriptor);
         Render(surface, renderList, frameContext);
-        return surface.Bitmap.Copy();
+        return surface.DetachBitmap();
     }
 
     public void Dispose()
@@ -173,7 +167,7 @@ public sealed class BImageRenderer : IBroilerRenderer
         // any other: a thin diagonal strip came out as the solid block that encloses it, so a
         // rotated element filled its whole bounding box and a diagonal rule became a rectangle.
         // The canvas can fill an arbitrary polygon, so hand it the four transformed corners.
-        if (IsAxisAligned(state.Effective))
+        if (BRenderGeometry.IsAxisAligned(state.Effective))
         {
             RectangleF rect = TransformRect(command.Rect, state);
             if (IsDrawable(rect))
@@ -215,12 +209,6 @@ public sealed class BImageRenderer : IBroilerRenderer
         // Nonzero winding, so the corner order does not decide whether the triangle is filled.
         canvas.FillGlyphContours([contour], command.Color);
     }
-
-    /// <summary>
-    /// Whether the transform maps rectangles to rectangles — no rotation and no skew, so an
-    /// axis-aligned fill is exact and the polygon path is unnecessary.
-    /// </summary>
-    private static bool IsAxisAligned(BMatrix3x2 transform) => Math.Abs(transform.M12) < 1e-6 && Math.Abs(transform.M21) < 1e-6;
 
     /// <summary>The rectangle's four corners in device space, or null when it is degenerate.</summary>
     private static PointF[]? TransformQuad(BRect rect, ReplayState state)
@@ -434,7 +422,7 @@ public sealed class BImageRenderer : IBroilerRenderer
 
     private static void DrawFallbackGlyph(BCanvas canvas, char ch, double x, double y, double width, double height, BColor color, bool bold, ReplayState state)
     {
-        string[] pattern = GlyphPattern(ch);
+        string[] pattern = BBlockFont.GetPattern(ch);
         double cellW = width / 5.0;
         double cellH = height / 7.0;
         double inflate = bold ? Math.Max(1.0, cellW * 0.18) : 0.0;
@@ -458,30 +446,11 @@ public sealed class BImageRenderer : IBroilerRenderer
         }
     }
 
-    private static RectangleF TransformRect(BRect rect, ReplayState state)
-    {
-        BMatrix3x2 transform = state.Effective;
-        BPoint p1 = transform.Transform(new BPoint(rect.Left, rect.Top));
-        BPoint p2 = transform.Transform(new BPoint(rect.Right, rect.Top));
-        BPoint p3 = transform.Transform(new BPoint(rect.Right, rect.Bottom));
-        BPoint p4 = transform.Transform(new BPoint(rect.Left, rect.Bottom));
+    private static RectangleF TransformRect(BRect rect, ReplayState state) =>
+        ToRectangleF(BRenderGeometry.ToDeviceAabb(state.Effective, rect));
 
-        double left = Math.Min(Math.Min(p1.X, p2.X), Math.Min(p3.X, p4.X));
-        double top = Math.Min(Math.Min(p1.Y, p2.Y), Math.Min(p3.Y, p4.Y));
-        double right = Math.Max(Math.Max(p1.X, p2.X), Math.Max(p3.X, p4.X));
-        double bottom = Math.Max(Math.Max(p1.Y, p2.Y), Math.Max(p3.Y, p4.Y));
-
-        return new RectangleF((float)left, (float)top, (float)(right - left), (float)(bottom - top));
-    }
-
-    private static double CurrentAverageScale(ReplayState state)
-    {
-        BMatrix3x2 transform = state.Effective;
-        double x = Math.Sqrt((transform.M11 * transform.M11) + (transform.M12 * transform.M12));
-        double y = Math.Sqrt((transform.M21 * transform.M21) + (transform.M22 * transform.M22));
-        double scale = (x + y) / 2.0;
-        return scale > 0 && !double.IsNaN(scale) && !double.IsInfinity(scale) ? scale : 1.0;
-    }
+    private static double CurrentAverageScale(ReplayState state) =>
+        BRenderGeometry.AverageScale(state.Effective);
 
     private static RectangleF ToRectangleF(BRect rect) =>
         new((float)rect.X, (float)rect.Y, (float)rect.Width, (float)rect.Height);
@@ -494,91 +463,4 @@ public sealed class BImageRenderer : IBroilerRenderer
         && float.IsFinite(rect.Width)
         && float.IsFinite(rect.Height);
 
-    private static string[] GlyphPattern(char ch) => ch switch
-    {
-        'A' => [" ### ", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
-        'B' => ["#### ", "#   #", "#   #", "#### ", "#   #", "#   #", "#### "],
-        'C' => [" ####", "#    ", "#    ", "#    ", "#    ", "#    ", " ####"],
-        'D' => ["#### ", "#   #", "#   #", "#   #", "#   #", "#   #", "#### "],
-        'E' => ["#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#####"],
-        'F' => ["#####", "#    ", "#    ", "#### ", "#    ", "#    ", "#    "],
-        'G' => [" ####", "#    ", "#    ", "# ###", "#   #", "#   #", " ####"],
-        'H' => ["#   #", "#   #", "#   #", "#####", "#   #", "#   #", "#   #"],
-        'I' => ["#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "#####"],
-        'J' => ["#####", "    #", "    #", "    #", "#   #", "#   #", " ### "],
-        'K' => ["#   #", "#  # ", "# #  ", "##   ", "# #  ", "#  # ", "#   #"],
-        'L' => ["#    ", "#    ", "#    ", "#    ", "#    ", "#    ", "#####"],
-        'M' => ["#   #", "## ##", "# # #", "#   #", "#   #", "#   #", "#   #"],
-        'N' => ["#   #", "##  #", "# # #", "#  ##", "#   #", "#   #", "#   #"],
-        'O' => [" ### ", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "],
-        'P' => ["#### ", "#   #", "#   #", "#### ", "#    ", "#    ", "#    "],
-        'Q' => [" ### ", "#   #", "#   #", "#   #", "# # #", "#  # ", " ## #"],
-        'R' => ["#### ", "#   #", "#   #", "#### ", "# #  ", "#  # ", "#   #"],
-        'S' => [" ####", "#    ", "#    ", " ### ", "    #", "    #", "#### "],
-        'T' => ["#####", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  "],
-        'U' => ["#   #", "#   #", "#   #", "#   #", "#   #", "#   #", " ### "],
-        'V' => ["#   #", "#   #", "#   #", "#   #", "#   #", " # # ", "  #  "],
-        'W' => ["#   #", "#   #", "#   #", "# # #", "# # #", "## ##", "#   #"],
-        'X' => ["#   #", "#   #", " # # ", "  #  ", " # # ", "#   #", "#   #"],
-        'Y' => ["#   #", "#   #", " # # ", "  #  ", "  #  ", "  #  ", "  #  "],
-        'Z' => ["#####", "    #", "   # ", "  #  ", " #   ", "#    ", "#####"],
-        '0' => [" ### ", "#   #", "#  ##", "# # #", "##  #", "#   #", " ### "],
-        '1' => ["  #  ", " ##  ", "# #  ", "  #  ", "  #  ", "  #  ", "#####"],
-        '2' => [" ### ", "#   #", "    #", "   # ", "  #  ", " #   ", "#####"],
-        '3' => ["#### ", "    #", "    #", " ### ", "    #", "    #", "#### "],
-        '4' => ["#   #", "#   #", "#   #", "#####", "    #", "    #", "    #"],
-        '5' => ["#####", "#    ", "#    ", "#### ", "    #", "    #", "#### "],
-        '6' => [" ### ", "#    ", "#    ", "#### ", "#   #", "#   #", " ### "],
-        '7' => ["#####", "    #", "   # ", "  #  ", " #   ", " #   ", " #   "],
-        '8' => [" ### ", "#   #", "#   #", " ### ", "#   #", "#   #", " ### "],
-        '9' => [" ### ", "#   #", "#   #", " ####", "    #", "    #", " ### "],
-        '.' => ["     ", "     ", "     ", "     ", "     ", " ##  ", " ##  "],
-        ',' => ["     ", "     ", "     ", "     ", " ##  ", " ##  ", " #   "],
-        ':' => ["     ", " ##  ", " ##  ", "     ", " ##  ", " ##  ", "     "],
-        ';' => ["     ", " ##  ", " ##  ", "     ", " ##  ", " ##  ", " #   "],
-        '!' => ["  #  ", "  #  ", "  #  ", "  #  ", "  #  ", "     ", "  #  "],
-        '?' => [" ### ", "#   #", "    #", "   # ", "  #  ", "     ", "  #  "],
-        '-' => ["     ", "     ", "     ", "#####", "     ", "     ", "     "],
-        '_' => ["     ", "     ", "     ", "     ", "     ", "     ", "#####"],
-        '+' => ["     ", "  #  ", "  #  ", "#####", "  #  ", "  #  ", "     "],
-        '/' => ["    #", "    #", "   # ", "  #  ", " #   ", "#    ", "#    "],
-        '\\' => ["#    ", "#    ", " #   ", "  #  ", "   # ", "    #", "    #"],
-        '(' => ["   # ", "  #  ", " #   ", " #   ", " #   ", "  #  ", "   # "],
-        ')' => [" #   ", "  #  ", "   # ", "   # ", "   # ", "  #  ", " #   "],
-        '[' => [" ### ", " #   ", " #   ", " #   ", " #   ", " #   ", " ### "],
-        ']' => [" ### ", "   # ", "   # ", "   # ", "   # ", "   # ", " ### "],
-        '<' => ["   # ", "  #  ", " #   ", "#    ", " #   ", "  #  ", "   # "],
-        '>' => [" #   ", "  #  ", "   # ", "    #", "   # ", "  #  ", " #   "],
-        '=' => ["     ", "     ", "#####", "     ", "#####", "     ", "     "],
-        '"' => [" # # ", " # # ", " # # ", "     ", "     ", "     ", "     "],
-        '\'' => ["  #  ", "  #  ", "  #  ", "     ", "     ", "     ", "     "],
-        '#' => [" # # ", " # # ", "#####", " # # ", "#####", " # # ", " # # "],
-        'a' => ["     ", "     ", " ### ", "    #", " ####", "#   #", " ####"],
-        'b' => ["#    ", "#    ", "#### ", "#   #", "#   #", "#   #", "#### "],
-        'c' => ["     ", "     ", " ####", "#    ", "#    ", "#    ", " ####"],
-        'd' => ["    #", "    #", " ####", "#   #", "#   #", "#   #", " ####"],
-        'e' => ["     ", "     ", " ### ", "#   #", "#####", "#    ", " ### "],
-        'f' => ["  ## ", " #   ", "#### ", " #   ", " #   ", " #   ", " #   "],
-        'g' => ["     ", "     ", " ### ", "#   #", " ####", "    #", " ### "],
-        'h' => ["#    ", "#    ", "#### ", "#   #", "#   #", "#   #", "#   #"],
-        'i' => ["  #  ", "     ", " ##  ", "  #  ", "  #  ", "  #  ", " ### "],
-        'j' => ["   # ", "     ", "  ## ", "   # ", "   # ", "#  # ", " ##  "],
-        'k' => ["#    ", "#    ", "#  # ", "# #  ", "##   ", "# #  ", "#  # "],
-        'l' => [" ##  ", "  #  ", "  #  ", "  #  ", "  #  ", "  #  ", " ### "],
-        'm' => ["     ", "     ", "## # ", "# # #", "# # #", "# # #", "# # #"],
-        'n' => ["     ", "     ", "#### ", "#   #", "#   #", "#   #", "#   #"],
-        'o' => ["     ", "     ", " ### ", "#   #", "#   #", "#   #", " ### "],
-        'p' => ["     ", "     ", "#### ", "#   #", "#### ", "#    ", "#    "],
-        'q' => ["     ", "     ", " ####", "#   #", " ####", "    #", "    #"],
-        'r' => ["     ", "     ", "# ## ", "##   ", "#    ", "#    ", "#    "],
-        's' => ["     ", "     ", " ####", "#    ", " ### ", "    #", "#### "],
-        't' => [" #   ", " #   ", "#### ", " #   ", " #   ", " #  #", "  ## "],
-        'u' => ["     ", "     ", "#   #", "#   #", "#   #", "#   #", " ####"],
-        'v' => ["     ", "     ", "#   #", "#   #", "#   #", " # # ", "  #  "],
-        'w' => ["     ", "     ", "#   #", "# # #", "# # #", "# # #", " # # "],
-        'x' => ["     ", "     ", "#   #", " # # ", "  #  ", " # # ", "#   #"],
-        'y' => ["     ", "     ", "#   #", "#   #", " ####", "    #", " ### "],
-        'z' => ["     ", "     ", "#####", "   # ", "  #  ", " #   ", "#####"],
-        _ => ["#####", "#   #", "   # ", "  #  ", " #   ", "     ", "  #  "],
-    };
 }

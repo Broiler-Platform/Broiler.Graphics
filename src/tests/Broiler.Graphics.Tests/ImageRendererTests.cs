@@ -14,6 +14,7 @@ internal static class ImageRendererTests
 {
     internal static void Register(List<(string Name, Action Body)> tests)
     {
+        tests.Add(("Foreign image handles cannot draw or release local images", ForeignImagesAreIsolated));
         tests.Add(("Image renderer returns filled pixels", RenderToImageFillsPixels));
         tests.Add(("Image renderer draws uploaded images", RenderDrawsUploadedImages));
         tests.Add(("Image renderer respects clips and transforms", RenderRespectsClipsAndTransforms));
@@ -104,4 +105,22 @@ internal static class ImageRendererTests
 
         AssertEx.IsTrue(foundInk, "Expected text drawing to emit ink darker than the white background.");
     }
+    private static void ForeignImagesAreIsolated()
+    {
+        using var first = new BImageRenderer();
+        using var second = new BImageRenderer();
+        BImageHandle red = first.CreateImage(new BPixelBuffer(1, 1, [255, 0, 0, 255]));
+        BImageHandle blue = second.CreateImage(new BPixelBuffer(1, 1, [0, 0, 255, 255]));
+        AssertEx.AreNotEqual(red.Handle, blue.Handle);
+        var list = new BRenderList();
+        list.DrawImage(red, new BRect(0, 0, 1, 1), new BRect(0, 0, 1, 1));
+        var descriptor = BSurfaceDescriptor.Default(new BSize(1, 1));
+        AssertEx.Throws<ArgumentException>(() => second.RenderToImage(list, descriptor, BFrameContext.Default));
+        second.ReleaseImage(red);
+        list.Clear();
+        list.DrawImage(blue, new BRect(0, 0, 1, 1), new BRect(0, 0, 1, 1));
+        using var result = second.RenderToImage(list, descriptor, BFrameContext.Default);
+        AssertEx.AreEqual(BColor.Blue, result.GetPixel(0, 0));
+    }
+
 }
