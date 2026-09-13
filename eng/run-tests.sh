@@ -12,13 +12,18 @@ case "$configuration" in
   *) echo "Unknown configuration '$configuration'; use Debug or Release." >&2; exit 2 ;;
 esac
 
-failed=''
+version_args=()
+if [ -n "${PACKAGE_VERSION:-}" ]; then
+  version_args+=("-p:Version=$PACKAGE_VERSION" "-p:PackageVersion=$PACKAGE_VERSION")
+fi
+
+failed=
 run_suite() {
   local name="$1"
   local project="src/tests/$name/$name.csproj"
   echo
   echo "=== $name ($configuration) ==="
-  if [[ "${2:-}" == --build ]] && ! dotnet build "$project" -c "$configuration" --nologo; then
+  if [[ "${2:-}" == --build ]] && ! dotnet build "$project" -c "$configuration" --nologo "${version_args[@]}"; then
     echo "FAIL $name (build)" >&2
     failed="$failed $name"
     return

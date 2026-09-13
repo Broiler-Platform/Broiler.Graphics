@@ -11,6 +11,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Broiler.Graphics.Windows</RootNamespace>
     <AssemblyName>Broiler.Graphics.Windows</AssemblyName>
+    <PackageId>Broiler.Graphics.Windows</PackageId>
     <Description>Windows Direct2D/DirectWrite backend for Broiler.Graphics, with window and input integration and an HWND-backed video presentation target.</Description>
     <PackageTags>broiler;graphics;rendering;windows;direct2d;directwrite</PackageTags>
   </PropertyGroup>
@@ -21,17 +22,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Media.Video" Version="0.1.0-preview.11" />
-    <PackageReference Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.11" />
-    <PackageReference Include="Broiler.Native.Windows" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Media.Video" />
+    <PackageReference Include="Broiler.Media.Video.Windows" />
+    <PackageReference Include="Broiler.Native.Windows" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Broiler.Graphics\Broiler.Graphics.csproj" />
     <!-- Graphics.Windows owns the HWND-backed video presentation target (HwndVideoOutput),
          which implements Broiler.Media.Video.Windows' IHwndVideoOutput contract per the media
-         roadmap §6.6/§7.5. It references only the Video ABSTRACTIONS, never a codec
-         implementation — and the dependency runs this way only: Media references nothing
+         roadmap Â§6.6/Â§7.5. It references only the Video ABSTRACTIONS, never a codec
+         implementation â€” and the dependency runs this way only: Media references nothing
          here (Broiler.Media ADR 0006). -->
   </ItemGroup>
 

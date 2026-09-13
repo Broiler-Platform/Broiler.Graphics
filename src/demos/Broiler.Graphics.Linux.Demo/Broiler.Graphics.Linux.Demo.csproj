@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -12,9 +12,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
-    <PackageReference Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
-    <PackageReference Include="Broiler.Media.Image" Version="0.1.0-preview.11" />
+    <PackageReference Include="Broiler.Input.Keyboard.Linux" />
+    <PackageReference Include="Broiler.Input.Mouse.Linux" />
+    <PackageReference Include="Broiler.Media.Image" />
   </ItemGroup>
 
   <ItemGroup>

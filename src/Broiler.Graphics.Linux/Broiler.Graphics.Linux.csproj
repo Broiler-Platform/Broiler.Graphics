@@ -17,6 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Broiler.Native.Linux" Version="0.1.0-preview.3" />
+    <PackageReference Include="Broiler.Native.Linux" />
   </ItemGroup>
 </Project>

@@ -10,10 +10,8 @@ Image *decoding* deliberately lives outside this component: the core depends onl
 `Broiler.Media.Image` abstraction, and the application supplies the concrete codecs.
 
 Native API declarations live in `Broiler.Native.Windows`, `Broiler.Native.Linux`,
-and `Broiler.Native.Android`. A sibling `Broiler.Native` checkout supplies project
-references; set `BroilerNativeRoot` for another location. Without sources, builds
-use `BroilerNativeVersion` packages (initially `0.1.0-preview.1`). Publish Native
-before releasing the migrated backends. Explicit uses of native driver descriptions
+and `Broiler.Native.Android`. Their package versions are managed centrally in
+`Directory.Packages.props`. Publish Native before releasing dependent backends. Explicit uses of native driver descriptions
 or OpenGL/Vulkan exception types now require their `Broiler.Native` namespaces.
 
 > **Preview release.** `0.1.0-preview.1` is the first published preview. Public APIs and
@@ -46,33 +44,17 @@ presents with.
 
 ### Consuming Broiler packages from GitHub Packages
 
-`NuGet.config` in the repository root pins two sources — nuget.org and the
-Broiler-Platform GitHub Packages feed — and clears whatever the machine has configured,
-so a restore resolves identically everywhere. Package source mapping sends `Broiler.*` to
-either feed and everything else to nuget.org only.
-
-That mapping is load-bearing. GitHub Packages requires authentication **even for public
-packages** and answers `401` to an anonymous request, so an unmapped source would be
-queried for every package and break the restore. Because this repository takes its
-Broiler dependencies through the submodules as project references, nothing queries that
-feed today and no credentials are needed to build.
-
-To actually pull `Broiler.*` from GitHub Packages you need a personal access token with
-the `read:packages` scope. Put it in your **user-level** config, never in the committed
-one:
-
-```bash
-dotnet nuget update source broiler-github --username <github-user> --password <pat> --store-password-in-clear-text --configfile "$APPDATA/NuGet/NuGet.Config"
-```
-
-In GitHub Actions use `secrets.GITHUB_TOKEN` rather than a personal token.
+`NuGet.config` maps `Broiler.*` to the Broiler-Platform GitHub Packages feed and
+other dependencies to NuGet.org. Local restores need `read:packages` credentials;
+CI uses `GITHUB_TOKEN` with access to the upstream packages. See
+[CI, packages, and releases](docs/packaging.md) for setup and publishing.
 
 ## Packages
 
 | Package | Target | Role |
 | --- | --- | --- |
 | `Broiler.Graphics` | `net10.0` | Platform-neutral core: bitmaps, canvas, geometry, colour, deterministic CPU raster, text and fonts, render lists. Trimming- and AOT-friendly, fully safe code. |
-| `Broiler.Graphics.Windows` | `net10.0-windows` | Direct2D/DirectWrite backend, window and input integration, and the HWND-backed video presentation target. |
+| `Broiler.Graphics.Windows` | `net10.0` | Direct2D/DirectWrite backend, window and input integration, and the HWND-backed video presentation target. |
 | `Broiler.Graphics.Linux` | `net10.0` | Shared Linux runtime support: native library probing, dependency resolution, runtime diagnostics. |
 | `Broiler.Graphics.Linux.OpenGL` | `net10.0` | OpenGL/EGL presentation over Mesa/EGL, with pbuffer and opt-in X11 window surfaces. |
 | `Broiler.Graphics.Linux.Vulkan` | `net10.0` | Vulkan 1.2 loader/device path. Presentation is still CPU-present. |
@@ -145,56 +127,26 @@ Broiler.Media in turn declares Broiler.Graphics as a submodule of its own, but o
 
 ## Building and testing
 
-Clone with submodules, or initialise them in an existing checkout:
+The repository uses package dependencies and requires no submodules. Build the
+neutral projects, then run the suites for the current host:
 
 ```bash
-git clone --recurse-submodules https://github.com/Broiler-Platform/Broiler.Graphics.git
+dotnet build Broiler.Graphics.slnx -c Release
+bash ./eng/run-tests.sh Release
 ```
 
-```bash
-git submodule update --init
-```
-
-The solution defines six configurations. `Debug`/`Release` build the platform-neutral set
-— core, WebAssembly, Android, and their test runners. The `-Windows` and `-Linux`
-variants add the backends for that platform and select the matching runtime identifier.
-
-```bash
-dotnet build Broiler.Graphics.slnx -c Release-Windows
-```
-
-Platform projects build **only** under their own configuration: `Broiler.Graphics.Windows`,
-its test runner, and the Windows demo are excluded from every configuration except
-`Debug-Windows`/`Release-Windows`, and the three Linux projects, the Linux test runner,
-and the Linux demo likewise build only under `Debug-Linux`/`Release-Linux`. A plain
-`dotnet build` therefore does not compile the Direct2D backend — pass `-c Debug-Windows`
-when that is what you mean to check.
-
-Tests are self-hosted console runners rather than a test framework, so there is nothing
-for `dotnet test` to discover. After building, run every suite the configuration
-produced:
-
-```bash
-bash ./eng/run-tests.sh Release-Windows
-```
-
-The script picks the runners that apply: the Direct2D suite under `-Windows`, the Linux
-suite under `-Linux`, and the three neutral suites — core, WebAssembly, Android — under
-every configuration. It starts them with `--no-build`, so they exercise exactly the
-binaries the build produced. Or run one directly:
-
-```bash
-dotnet run --project src/tests/Broiler.Graphics.Tests -c Debug
-```
+The script runs the core, WebAssembly, and Android suites, and explicitly builds
+and runs the Windows or Linux suite. Projects use `Debug` or `Release`; platform
+providers and demos can also be built directly by project path.
 
 ## Demos
 
 ```bash
-dotnet run --project src/demos/Broiler.Graphics.Windows.Demo -c Debug-Windows
+dotnet run --project src/demos/Broiler.Graphics.Windows.Demo -c Debug
 ```
 
 ```bash
-dotnet run --project src/demos/Broiler.Graphics.Linux.Demo -c Debug-Linux
+dotnet run --project src/demos/Broiler.Graphics.Linux.Demo -c Debug
 ```
 
 The Linux demo takes options after `--`: `--vulkan` selects the Vulkan path, `--window
@@ -202,46 +154,20 @@ The Linux demo takes options after `--`: `--vulkan` selects the Vulkan path, `--
 and `--artifact-dir=<path>` writes the diagnostics artifacts somewhere specific.
 
 ```bash
-dotnet run --project src/demos/Broiler.Graphics.Linux.Demo -c Debug-Linux -- --window --enable-evdev-input --interactive
+dotnet run --project src/demos/Broiler.Graphics.Linux.Demo -c Debug -- --window --enable-evdev-input --interactive
 ```
 
-## Packaging
+## Packaging and releases
 
-Each configuration packs the projects it builds, so the full package set takes three runs
-into one output directory:
-
-```bash
-dotnet pack Broiler.Graphics.slnx -c Release -o ./artifacts
+```sh
+pwsh -File eng/pack.ps1
 ```
 
-```bash
-dotnet pack Broiler.Graphics.slnx -c Release-Windows -o ./artifacts
-```
-
-```bash
-dotnet pack Broiler.Graphics.slnx -c Release-Linux -o ./artifacts
-```
-
-Test and demo projects never pack. `eng/Broiler.Packaging.props` is a vendored copy of
-the suite-wide packaging metadata and holds the version, which stays in lockstep across
-Broiler components during preview — edit the canonical file and re-run the sync script
-rather than editing the copy.
-
-## Continuous integration and releases
-
-`.github/workflows/ci.yml` builds and tests both configurations on every push and pull
-request — `Release-Linux` on Ubuntu, `Release-Windows` on Windows — checking out the
-submodules one level, and attaches the packed packages to each run. Neither
-configuration alone produces the whole set, so the Windows leg packs both: it can build
-every project, because the Linux libraries are plain `net10.0` with no runtime
-identifier.
-
-`.github/workflows/publish.yml` publishes. Run it manually to choose a feed (GitHub
-Packages or nuget.org); it defaults to a dry run that packs and attaches the packages
-without pushing. Pushing a `v*` tag publishes to nuget.org, and the tag must match the
-version in `eng/Broiler.Packaging.props`, which stays the source of truth for the suite
-version. Publishing to nuget.org needs a `NUGET_API_KEY` repository secret; GitHub
-Packages uses the built-in `GITHUB_TOKEN`.
+This packs and verifies all seven packages, including providers excluded from
+normal solution builds. CI tests on Linux and Windows; Publish reuses CI and
+publishes its verified artifacts. Manual runs default to a dry run and select the
+next unused preview. See [CI, packages, and releases](docs/packaging.md) for feed
+credentials, dependency versions, tags, and NuGet.org publishing.
 
 ## Preview status
 
