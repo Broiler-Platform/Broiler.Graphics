@@ -22,7 +22,8 @@ public sealed class BCanvas(BBitmap bitmap) : IDisposable
         lighten,
         overlay,
         difference,
-        plus_lighter
+        plus_lighter,
+        source_over
     }
 
     private readonly BBitmap _rootBitmap = bitmap ?? throw new ArgumentNullException(nameof(bitmap));
