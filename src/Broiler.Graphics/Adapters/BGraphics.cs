@@ -40,8 +40,8 @@ public abstract class BGraphics : IDisposable
     /// </summary>
     public virtual void PushClipPolygon(PointF[] points, RectangleF bounds) => PushClip(bounds);
 
-    public abstract object SetAntiAliasSmoothingMode();
-    public abstract void ReturnPreviousSmoothingMode(object prevMode);
+    public abstract object? SetAntiAliasSmoothingMode();
+    public abstract void ReturnPreviousSmoothingMode(object? prevMode);
     public abstract BBrush GetTextureBrush(BImage image, RectangleF dstRect, PointF translateTransformLocation);
     public abstract BGraphicsPath GetGraphicsPath();
     public abstract SizeF MeasureString(string str, BFont font);

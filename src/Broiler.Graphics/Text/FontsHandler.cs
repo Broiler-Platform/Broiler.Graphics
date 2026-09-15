@@ -1,4 +1,3 @@
-#nullable disable
 using Broiler.Graphics.Adapters;
 using System;
 using System.Collections.Concurrent;
@@ -59,7 +58,7 @@ public sealed class FontsHandler
         _fontsMapping[fromFamily] = toFamily;
     }
 
-    public BFont GetCachedFont(string family, double size, FontStyle style, string fontFeatures = null)
+    public BFont GetCachedFont(string family, double size, FontStyle style, string? fontFeatures = null)
     {
         var resolvedFamily = ResolveFontFamily(family);
 
@@ -80,7 +79,7 @@ public sealed class FontsHandler
         }
 
         var key2 = new FontCacheKey(resolvedFamily, size, style);
-        if (_fontsCache.TryGetValue(key2, out BFont font))
+        if (_fontsCache.TryGetValue(key2, out BFont? font))
             return font;
 
         // Deliberately not the GetOrAdd(key, factory) overload. CreateFont can
@@ -136,7 +135,7 @@ public sealed class FontsHandler
                 return true;
             }
 
-            if (_fontsMapping.TryGetValue(candidate, out string mappedFamily)
+            if (_fontsMapping.TryGetValue(candidate, out string? mappedFamily)
                 && _existingFontFamilies.ContainsKey(mappedFamily))
             {
                 resolvedFamily = mappedFamily;
@@ -163,7 +162,7 @@ public sealed class FontsHandler
 
     private BFont CreateFont(string family, double size, FontStyle style)
     {
-        BFontFamily fontFamily;
+        BFontFamily? fontFamily;
 
         try
         {

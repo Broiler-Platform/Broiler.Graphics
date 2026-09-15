@@ -14,7 +14,7 @@ public interface IImageLoadHandler : IDisposable
     /// <summary>
     /// The loaded image, or null if not yet loaded or failed.
     /// </summary>
-    BImage Image { get; }
+    BImage? Image { get; }
 
     /// <summary>
     /// The sub-rectangle of the image to use, or <see cref="RectangleF.Empty"/> for the entire image.
