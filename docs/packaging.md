@@ -32,7 +32,7 @@ no previous packages; choose `-Output <empty-directory>` for another run. Option
 
 ## Package feeds
 
-This repository maps `Broiler.*` packages to GitHub Packages and other packages to NuGet.org. Cross-repository dependencies use the versions in `Directory.Packages.props`; sibling source checkouts do not replace them.
+This repository maps `Broiler.*` packages to GitHub Packages and other packages to NuGet.org, except `Broiler.Native` and `Broiler.Native.*`, which also come from NuGet.org. Native's publish gives each version to one feed only, since its resolver skips a version used on either, and the Native versions pinned here are on NuGet.org. `eng/verify-feed.ps1` maps them the same way. Cross-repository dependencies use the versions in `Directory.Packages.props`; sibling source checkouts do not replace them.
 `NuGet.config` explicitly clears inherited sources, disabled-source settings, and
 source mappings so machine settings cannot silently change the feed selection.
 
