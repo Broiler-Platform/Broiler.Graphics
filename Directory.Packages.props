@@ -3,14 +3,14 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.2" />
-    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.2" />
-    <PackageVersion Include="Broiler.Media.Image" Version="0.1.0-preview.11" />
-    <PackageVersion Include="Broiler.Media.Image.Managed" Version="0.1.0-preview.11" />
-    <PackageVersion Include="Broiler.Media.Video" Version="0.1.0-preview.11" />
-    <PackageVersion Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.11" />
-    <PackageVersion Include="Broiler.Native.Android" Version="0.1.0-preview.3" />
-    <PackageVersion Include="Broiler.Native.Linux" Version="0.1.0-preview.3" />
+    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.5" />
+    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.5" />
+    <PackageVersion Include="Broiler.Media.Image" Version="0.1.0-preview.14" />
+    <PackageVersion Include="Broiler.Media.Image.Managed" Version="0.1.0-preview.14" />
+    <PackageVersion Include="Broiler.Media.Video" Version="0.1.0-preview.14" />
+    <PackageVersion Include="Broiler.Media.Video.Windows" Version="0.1.0-preview.14" />
+    <PackageVersion Include="Broiler.Native.Android" Version="0.1.0-preview.6" />
+    <PackageVersion Include="Broiler.Native.Linux" Version="0.1.0-preview.6" />
     <PackageVersion Include="Broiler.Native.Windows" Version="0.1.0-preview.6" />
   </ItemGroup>
 </Project>

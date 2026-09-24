@@ -11,6 +11,7 @@
     <File Path="eng/Broiler.Packaging.props" />
   </Folder>
   <Folder Name="/solution items/docs/">
+    <File Path="docs/packaging.md" />
     <File Path="docs/roadmap.md" />
   </Folder>
   <Folder Name="/src/">

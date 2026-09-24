@@ -49,11 +49,10 @@ test('all packages contribute, including a partially published newer preview', a
 });
 
 test('cross-feed versions are cumulative so no preview number is reused', () => {
-  // GitHub Packages has preview.3, NuGet.org has preview.2.
-  // Publishing to NuGet.org must pick preview.4, not preview.3.
-  const nugetVersions = ['0.1.0-preview.1', '0.1.0-preview.2'];
-  const githubVersions = ['0.1.0-preview.1', '0.1.0-preview.2', '0.1.0-preview.3'];
-  const combined = [...nugetVersions, ...githubVersions];
+  // If a higher preview version is already published, the next resolved version advances past it.
+  const publishedLine1 = ['0.1.0-preview.1', '0.1.0-preview.2'];
+  const publishedLine2 = ['0.1.0-preview.1', '0.1.0-preview.2', '0.1.0-preview.3'];
+  const combined = [...publishedLine1, ...publishedLine2];
   assert.equal(chooseVersion('0.1.0-preview.1', combined), '0.1.0-preview.4');
 });
 

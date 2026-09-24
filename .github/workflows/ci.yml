@@ -14,11 +14,9 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 env:
   PACKAGE_VERSION: ${{ inputs.package-version }}
-  NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }};ValidAuthenticationTypes=Basic
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
