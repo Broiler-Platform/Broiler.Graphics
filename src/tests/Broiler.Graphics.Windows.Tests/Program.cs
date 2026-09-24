@@ -21,6 +21,7 @@ internal static class Program
         WindowsImageTests.Register(tests);
         HwndVideoOutputTests.Register(tests);
         WindowCaptionTests.Register(tests);
+        WindowIconTests.Register(tests);
         WindowResizePaintTests.Register(tests);
         Direct2DTriangleTests.Register(tests);
         SystemFontCollectionTests.Register(tests);
