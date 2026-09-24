@@ -79,7 +79,9 @@ public abstract class BWindow(BWindowOptions options) : IDisposable
 
     /// <summary>
     /// Sets the window (taskbar and Alt+Tab) icon from straight-alpha RGBA pixels, or clears it
-    /// when <paramref name="icon"/> is null. Owner-drawn chrome draws its own icon separately.
+    /// when <paramref name="icon"/> is null, which gives the window back the platform's default -
+    /// on Windows, the executable's own icon when it has one. Owner-drawn chrome draws its own
+    /// icon separately.
     /// </summary>
     public void SetIcon(BPixelBuffer? icon)
     {

@@ -49,7 +49,7 @@ $escapedPath = [Security.SecurityElement]::Escape($packagePath)
     <packageSource key="release">
 $($mappings -join "`n")
     </packageSource>
-    <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+    <packageSource key="nuget.org"><package pattern="Broiler.Native" /><package pattern="Broiler.Native.*" /><package pattern="*" /></packageSource>
     $githubMapping
   </packageSourceMapping>
 </configuration>

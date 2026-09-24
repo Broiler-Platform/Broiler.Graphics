@@ -935,12 +935,21 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         if (s_classRegistered)
             return;
 
+        IntPtr instance = GetModuleHandle(null);
         var windowClass = new WNDCLASSEX
         {
             CbSize = (uint)Marshal.SizeOf<WNDCLASSEX>(),
             Style = CsHRedraw | CsVRedraw,
             LpfnWndProc = s_wndProc,
-            HInstance = GetModuleHandle(null),
+            HInstance = instance,
+
+            // The executable's own icon: <ApplicationIcon> is embedded as IDI_APPLICATION. The
+            // caption and its system menu draw the window's icon, and without one Windows' generic
+            // window glyph rather than the executable's - only the taskbar looked past the window
+            // to the exe. Zero when the executable carries none - dotnet.exe hosting a dll, for
+            // one - which leaves the system default as before. HIconSm stays zero so that Windows
+            // picks the small image out of the same resource rather than shrinking the large one.
+            HIcon = LoadIcon(instance, new IntPtr(IdiApplication)),
             HCursor = LoadCursor(IntPtr.Zero, new IntPtr(32512)),
             HbrBackground = GetSysColorBrush(ColorWindow),
             LpszClassName = WindowClassName,
