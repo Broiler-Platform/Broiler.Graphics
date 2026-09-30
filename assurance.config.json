@@ -1,0 +1,51 @@
+{
+  "$comment": [
+    "Per-declaration assurance for Broiler.Graphics. Product projects only: the src/tests runners and src/demos applications are not listed, so they are not covered. No tracked source is generated, so nothing is excluded.",
+    "spdxOverrides: these files continue HTML Renderer code (BSD-3-Clause) imported into Broiler.HTML at a29a8fd and moved here in 94e6709 (R* renamed B* in b35934d). BBrush/BFont/BFontFamily/BGraphics/BGraphicsPath/BImage/BPen from Adapters/R*.cs, BKeyEvent/BMouseEvent from Adapters/Entities, Border from Core/Dom/Border.cs, Corner from the RGraphicsPath.Corner enum, FontsHandler from Core/Handlers/FontsHandler.cs; IColorResolver/IFontCreator/IResourceFactory carry RAdapter's member signatures and IImageLoadHandler/IBackgroundImageDrawHandler those of ImageLoadHandler/BackgroundImageDrawHandler.",
+    "The upstream copyright lines are those of Broiler.HTML's LICENSES/HTML-Renderer-BSD-3-Clause.txt. This component ships no notice for that code yet."
+  ],
+  "schema": 1,
+  "component": "Broiler.Graphics",
+  "projects": [
+    "src/Broiler.Graphics/Broiler.Graphics.csproj",
+    "src/Broiler.Graphics.Android/Broiler.Graphics.Android.csproj",
+    "src/Broiler.Graphics.Linux/Broiler.Graphics.Linux.csproj",
+    "src/Broiler.Graphics.Linux.OpenGL/Broiler.Graphics.Linux.OpenGL.csproj",
+    "src/Broiler.Graphics.Linux.Vulkan/Broiler.Graphics.Linux.Vulkan.csproj",
+    "src/Broiler.Graphics.WebAssembly/Broiler.Graphics.WebAssembly.csproj",
+    "src/Broiler.Graphics.Windows/Broiler.Graphics.Direct2D.csproj"
+  ],
+  "exclude": [],
+  "exemptionPredicate": "owning-component",
+  "spdx": {
+    "copyright": [ "2026 Broiler Platform contributors" ],
+    "license": "Apache-2.0"
+  },
+  "spdxOverrides": [
+    { "glob": "src/Broiler.Graphics/Adapters/BBrush.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BFont.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BFontFamily.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BGraphics.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BGraphicsPath.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BImage.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BKeyEvent.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BMouseEvent.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/BPen.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/IBackgroundImageDrawHandler.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/IColorResolver.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/IFontCreator.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/IImageLoadHandler.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Adapters/IResourceFactory.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Geometry/Border.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Geometry/Corner.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" },
+    { "glob": "src/Broiler.Graphics/Text/FontsHandler.cs", "copyright": [ "2026 Broiler Platform contributors", "2009 José Manuel Menéndez Poo", "2013-2025 Arthur Teplitzki" ], "license": "Apache-2.0 AND BSD-3-Clause" }
+  ],
+  "artefacts": {
+    "report": "CODE-ASSURANCE.md",
+    "humanReview": "HUMAN_REVIEW.units.md",
+    "manifest": "assurance.manifest.json"
+  },
+  "forbidDirectives": false,
+  "forgeryVocabulary": "narrow",
+  "regenerateCommand": "dotnet run --project Broiler.Code/src/Broiler.Code.Review.Cli -c Release -- assurance generate --root Broiler.Graphics"
+}
