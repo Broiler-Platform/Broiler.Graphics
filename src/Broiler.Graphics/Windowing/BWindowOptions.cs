@@ -12,6 +12,16 @@ public sealed record BWindowOptions
 
     public int ClientHeight { get; init; } = 768;
 
+    /// <summary>
+    /// Minimum client width in device-independent pixels, or null if no minimum width constraint is enforced.
+    /// </summary>
+    public int? MinClientWidth { get; init; }
+
+    /// <summary>
+    /// Minimum client height in device-independent pixels, or null if no minimum height constraint is enforced.
+    /// </summary>
+    public int? MinClientHeight { get; init; }
+
     public BColor ClearColor { get; init; } = BColor.White;
 
     public bool EnableTransparency { get; init; }

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Broiler.Graphics.Text;
 using Broiler.Native.Windows.Direct2D;
 
@@ -16,6 +17,16 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
 
     private readonly ComPtr _factory;
     private readonly ConcurrentDictionary<BFontStyle, double> _lineHeightCache = new();
+    private readonly DirectWriteTextFormatCache _formatCache = new();
+    private readonly ConcurrentDictionary<(string Text, BFontStyle Font), double> _advanceCache = new();
+    private long _advanceHits;
+    private long _advanceMisses;
+
+    public long AdvanceCacheHits => Volatile.Read(ref _advanceHits);
+    public long AdvanceCacheMisses => Volatile.Read(ref _advanceMisses);
+    public long FormatCacheHits => _formatCache.FormatCacheHits;
+    public long FormatCacheMisses => _formatCache.FormatCacheMisses;
+    public int CachedFormatCount => _formatCache.CachedFormatCount;
 
     private DirectWriteTextMetricsProvider(ComPtr factory) => _factory = factory;
 
@@ -30,6 +41,28 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
         if (text.Length == 0)
             return 0;
 
+        if (text.Length <= 128)
+        {
+            if (_advanceCache.TryGetValue((text, font), out double cached))
+            {
+                Interlocked.Increment(ref _advanceHits);
+                return cached;
+            }
+
+            if (_advanceCache.Count >= 2048)
+                _advanceCache.Clear();
+
+            double measured = MeasureAdvanceCore(text, font);
+            _advanceCache[(text, font)] = measured;
+            Interlocked.Increment(ref _advanceMisses);
+            return measured;
+        }
+
+        return MeasureAdvanceCore(text, font);
+    }
+
+    private double MeasureAdvanceCore(string text, BFontStyle font)
+    {
         DWriteNative.DWRITE_TEXT_METRICS metrics = MeasureLayout(text, font);
         return Math.Round(Math.Max(0, metrics.WidthIncludingTrailingWhitespace), 2);
     }
@@ -45,31 +78,13 @@ internal sealed class DirectWriteTextMetricsProvider : IBTextMetricsProvider
 
     private DWriteNative.DWRITE_TEXT_METRICS MeasureLayout(string text, BFontStyle font)
     {
-        using ComPtr textFormat = CreateTextFormat(font);
+        ComPtr textFormat = _formatCache.GetOrCreate(_factory.Pointer, font);
         using ComPtr layout = CreateTextLayout(text, textFormat.Pointer);
 
         GetMetricsProc getMetrics = ComVtable.Method<GetMetricsProc>(layout.Pointer, DWriteNative.VtblGetMetrics);
         int hr = getMetrics(layout.Pointer, out DWriteNative.DWRITE_TEXT_METRICS metrics);
         NativeMethods.ThrowIfFailed(hr, "IDWriteTextLayout::GetMetrics");
         return metrics;
-    }
-
-    private ComPtr CreateTextFormat(BFontStyle font)
-    {
-        CreateTextFormatProc createTextFormat =
-            ComVtable.Method<CreateTextFormatProc>(_factory.Pointer, DWriteNative.VtblCreateTextFormat);
-        int hr = createTextFormat(
-            _factory.Pointer,
-            DirectWriteText.ResolveFontFamily(font.FamilyName),
-            IntPtr.Zero,
-            DWriteConversions.ToDWrite(font.Weight),
-            DWriteConversions.ToDWrite(font.Slant),
-            DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
-            DirectWriteText.ToFontSize(font.Size),
-            DirectWriteText.CurrentLocaleName(),
-            out IntPtr textFormat);
-        NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");
-        return new ComPtr(textFormat);
     }
 
     private ComPtr CreateTextLayout(string text, IntPtr textFormat)

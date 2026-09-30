@@ -19,6 +19,7 @@ internal static class Program
         BImageCodecs.Use(new MediaCodecCatalog(ManagedImageCodecs.CreateCodecs()));
 
         var tests = new List<(string Name, Action Body)>();
+        RenderOptionsTests.Register(tests);
         RenderListTests.Register(tests);
         TriangleRenderTests.Register(tests);
         BitmapCanvasTests.Register(tests);

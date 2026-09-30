@@ -31,6 +31,21 @@ public abstract class BWindow(BWindowOptions options) : IDisposable
     /// <summary>Raised when the window is minimized, maximized, or restored.</summary>
     public event EventHandler? StateChanged;
 
+    /// <summary>Raised when graphics device loss is detected and resources must be recreated.</summary>
+    public event EventHandler? DeviceLost;
+
+    /// <summary>Raised after a frame has been rendered with timing and index information.</summary>
+    public event EventHandler<BFrameRenderedEventArgs>? FrameRendered;
+
+    /// <summary>Total frames rendered by this window.</summary>
+    public virtual long FrameCount => 0;
+
+    /// <summary>Total invalidations requested since the last frame render.</summary>
+    public virtual int InvalidationCount => 0;
+
+    /// <summary>Wall-clock duration of the last layout-independent frame presentation pass.</summary>
+    public virtual TimeSpan LastRenderDuration => TimeSpan.Zero;
+
     public abstract IntPtr NativeHandle { get; }
 
     public abstract BSize ClientSize { get; }
@@ -158,6 +173,11 @@ public abstract class BWindow(BWindowOptions options) : IDisposable
     protected void RaiseClosed() => Closed?.Invoke(this, EventArgs.Empty);
 
     protected void RaiseStateChanged() => StateChanged?.Invoke(this, EventArgs.Empty);
+
+    protected void RaiseDeviceLost() => DeviceLost?.Invoke(this, EventArgs.Empty);
+
+    protected void RaiseFrameRendered(long frameIndex, TimeSpan duration) =>
+        FrameRendered?.Invoke(this, new BFrameRenderedEventArgs(frameIndex, duration));
 
     protected abstract int RunCore();
 

@@ -24,6 +24,9 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private const string RenderHostClassName = "BroilerGraphicsDirect2DRenderHost";
 
     private const uint WmInvoke = 0x8001;
+    private const uint WmGetMinMaxInfo = 0x0024;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
     private const nuint AnimationTimerId = 1;
 
     private static readonly WndProc s_wndProc = WindowProc;
@@ -38,6 +41,8 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private IBroilerSurface? _surface;
     private readonly Queue<Action> _postedCallbacks = new();
     private long _frameIndex;
+    private int _invalidationCount;
+    private TimeSpan _lastRenderDuration;
     private int _nextControlId = 1000;
     private bool _runStarted;
     private bool _trackingMouse;
@@ -46,6 +51,12 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private IntPtr _largeIcon;
     private IntPtr _smallIcon;
     private BWindowState _lastReportedState = BWindowState.Normal;
+
+    public override long FrameCount => _frameIndex;
+
+    public override int InvalidationCount => _invalidationCount;
+
+    public override TimeSpan LastRenderDuration => _lastRenderDuration;
 
     public override IntPtr NativeHandle => _hwnd;
 
@@ -183,6 +194,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     protected override void InvalidateCore()
     {
+        _invalidationCount++;
         if (_renderHwnd != IntPtr.Zero)
             InvalidateRect(_renderHwnd, IntPtr.Zero, false);
         else if (_hwnd != IntPtr.Zero)
@@ -561,7 +573,23 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
                 return DefWindowProc(_hwnd, message, wParam, lParam);
 
+            case WmGetMinMaxInfo when lParam != IntPtr.Zero && (Options.MinClientWidth.HasValue || Options.MinClientHeight.HasValue):
+                ApplyMinMaxInfo(lParam);
+                return IntPtr.Zero;
+
             case WmDpiChanged:
+                if (lParam != IntPtr.Zero)
+                {
+                    RECT suggested = Marshal.PtrToStructure<RECT>(lParam);
+                    SetWindowPos(
+                        _hwnd,
+                        IntPtr.Zero,
+                        suggested.Left,
+                        suggested.Top,
+                        suggested.Width,
+                        suggested.Height,
+                        SwpNoZOrder | SwpNoActivate);
+                }
                 ResizeSurfaceAndNotify();
                 return IntPtr.Zero;
 
@@ -712,10 +740,17 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             if (renderList is null)
                 return;
 
-            _renderer.Render(_surface, renderList, CreateFrameContext(_frameIndex++));
+            long frameIndex = _frameIndex++;
+            _invalidationCount = 0;
+            var stopwatch = Stopwatch.StartNew();
+            _renderer.Render(_surface, renderList, CreateFrameContext(frameIndex));
+            stopwatch.Stop();
+            _lastRenderDuration = stopwatch.Elapsed;
+            RaiseFrameRendered(frameIndex, _lastRenderDuration);
         }
         catch (BDeviceLostException)
         {
+            RaiseDeviceLost();
             CreateGraphicsResources();
             InvalidateCore();
         }
@@ -1192,6 +1227,49 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     {
         IntPtr parent = GetParent(hwnd);
         return parent == IntPtr.Zero ? null : FromHwnd(parent);
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(IntPtr hwnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public POINT PtReserved;
+        public POINT PtMaxSize;
+        public POINT PtMaxPosition;
+        public POINT PtMinTrackSize;
+        public POINT PtMaxTrackSize;
+    }
+
+    private void ApplyMinMaxInfo(IntPtr lParam)
+    {
+        double scale = DpiScale;
+        int minClientW = Options.MinClientWidth ?? 0;
+        int minClientH = Options.MinClientHeight ?? 0;
+
+        var limits = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+        var rect = new RECT(
+            0,
+            0,
+            (int)Math.Ceiling(minClientW * scale),
+            (int)Math.Ceiling(minClientH * scale));
+
+        if (!IsOwnerDrawnChrome)
+        {
+            uint style = (uint)GetWindowLongPtr(_hwnd, -16);
+            uint exStyle = (uint)GetWindowLongPtr(_hwnd, -20);
+            uint dpi = (uint)Math.Round(96.0 * scale);
+            AdjustWindowRectForInitialDpi(ref rect, style, false, exStyle, dpi);
+        }
+
+        if (Options.MinClientWidth.HasValue)
+            limits.PtMinTrackSize.X = rect.Width;
+        if (Options.MinClientHeight.HasValue)
+            limits.PtMinTrackSize.Y = rect.Height;
+
+        Marshal.StructureToPtr(limits, lParam, false);
     }
 
 }

@@ -25,9 +25,32 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     private readonly Direct2DDevice _device;
     private readonly Direct2DImageStore _images = new();
     private readonly Stack<BMatrix3x2> _transformStack = new();
+    private readonly Dictionary<BColor, ComPtr> _brushCache = new();
+    private readonly DirectWriteTextFormatCache _formatCache = new();
 
+    private const int MaxBrushCacheCapacity = 128;
     private BMatrix3x2 _currentTransform = BMatrix3x2.Identity;
+    private long _brushCacheHits;
+    private long _brushCacheMisses;
     private bool _disposed;
+
+    /// <summary>Total cache hits when reusing Direct2D solid color brushes within this renderer.</summary>
+    public long BrushCacheHits => _brushCacheHits;
+
+    /// <summary>Total cache misses when creating Direct2D solid color brushes.</summary>
+    public long BrushCacheMisses => _brushCacheMisses;
+
+    /// <summary>Number of currently cached Direct2D solid color brushes.</summary>
+    public int CachedBrushCount => _brushCache.Count;
+
+    /// <summary>Total cache hits when reusing DirectWrite text formats.</summary>
+    public long TextFormatCacheHits => _formatCache.FormatCacheHits;
+
+    /// <summary>Total cache misses when creating DirectWrite text formats.</summary>
+    public long TextFormatCacheMisses => _formatCache.FormatCacheMisses;
+
+    /// <summary>Number of currently cached DirectWrite text formats.</summary>
+    public int CachedTextFormatCount => _formatCache.CachedFormatCount;
 
     public Direct2DRenderer()
     {
@@ -125,14 +148,17 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Clear(context, frame.ClearColor);
     }
 
-    private static void EndDraw(IDirect2DSurface surface, BFrameContext frame)
+    private void EndDraw(IDirect2DSurface surface, BFrameContext frame)
     {
         IntPtr context = surface.Context;
 
         EndDrawProc endDraw = ComVtable.Method<EndDrawProc>(context, D2DNative.VtblEndDraw);
         int hr = endDraw(context, IntPtr.Zero, IntPtr.Zero);
         if (hr == D2DNative.D2DERR_RECREATE_TARGET)
+        {
+            ClearBrushCache();
             throw new BDeviceLostException("Direct2D target resources must be recreated.", hr);
+        }
 
         NativeMethods.ThrowIfFailed(hr, "ID2D1DeviceContext::EndDraw");
         surface.Present(frame.Options.VSync);
@@ -181,10 +207,10 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         }
     }
 
-    private static void FillRect(IDirect2DSurface surface, BRenderCommand.FillRect c)
+    private void FillRect(IDirect2DSurface surface, BRenderCommand.FillRect c)
     {
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Color);
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
         FillRectangleProc fill = ComVtable.Method<FillRectangleProc>(context, D2DNative.VtblFillRectangle);
@@ -196,10 +222,10 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     /// none for an arbitrary polygon, so the three corners become a one-figure path geometry that
     /// FillGeometry draws with the render target's own antialiasing.
     /// </summary>
-    private static void FillTriangle(IDirect2DSurface surface, BRenderCommand.FillTriangle c)
+    private void FillTriangle(IDirect2DSurface surface, BRenderCommand.FillTriangle c)
     {
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Color);
         using ComPtr geometry = CreateTriangleGeometry(context, c);
 
         FillGeometryProc fill = ComVtable.Method<FillGeometryProc>(context, D2DNative.VtblFillGeometry);
@@ -269,30 +295,30 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     private static D2DNative.D2D1_POINT_2F ToPointF(BPoint point) =>
         new() { X = (float)point.X, Y = (float)point.Y };
 
-    private static void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
+    private void StrokeRect(IDirect2DSurface surface, BRenderCommand.StrokeRect c)
     {
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Color);
         D2DNative.D2D1_RECT_F rect = ToRectF(c.Rect);
 
         DrawRectangleProc draw = ComVtable.Method<DrawRectangleProc>(context, D2DNative.VtblDrawRectangle);
         draw(context, in rect, brush.Pointer, (float)c.Thickness, IntPtr.Zero);
     }
 
-    private static void FillRoundedRect(IDirect2DSurface surface, BRenderCommand.FillRoundedRect c)
+    private void FillRoundedRect(IDirect2DSurface surface, BRenderCommand.FillRoundedRect c)
     {
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Color);
         D2DNative.D2D1_ROUNDED_RECT rect = ToRoundedRect(c.Rect, c.RadiusX, c.RadiusY);
 
         FillRoundedRectangleProc fill = ComVtable.Method<FillRoundedRectangleProc>(context, D2DNative.VtblFillRoundedRectangle);
         fill(context, in rect, brush.Pointer);
     }
 
-    private static void StrokeRoundedRect(IDirect2DSurface surface, BRenderCommand.StrokeRoundedRect c)
+    private void StrokeRoundedRect(IDirect2DSurface surface, BRenderCommand.StrokeRoundedRect c)
     {
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Color);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Color);
         D2DNative.D2D1_ROUNDED_RECT rect = ToRoundedRect(c.Rect, c.RadiusX, c.RadiusY);
 
         DrawRoundedRectangleProc draw = ComVtable.Method<DrawRoundedRectangleProc>(context, D2DNative.VtblDrawRoundedRectangle);
@@ -305,8 +331,8 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             return;
 
         IntPtr context = surface.Context;
-        using ComPtr brush = CreateSolidBrush(context, c.Text.Color);
-        using ComPtr textFormat = CreateTextFormat(c.Text.Font);
+        ComPtr brush = GetOrCreateSolidBrush(context, c.Text.Color);
+        ComPtr textFormat = _formatCache.GetOrCreate(_device.DWriteFactory.Pointer, c.Text.Font);
 
         D2DNative.D2D1_RECT_F layoutRect = ToTextLayoutRect(c.Origin);
         DrawTextProc drawText = ComVtable.Method<DrawTextProc>(context, D2DNative.VtblDrawText);
@@ -390,22 +416,29 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         return new ComPtr(brush);
     }
 
-    private ComPtr CreateTextFormat(BFontStyle font)
+    private ComPtr GetOrCreateSolidBrush(IntPtr context, BColor color)
     {
-        CreateTextFormatProc createTextFormat =
-            ComVtable.Method<CreateTextFormatProc>(_device.DWriteFactory.Pointer, DWriteNative.VtblCreateTextFormat);
-        int hr = createTextFormat(
-            _device.DWriteFactory.Pointer,
-            DirectWriteText.ResolveFontFamily(font.FamilyName),
-            IntPtr.Zero,
-            DWriteConversions.ToDWrite(font.Weight),
-            DWriteConversions.ToDWrite(font.Slant),
-            DWriteNative.DWRITE_FONT_STRETCH.NORMAL,
-            DirectWriteText.ToFontSize(font.Size),
-            DirectWriteText.CurrentLocaleName(),
-            out IntPtr textFormat);
-        NativeMethods.ThrowIfFailed(hr, "IDWriteFactory::CreateTextFormat");
-        return new ComPtr(textFormat);
+        if (_brushCache.TryGetValue(color, out ComPtr? existing))
+        {
+            _brushCacheHits++;
+            return existing;
+        }
+
+        if (_brushCache.Count >= MaxBrushCacheCapacity)
+            ClearBrushCache();
+
+        ComPtr created = CreateSolidBrush(context, color);
+        _brushCache[color] = created;
+        _brushCacheMisses++;
+        return created;
+    }
+
+    /// <summary>Disposes and clears all cached Direct2D solid color brushes.</summary>
+    public void ClearBrushCache()
+    {
+        foreach (ComPtr brush in _brushCache.Values)
+            brush.Dispose();
+        _brushCache.Clear();
     }
 
     private void ResetManagedDrawingState()
@@ -502,6 +535,8 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         if (_disposed)
             return;
         _disposed = true;
+        ClearBrushCache();
+        _formatCache.Dispose();
         _images.Dispose();
         _device.Dispose();
     }
