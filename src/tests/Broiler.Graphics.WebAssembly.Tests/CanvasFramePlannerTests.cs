@@ -22,6 +22,7 @@ internal static class CanvasFramePlannerTests
         tests.Add(("FillRect encodes device rect and color", FillRectEncodes));
         tests.Add(("Transparent fill is dropped", TransparentFillDropped));
         tests.Add(("Translation bakes into device rect", TranslationBakes));
+        tests.Add(("Nested transform applies first", NestedTransformAppliesFirst));
         tests.Add(("DPR scales device rect", DprScales));
         tests.Add(("Clip emitted once, reused, cleared on pop", ClipLazyEmission));
         tests.Add(("Nested clips intersect", NestedClipsIntersect));
@@ -74,6 +75,26 @@ internal static class CanvasFramePlannerTests
         AssertEx.AreClose(22, fill.Operands[1]);
         AssertEx.AreClose(3, fill.Operands[2]);
         AssertEx.AreClose(4, fill.Operands[3]);
+    }
+
+    /// <summary>
+    /// A transform pushed inside another applies first: a box scaled about its centre inside a
+    /// translation is scaled where it is, then moved, as a canvas's <c>transform()</c> nests.
+    /// </summary>
+    private static void NestedTransformAppliesFirst()
+    {
+        var list = new BRenderList();
+        list.PushTransform(BMatrix3x2.Translation(0, 40));
+        list.PushTransform(BMatrix3x2.Translation(-20, -20) * BMatrix3x2.Scale(0.5, 0.5) * BMatrix3x2.Translation(20, 20));
+        list.FillRect(new BRect(10, 10, 20, 20), BColor.Black);
+        list.PopTransform();
+        list.PopTransform();
+
+        ReplayOp fill = ReplayStream.Parse(Plan(list)).Single(CanvasReplayOp.FillRect);
+        AssertEx.AreClose(15, fill.Operands[0]);
+        AssertEx.AreClose(55, fill.Operands[1]);
+        AssertEx.AreClose(10, fill.Operands[2]);
+        AssertEx.AreClose(10, fill.Operands[3]);
     }
 
     private static void DprScales()

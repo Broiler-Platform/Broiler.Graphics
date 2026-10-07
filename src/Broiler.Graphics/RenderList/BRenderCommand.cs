@@ -53,7 +53,13 @@ public abstract record BRenderCommand
     /// <summary>Pops the most recent clip.</summary>
     public sealed record PopClip : BRenderCommand;
 
-    /// <summary>Pushes a transform onto the transform stack (concatenated with the current one).</summary>
+    /// <summary>Pushes a transform onto the transform stack, concatenated before the current one.</summary>
+    /// <remarks>
+    /// The transform maps the coordinates of what is drawn until the matching
+    /// <see cref="PopTransform"/> into the space of the transforms already pushed, so it applies
+    /// first: inside <c>Translation(0, 72)</c>, a scale about (134, 134) scales about that point of
+    /// the content and the result is moved down 72, as a canvas's <c>transform()</c> nests.
+    /// </remarks>
     public sealed record PushTransform(BMatrix3x2 Transform) : BRenderCommand;
 
     /// <summary>Pops the most recent transform.</summary>

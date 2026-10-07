@@ -395,8 +395,10 @@ public sealed class Direct2DRenderer : IBroilerRenderer
 
     private void PushTransform(IDirect2DSurface surface, BRenderCommand.PushTransform c)
     {
+        // The pushed transform maps into the space of the ones already pushed, so it applies
+        // first (BRenderCommand.PushTransform).
         _transformStack.Push(_currentTransform);
-        _currentTransform *= c.Transform;
+        _currentTransform = c.Transform * _currentTransform;
         SetTransform(surface.Context, _currentTransform);
     }
 
