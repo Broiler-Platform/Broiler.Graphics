@@ -122,8 +122,10 @@ public sealed class CanvasFramePlanner
                 PopClip();
                 break;
             case BRenderCommand.PushTransform c:
+                // The pushed transform maps into the space of the ones already pushed, so it
+                // applies first (BRenderCommand.PushTransform).
                 _transformStack.Push(_current);
-                _current *= c.Transform;
+                _current = c.Transform * _current;
                 break;
             case BRenderCommand.PopTransform:
                 _current = _transformStack.Pop();

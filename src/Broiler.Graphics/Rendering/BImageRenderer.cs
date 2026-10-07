@@ -146,8 +146,10 @@ public sealed class BImageRenderer : IBroilerRenderer
                 canvas.PopClip();
                 break;
             case BRenderCommand.PushTransform c:
+                // The pushed transform maps into the space of the ones already pushed, so it
+                // applies first (BRenderCommand.PushTransform).
                 state.TransformStack.Push(state.CurrentTransform);
-                state.CurrentTransform *= c.Transform;
+                state.CurrentTransform = c.Transform * state.CurrentTransform;
                 break;
             case BRenderCommand.PopTransform:
                 state.CurrentTransform = state.TransformStack.Pop();

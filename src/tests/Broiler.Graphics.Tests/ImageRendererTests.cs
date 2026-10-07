@@ -18,6 +18,7 @@ internal static class ImageRendererTests
         tests.Add(("Image renderer returns filled pixels", RenderToImageFillsPixels));
         tests.Add(("Image renderer draws uploaded images", RenderDrawsUploadedImages));
         tests.Add(("Image renderer respects clips and transforms", RenderRespectsClipsAndTransforms));
+        tests.Add(("Image renderer applies a nested transform first", NestedTransformsApplyInnermostFirst));
         tests.Add(("Image renderer text fallback emits pixels", RenderTextFallbackEmitsPixels));
     }
 
@@ -73,6 +74,39 @@ internal static class ImageRendererTests
         AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(3, 3));
         AssertEx.AreEqual(BColor.Green, bitmap.GetPixel(4, 4));
         AssertEx.AreEqual(BColor.Transparent, bitmap.GetPixel(7, 7));
+    }
+
+    /// <summary>
+    /// A transform pushed inside another applies first: a box scaled about its centre inside a
+    /// translation is scaled where it is, then moved. A browser draws a page under a translation to
+    /// its viewport, and the page's own transforms inside it; the nested scale was applied after the
+    /// translation instead, about a point the translation had moved the box away from, so a page's
+    /// scaled box was drawn short of where it is by (1 - scale) times the translation.
+    /// </summary>
+    private static void NestedTransformsApplyInnermostFirst()
+    {
+        using var renderer = new BImageRenderer();
+        var list = new BRenderList();
+        list.PushTransform(BMatrix3x2.Translation(0, 40));
+        list.PushTransform(BMatrix3x2.Translation(-20, -20) * BMatrix3x2.Scale(0.5, 0.5) * BMatrix3x2.Translation(20, 20));
+        list.FillRect(new BRect(10, 10, 20, 20), BColor.Red);
+        list.PushClip(new BRect(10, 10, 10, 20));
+        list.FillRect(new BRect(10, 10, 20, 20), BColor.Blue);
+        list.PopClip();
+        list.PopTransform();
+        list.PopTransform();
+
+        using BBitmap bitmap = renderer.RenderToImage(
+            list,
+            BSurfaceDescriptor.Default(new BSize(40, 80)),
+            new BFrameContext(BColor.White));
+
+        // The box covers 15..25 across and 55..65 down, its left half clipped to blue.
+        AssertEx.AreEqual(BColor.Blue, bitmap.GetPixel(16, 56));
+        AssertEx.AreEqual(BColor.Red, bitmap.GetPixel(23, 63));
+        AssertEx.AreEqual(BColor.White, bitmap.GetPixel(20, 53));
+        AssertEx.AreEqual(BColor.White, bitmap.GetPixel(20, 66));
+        AssertEx.AreEqual(BColor.White, bitmap.GetPixel(13, 60));
     }
 
     private static void RenderTextFallbackEmitsPixels()
