@@ -90,9 +90,11 @@ Releases are published exclusively to **NuGet.org**.
 
 The workflow is triggered either:
 - Manually via `workflow_dispatch` with optional inputs:
-  - `dry-run`: Validate packages and simulate publication without pushing (default: `true`).
   - `version-suffix`: Explicit preview version suffix (e.g., `preview.7`). If empty, the next unused preview number is chosen automatically.
-- Automatically by pushing a version tag (e.g., `git tag v0.1.0-preview.7 && git push origin v0.1.0-preview.7`), which performs a non-dry-run publish to NuGet.org.
+- Automatically by pushing a version tag (e.g., `git tag v0.1.0-preview.7 && git push origin v0.1.0-preview.7`), which publishes to NuGet.org.
+
+Every run pushes; there is no dry-run mode. The no-push pack dry run is CI: every push and
+pull request packs every package and verifies a fresh consumer restore from NuGet.org.
 
 The publication workflow executes in four stages:
 
@@ -108,7 +110,7 @@ The publication workflow executes in four stages:
    This creates an isolated test consumer project and NuGet cache to verify that every package and all its transitive dependencies can be restored successfully from the staged release and NuGet.org before uploading.
 
 4. **Push to NuGet.org**:
-   When `dry-run` is `false`, pushes all `.nupkg` and `.snupkg` symbol packages to NuGet.org:
+   Pushes all `.nupkg` and `.snupkg` symbol packages to NuGet.org:
    ```sh
    dotnet nuget push 'artifacts/*.nupkg' --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY"
    ```
