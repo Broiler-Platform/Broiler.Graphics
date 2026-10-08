@@ -46,7 +46,24 @@ public abstract record BRenderCommand
 
     /// <summary>Draws (a region of) an image into a destination rectangle, sampled as <paramref name="Sampling"/> says.</summary>
     public sealed record DrawImage(BImageHandle Image, BRect Source, BRect Destination, double Opacity,
-        BImageSampling Sampling = BImageSampling.Linear) : BRenderCommand;
+        BImageSampling Sampling) : BRenderCommand
+    {
+        /// <summary>A linearly sampled image, as every image was before <see cref="BImageSampling"/>.</summary>
+        /// <remarks>Kept for callers built against the four-parameter constructor.</remarks>
+        public DrawImage(BImageHandle Image, BRect Source, BRect Destination, double Opacity)
+            : this(Image, Source, Destination, Opacity, BImageSampling.Linear)
+        {
+        }
+
+        /// <summary>The four parts a command had before <see cref="BImageSampling"/>, for callers built against them.</summary>
+        public void Deconstruct(out BImageHandle Image, out BRect Source, out BRect Destination, out double Opacity)
+        {
+            Image = this.Image;
+            Source = this.Source;
+            Destination = this.Destination;
+            Opacity = this.Opacity;
+        }
+    }
 
     /// <summary>Pushes a rectangular clip onto the clip stack.</summary>
     public sealed record PushClip(BRect Rect) : BRenderCommand;
