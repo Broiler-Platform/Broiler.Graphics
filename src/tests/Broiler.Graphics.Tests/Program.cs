@@ -36,6 +36,7 @@ internal static class Program
         SystemFontTests.Register(tests);
         FontFaceTextTests.Register(tests);
         TextBaselineTests.Register(tests);
+        ImageSamplingTests.Register(tests);
 
         Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "CPU",
             () => new Broiler.Graphics.Rendering.BImageRenderer(),

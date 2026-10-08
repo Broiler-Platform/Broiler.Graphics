@@ -24,6 +24,7 @@ internal static class Program
         WindowIconTests.Register(tests);
         WindowResizePaintTests.Register(tests);
         Direct2DTriangleTests.Register(tests);
+        Direct2DImageSamplingTests.Register(tests);
         Direct2DFontFaceTests.Register(tests);
         SystemFontCollectionTests.Register(tests);
         BackendExperienceTests.Register(tests);

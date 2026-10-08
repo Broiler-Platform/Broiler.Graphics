@@ -97,6 +97,10 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         _images.Remove(image);
     }
 
+    // The frame's antialias mode, which an image drawn with nearest-neighbour sampling leaves for
+    // its own draw and restores after it.
+    private D2DNative.D2D1_ANTIALIAS_MODE _frameAntialiasMode = D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE;
+
     public void Render(IBroilerSurface surface, BRenderList renderList, BFrameContext frameContext)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -109,6 +113,9 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         renderList.Validate();
         ResetManagedDrawingState();
 
+        _frameAntialiasMode = frameContext.Options.Antialias
+            ? D2DNative.D2D1_ANTIALIAS_MODE.PER_PRIMITIVE
+            : D2DNative.D2D1_ANTIALIAS_MODE.ALIASED;
         BeginDraw(d2dSurface, frameContext);
         try
         {
@@ -456,6 +463,23 @@ public sealed class Direct2DRenderer : IBroilerRenderer
         Direct2DImage image = _images.Get(c.Image);
         IntPtr context = surface.Context;
         IntPtr bitmap = image.EnsureBitmap(context);
+
+        if (c.Sampling == BImageSampling.NearestNeighbor)
+        {
+            // Aliased, the bitmap covers the device pixels whose centres its destination covers, as
+            // the CPU renderer draws it, so tiles laid edge to edge at a fractional DPI scale cover
+            // each pixel once instead of sharing it in two antialiased halves.
+            SetAntialiasMode(context, D2DNative.D2D1_ANTIALIAS_MODE.ALIASED);
+            DrawBitmap(
+                context,
+                bitmap,
+                ToRectF(c.Destination),
+                (float)c.Opacity,
+                D2DNative.D2D1_BITMAP_INTERPOLATION_MODE.NEAREST_NEIGHBOR,
+                ToRectF(c.Source));
+            SetAntialiasMode(context, _frameAntialiasMode);
+            return;
+        }
 
         DrawBitmap(
             context,
