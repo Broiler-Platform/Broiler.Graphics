@@ -108,8 +108,14 @@ public sealed class BRenderList
         Add(new BRenderCommand.DrawText(text, origin));
     }
 
-    public void DrawImage(BImageHandle image, BRect source, BRect destination, double opacity = 1.0,
-        BImageSampling sampling = BImageSampling.Linear)
+    // Kept, without a sampling, for callers built against the four-parameter method, which a new
+    // optional parameter on the same method would no longer bind to: Broiler.HTML 0.1.0-preview.24
+    // stopped drawing pages with a MissingMethodException.
+    public void DrawImage(BImageHandle image, BRect source, BRect destination, double opacity = 1.0) =>
+        DrawImage(image, source, destination, opacity, BImageSampling.Linear);
+
+    public void DrawImage(BImageHandle image, BRect source, BRect destination, double opacity,
+        BImageSampling sampling)
     {
         if (opacity is < 0.0 or > 1.0)
             throw new ArgumentOutOfRangeException(nameof(opacity), "Opacity must be within [0, 1].");
