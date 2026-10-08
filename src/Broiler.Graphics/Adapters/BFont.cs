@@ -36,5 +36,17 @@ public abstract class BFont : ILayoutFont
     /// </summary>
     public virtual FontStyle Style => FontStyle.Regular;
 
+    /// <summary>
+    /// The font program this font measured with when a render backend cannot find it by
+    /// <see cref="Family"/> — a web font from <c>@font-face</c>, or a file registered at runtime —
+    /// and <see langword="null"/> for an installed family.
+    /// </summary>
+    /// <remarks>
+    /// A consumer building a <see cref="BFontStyle"/> from this font passes it on as
+    /// <see cref="BFontStyle.Face"/>, which is what makes a backend draw the face layout measured
+    /// rather than an installed one that happens to answer to the name, or none at all.
+    /// </remarks>
+    public virtual BFontFace? Face => null;
+
     public abstract double GetWhitespaceWidth(BGraphics graphics);
 }

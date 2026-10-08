@@ -316,6 +316,15 @@ public sealed class BImageRenderer : IBroilerRenderer
             return;
 
         double fontSize = Math.Max(1.0, run.Font.Size);
+
+        // A face the run carries is the one its layout measured (a web font), which no family name
+        // would find on this machine: draw its own outlines.
+        if (run.Font.Face is { } face)
+        {
+            DrawTextWithFace(canvas, run, face, command.Origin, run.Baseline, fontSize, state);
+            return;
+        }
+
         bool bold = run.Font.Weight >= BFontWeight.Bold;
         bool italic = run.Font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 
@@ -325,18 +334,45 @@ public sealed class BImageRenderer : IBroilerRenderer
         // in another makes each run the wrong width for the space reserved for it. Must stay in
         // step with BTextMeasurer's fallback provider, which resolves the same way.
         FallbackSystemFont? font = FallbackSystemFont.For(run.Font.FamilyName, bold, italic);
+        // The baseline is the layout's when the run states one: the text was placed so that its
+        // baseline lies there, and images and the next line stand on it. Otherwise 0.8em, which is
+        // what BTextMeasurer reports to a caller laying text out with it.
+        double baseline = run.Baseline ?? (fontSize * 0.8);
         if (font is not null)
-            DrawTextWithSystemFont(canvas, run, command.Origin, fontSize, bold, font, state);
+            DrawTextWithSystemFont(canvas, run, command.Origin, baseline, fontSize, bold, font, state);
         else
-            DrawTextWithBlockFont(canvas, run, command.Origin, fontSize, bold, state);
+            DrawTextWithBlockFont(canvas, run, command.Origin, baseline, fontSize, bold, state);
     }
 
-    private static void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, ReplayState state)
+    private static void DrawTextWithFace(BCanvas canvas, BTextRun run, BFontFace face, BPoint origin, double? baseline, double fontSize, ReplayState state)
+    {
+        List<PointF[]> outline = face.GetRunOutline(run.Text, fontSize, origin, baseline);
+        if (outline.Count == 0)
+            return;
+
+        BMatrix3x2 transform = state.Effective;
+        foreach (PointF[] contour in outline)
+        {
+            for (int i = 0; i < contour.Length; i++)
+            {
+                BPoint transformed = transform.Transform(new BPoint(contour[i].X, contour[i].Y));
+                contour[i] = new PointF((float)transformed.X, (float)transformed.Y);
+            }
+        }
+
+        // One fill for the whole run, so glyphs that overlap (a mark on its base) are covered once.
+        canvas.FillGlyphContours(outline, run.Color);
+    }
+
+    private static void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double baseline, double fontSize, bool bold, ReplayState state)
     {
         double advance = Math.Max(1.0, fontSize * 0.62);
         double glyphHeight = fontSize;
         double glyphWidth = Math.Max(1.0, fontSize * 0.54);
         double penX = origin.X;
+
+        // A block glyph is one em tall with its foot 0.2em below the baseline.
+        double top = origin.Y + baseline - (fontSize * 0.8);
 
         foreach (char ch in run.Text)
         {
@@ -352,19 +388,18 @@ public sealed class BImageRenderer : IBroilerRenderer
                 continue;
             }
 
-            DrawFallbackGlyph(canvas, ch, penX, origin.Y, glyphWidth, glyphHeight, run.Color, bold, state);
+            DrawFallbackGlyph(canvas, ch, penX, top, glyphWidth, glyphHeight, run.Color, bold, state);
             penX += advance;
         }
     }
 
-    private static void DrawTextWithSystemFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, FallbackSystemFont font, ReplayState state)
+    private static void DrawTextWithSystemFont(BCanvas canvas, BTextRun run, BPoint origin, double baselineOffset, double fontSize, bool bold, FallbackSystemFont font, ReplayState state)
     {
         double blockAdvance = Math.Max(1.0, fontSize * 0.62);
         double glyphHeight = fontSize;
         double glyphWidth = Math.Max(1.0, fontSize * 0.54);
-        // Match BTextMeasurer's baseline assumption so real glyphs sit where the
-        // UI layout expects text to be.
-        double baseline = origin.Y + (fontSize * 0.8);
+        double baseline = origin.Y + baselineOffset;
+        double blockTop = baseline - (fontSize * 0.8);
         double penX = origin.X;
 
         foreach (char ch in run.Text)
@@ -393,7 +428,7 @@ public sealed class BImageRenderer : IBroilerRenderer
                 continue;
             }
 
-            DrawFallbackGlyph(canvas, ch, penX, origin.Y, glyphWidth, glyphHeight, run.Color, bold, state);
+            DrawFallbackGlyph(canvas, ch, penX, blockTop, glyphWidth, glyphHeight, run.Color, bold, state);
             penX += blockAdvance;
         }
     }

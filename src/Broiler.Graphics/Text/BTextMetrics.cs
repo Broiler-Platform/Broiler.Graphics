@@ -66,6 +66,12 @@ public static class BTextMeasurer
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(font);
 
+        // A face the font carries is measured from its own advances, whatever provider is
+        // registered: a provider resolves FamilyName against installed fonts, and the face is the
+        // one font it cannot find there. BImageRenderer and every backend draw it the same way.
+        if (font.Face is { } face)
+            return Math.Round(face.MeasureAdvance(text, font.Size), 2);
+
         return _provider.MeasureAdvance(text, font);
     }
 

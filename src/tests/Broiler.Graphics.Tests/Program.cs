@@ -34,6 +34,8 @@ internal static class Program
         RenderPathConcurrencyTests.Register(tests);
         RasterBandParallelismTests.Register(tests);
         SystemFontTests.Register(tests);
+        FontFaceTextTests.Register(tests);
+        TextBaselineTests.Register(tests);
 
         Broiler.Graphics.Tests.Shared.CpuPresentationTests.Register(tests, "CPU",
             () => new Broiler.Graphics.Rendering.BImageRenderer(),

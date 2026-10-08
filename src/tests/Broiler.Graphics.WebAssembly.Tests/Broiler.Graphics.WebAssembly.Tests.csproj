@@ -16,4 +16,8 @@
     <ProjectReference Include="..\..\Broiler.Graphics.WebAssembly\Broiler.Graphics.WebAssembly.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/SquareGlyphFont.cs" Link="SquareGlyphFont.cs" />
+  </ItemGroup>
+
 </Project>

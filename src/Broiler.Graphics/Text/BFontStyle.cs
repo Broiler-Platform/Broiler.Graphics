@@ -55,6 +55,20 @@ public sealed record BFontStyle(string FamilyName, double Size,
     /// </summary>
     public const double PixelsPerInch = 96.0;
 
+    /// <summary>
+    /// The font program to draw with when it is not one the backend can find by
+    /// <see cref="FamilyName"/> — a web font, or a file registered at runtime — or
+    /// <see langword="null"/> for an installed family.
+    /// </summary>
+    /// <remarks>
+    /// When it is set every backend draws, and <see cref="BTextMeasurer"/> measures, this face's
+    /// own outlines and advances, and <see cref="FamilyName"/> is only a label for it. Weight and
+    /// slant are not synthesised on it: the face is what the font that laid the text out resolved
+    /// to, bold or italic included. Part of the record's equality, by identity
+    /// (<see cref="BFontFace.For"/> keeps one face per program).
+    /// </remarks>
+    public BFontFace? Face { get; init; }
+
     /// <summary>A reasonable default used when no font is specified.</summary>
     public static BFontStyle Default { get; } = new("sans-serif", 16.0);
 

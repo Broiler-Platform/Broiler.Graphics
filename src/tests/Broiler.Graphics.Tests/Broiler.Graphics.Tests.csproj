@@ -22,5 +22,6 @@
 
   <ItemGroup>
     <Compile Include="../Shared/CpuPresentationTests.cs" Link="CpuPresentationTests.cs" />
+    <Compile Include="../Shared/SquareGlyphFont.cs" Link="SquareGlyphFont.cs" />
   </ItemGroup>
 </Project>
