@@ -157,7 +157,7 @@ Broiler.Graphics.WebAssembly   -> Broiler.Graphics
 
 | Backend | Status |
 | --- | --- |
-| Windows Direct2D | Complete: render-list replay, DirectWrite text, window and input integration, HWND video target. |
+| Windows Direct2D | Complete: render-list replay, DirectWrite text (a run whose `BFontStyle.Face` carries a web font is filled from that font's own outlines), window and input integration, HWND video target. |
 | Linux OpenGL | Preview: GPU-native replay covers clear, opaque fill/stroke rectangles, and rectangular clips. Text, images, rounded rectangles, transforms, and translucent draws fall back to CPU-present rendering, where render lists are replayed through the managed renderer, uploaded to an OpenGL texture/FBO, and presented through an EGL pbuffer or opt-in X11 window surface. |
 | Linux Vulkan | Early preview: creates a Vulkan 1.2 loader/device path when available and shares the CPU-present fallback; WSI/swapchain presentation and Vulkan command replay are in development. |
 | Android | EGL / OpenGL ES presentation surfaces and renderer via P/Invoke. |

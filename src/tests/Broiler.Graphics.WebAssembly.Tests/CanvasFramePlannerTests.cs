@@ -2,6 +2,7 @@ using Broiler.Graphics.Color;
 using Broiler.Graphics.Geometry;
 using Broiler.Graphics.RenderList;
 using Broiler.Graphics.Resources;
+using Broiler.Graphics.Tests.Shared;
 using Broiler.Graphics.Text;
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,7 @@ internal static class CanvasFramePlannerTests
         tests.Add(("StrokeRect scales thickness with min 1", StrokeThicknessScales));
         tests.Add(("Rounded rect radii scale with transform", RoundedRadiiScale));
         tests.Add(("DrawText bakes baseline and string table", DrawTextEncodes));
+        tests.Add(("Text in a carried face requires CPU fallback", CarriedFaceTextUsesFallback));
         tests.Add(("DrawImage encodes source, dest, opacity", DrawImageEncodes));
         tests.Add(("FillTriangle encodes its three corners and color", FillTriangleEncodes));
         tests.Add(("FillTriangle keeps its shape under rotation", FillTriangleSurvivesRotation));
@@ -345,6 +347,24 @@ internal static class CanvasFramePlannerTests
         reflected.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
         reflected.PopTransform();
         AssertEx.IsFalse(Plan(reflected).RequiresCpuFallback);
+    }
+
+    /// <summary>
+    /// fillText names a family the page's own fonts answer to, and a carried face (a web font) is
+    /// not one of them: the frame goes to the CPU raster fallback, which draws the face's outlines,
+    /// rather than to a fillText in whatever font the browser substitutes.
+    /// </summary>
+    private static void CarriedFaceTextUsesFallback()
+    {
+        BFontFace face = BFontFace.Load(SquareGlyphFont.Build()) ?? throw new AssertException("No face.");
+        var list = new BRenderList();
+        list.DrawText(
+            new BTextRun("X", new BFontStyle("AcidAhemTest", 20) { Face = face }, BColor.White),
+            new BPoint(0, 0));
+
+        CanvasFrame frame = Plan(list);
+        AssertEx.IsTrue(frame.RequiresCpuFallback);
+        AssertEx.AreEqual(0, frame.OpCount, "Must not emit a fillText in a substituted font.");
     }
 
     private static void FallbackResets()

@@ -332,6 +332,15 @@ public sealed class Direct2DRenderer : IBroilerRenderer
 
         IntPtr context = surface.Context;
         ComPtr brush = GetOrCreateSolidBrush(context, c.Text.Color);
+
+        // A face the run carries is a font DirectWrite cannot find by name (a web font), and the
+        // one its layout measured: fill its own outlines rather than letting DirectWrite substitute.
+        if (c.Text.Font.Face is { } face)
+        {
+            FillFaceText(context, brush, face, c);
+            return;
+        }
+
         ComPtr textFormat = _formatCache.GetOrCreate(_device.DWriteFactory.Pointer, c.Text.Font);
 
         D2DNative.D2D1_RECT_F layoutRect = ToTextLayoutRect(c.Origin);
@@ -346,6 +355,97 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             D2DNative.D2D1_DRAW_TEXT_OPTIONS.NONE,
             DWriteNative.DWRITE_MEASURING_MODE.NATURAL);
     }
+
+    /// <summary>
+    /// Draws a run in a face it carries (<see cref="BFontStyle.Face"/>) as one path geometry of the
+    /// face's glyph outlines, the same polygons <see cref="BImageRenderer"/> fills.
+    /// </summary>
+    /// <remarks>
+    /// The outlines are in the run's logical coordinates; the context's transform and DPI place
+    /// them, exactly as they place the triangle and rectangle fills. DirectWrite could load the
+    /// program too (an in-memory font file loader and a custom font collection), but the outlines
+    /// are already parsed, laid out with the advances layout measured, and identical to what the
+    /// CPU backend draws, which is what keeps the two backends agreeing.
+    /// </remarks>
+    private static void FillFaceText(IntPtr context, ComPtr brush, BFontFace face, BRenderCommand.DrawText c)
+    {
+        List<System.Drawing.PointF[]> outline = face.GetRunOutline(c.Text.Text, c.Text.Font.Size, c.Origin);
+        if (outline.Count == 0)
+            return;
+
+        using ComPtr geometry = CreateOutlineGeometry(context, outline);
+        FillGeometryProc fill = ComVtable.Method<FillGeometryProc>(context, D2DNative.VtblFillGeometry);
+        fill(context, geometry.Pointer, brush.Pointer, IntPtr.Zero);
+    }
+
+    /// <summary>One closed figure per contour, filled by nonzero winding as TrueType outlines are.</summary>
+    private static ComPtr CreateOutlineGeometry(IntPtr context, List<System.Drawing.PointF[]> contours)
+    {
+        GetFactoryProc getFactory = ComVtable.Method<GetFactoryProc>(context, D2DNative.VtblGetFactory);
+        getFactory(context, out IntPtr factoryPointer);
+        if (factoryPointer == IntPtr.Zero)
+            throw new InvalidOperationException("ID2D1Resource::GetFactory returned no factory.");
+
+        using var factory = new ComPtr();
+        factory.Attach(factoryPointer);
+
+        CreatePathGeometryProc createGeometry =
+            ComVtable.Method<CreatePathGeometryProc>(factory.Pointer, D2DNative.VtblCreatePathGeometry);
+        int hr = createGeometry(factory.Pointer, out IntPtr geometryPointer);
+        NativeMethods.ThrowIfFailed(hr, "ID2D1Factory::CreatePathGeometry");
+
+        var geometry = new ComPtr();
+        geometry.Attach(geometryPointer);
+
+        try
+        {
+            PathGeometryOpenProc open =
+                ComVtable.Method<PathGeometryOpenProc>(geometry.Pointer, D2DNative.VtblPathGeometryOpen);
+            hr = open(geometry.Pointer, out IntPtr sinkPointer);
+            NativeMethods.ThrowIfFailed(hr, "ID2D1PathGeometry::Open");
+
+            using var sink = new ComPtr();
+            sink.Attach(sinkPointer);
+
+            ComVtable.Method<GeometrySinkSetFillModeProc>(sink.Pointer, D2DNative.VtblGeometrySinkSetFillMode)(
+                sink.Pointer, D2DNative.D2D1_FILL_MODE.WINDING);
+
+            GeometrySinkBeginFigureProc beginFigure =
+                ComVtable.Method<GeometrySinkBeginFigureProc>(sink.Pointer, D2DNative.VtblGeometrySinkBeginFigure);
+            GeometrySinkAddLinesProc addLines =
+                ComVtable.Method<GeometrySinkAddLinesProc>(sink.Pointer, D2DNative.VtblGeometrySinkAddLines);
+            GeometrySinkEndFigureProc endFigure =
+                ComVtable.Method<GeometrySinkEndFigureProc>(sink.Pointer, D2DNative.VtblGeometrySinkEndFigure);
+
+            foreach (System.Drawing.PointF[] contour in contours)
+            {
+                if (contour.Length < 3)
+                    continue;
+
+                beginFigure(sink.Pointer, ToPointF(contour[0]), D2DNative.D2D1_FIGURE_BEGIN.FILLED);
+
+                var rest = new D2DNative.D2D1_POINT_2F[contour.Length - 1];
+                for (int i = 1; i < contour.Length; i++)
+                    rest[i - 1] = ToPointF(contour[i]);
+
+                addLines(sink.Pointer, rest, (uint)rest.Length);
+                endFigure(sink.Pointer, D2DNative.D2D1_FIGURE_END.CLOSED);
+            }
+
+            hr = ComVtable.Method<GeometrySinkCloseProc>(sink.Pointer, D2DNative.VtblGeometrySinkClose)(sink.Pointer);
+            NativeMethods.ThrowIfFailed(hr, "ID2D1SimplifiedGeometrySink::Close");
+        }
+        catch
+        {
+            geometry.Dispose();
+            throw;
+        }
+
+        return geometry;
+    }
+
+    private static D2DNative.D2D1_POINT_2F ToPointF(System.Drawing.PointF point) =>
+        new() { X = point.X, Y = point.Y };
 
     private void DrawImage(IDirect2DSurface surface, BRenderCommand.DrawImage c)
     {

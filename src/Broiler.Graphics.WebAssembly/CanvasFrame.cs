@@ -59,7 +59,8 @@ public readonly struct CanvasFrame
     /// When true, the planner could not represent the frame natively and the caller
     /// must present the whole frame through the CPU raster fallback instead of the
     /// batched Canvas stream. Rotated and sheared rectangle fills require this path
-    /// to preserve their geometry; unknown future commands also request fallback.
+    /// to preserve their geometry, and so does text in a face the run carries (a web
+    /// font, which fillText cannot name); unknown future commands also request fallback.
     /// </summary>
     public bool RequiresCpuFallback { get; }
 

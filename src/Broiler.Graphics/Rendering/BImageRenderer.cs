@@ -316,6 +316,15 @@ public sealed class BImageRenderer : IBroilerRenderer
             return;
 
         double fontSize = Math.Max(1.0, run.Font.Size);
+
+        // A face the run carries is the one its layout measured (a web font), which no family name
+        // would find on this machine: draw its own outlines.
+        if (run.Font.Face is { } face)
+        {
+            DrawTextWithFace(canvas, run, face, command.Origin, fontSize, state);
+            return;
+        }
+
         bool bold = run.Font.Weight >= BFontWeight.Bold;
         bool italic = run.Font.Slant is BFontSlant.Italic or BFontSlant.Oblique;
 
@@ -329,6 +338,26 @@ public sealed class BImageRenderer : IBroilerRenderer
             DrawTextWithSystemFont(canvas, run, command.Origin, fontSize, bold, font, state);
         else
             DrawTextWithBlockFont(canvas, run, command.Origin, fontSize, bold, state);
+    }
+
+    private static void DrawTextWithFace(BCanvas canvas, BTextRun run, BFontFace face, BPoint origin, double fontSize, ReplayState state)
+    {
+        List<PointF[]> outline = face.GetRunOutline(run.Text, fontSize, origin);
+        if (outline.Count == 0)
+            return;
+
+        BMatrix3x2 transform = state.Effective;
+        foreach (PointF[] contour in outline)
+        {
+            for (int i = 0; i < contour.Length; i++)
+            {
+                BPoint transformed = transform.Transform(new BPoint(contour[i].X, contour[i].Y));
+                contour[i] = new PointF((float)transformed.X, (float)transformed.Y);
+            }
+        }
+
+        // One fill for the whole run, so glyphs that overlap (a mark on its base) are covered once.
+        canvas.FillGlyphContours(outline, run.Color);
     }
 
     private static void DrawTextWithBlockFont(BCanvas canvas, BTextRun run, BPoint origin, double fontSize, bool bold, ReplayState state)

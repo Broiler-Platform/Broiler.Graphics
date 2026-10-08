@@ -22,4 +22,8 @@
     <!-- Composition root: supplies the concrete image codecs to Broiler.Graphics via BImageCodecs.Use(...). -->
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/SquareGlyphFont.cs" Link="SquareGlyphFont.cs" />
+  </ItemGroup>
+
 </Project>

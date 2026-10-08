@@ -253,6 +253,14 @@ public sealed class CanvasFramePlanner
         if (string.IsNullOrEmpty(run.Text) || run.Color.A == 0 || run.Font.Size <= 0)
             return;
 
+        // A face the run carries (a web font) is one fillText cannot name: Canvas resolves the
+        // family against the page's fonts, not this program. The CPU fallback draws its outlines.
+        if (run.Font.Face is not null)
+        {
+            _fallback = true;
+            return;
+        }
+
         double fontSize = Math.Max(1.0, run.Font.Size);
         BMatrix3x2 transform = _current * _pixelScale;
 
