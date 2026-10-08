@@ -44,8 +44,9 @@ public abstract record BRenderCommand
     /// <summary>Draws a text run with its top-left origin at <paramref name="Origin"/>.</summary>
     public sealed record DrawText(BTextRun Text, BPoint Origin) : BRenderCommand;
 
-    /// <summary>Draws (a region of) an image into a destination rectangle.</summary>
-    public sealed record DrawImage(BImageHandle Image, BRect Source, BRect Destination, double Opacity) : BRenderCommand;
+    /// <summary>Draws (a region of) an image into a destination rectangle, sampled as <paramref name="Sampling"/> says.</summary>
+    public sealed record DrawImage(BImageHandle Image, BRect Source, BRect Destination, double Opacity,
+        BImageSampling Sampling = BImageSampling.Linear) : BRenderCommand;
 
     /// <summary>Pushes a rectangular clip onto the clip stack.</summary>
     public sealed record PushClip(BRect Rect) : BRenderCommand;

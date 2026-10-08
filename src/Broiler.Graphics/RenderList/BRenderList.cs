@@ -108,12 +108,13 @@ public sealed class BRenderList
         Add(new BRenderCommand.DrawText(text, origin));
     }
 
-    public void DrawImage(BImageHandle image, BRect source, BRect destination, double opacity = 1.0)
+    public void DrawImage(BImageHandle image, BRect source, BRect destination, double opacity = 1.0,
+        BImageSampling sampling = BImageSampling.Linear)
     {
         if (opacity is < 0.0 or > 1.0)
             throw new ArgumentOutOfRangeException(nameof(opacity), "Opacity must be within [0, 1].");
 
-        Add(new BRenderCommand.DrawImage(image, source, destination, opacity));
+        Add(new BRenderCommand.DrawImage(image, source, destination, opacity, sampling));
     }
 
     public void PushClip(BRect rect) => Add(new BRenderCommand.PushClip(rect));
