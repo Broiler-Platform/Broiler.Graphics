@@ -32,6 +32,7 @@ internal static class CanvasFramePlannerTests
         tests.Add(("Rounded rect radii scale with transform", RoundedRadiiScale));
         tests.Add(("DrawText bakes baseline and string table", DrawTextEncodes));
         tests.Add(("Text in a carried face requires CPU fallback", CarriedFaceTextUsesFallback));
+        tests.Add(("DrawText puts a stated baseline where its layout put it", DrawTextStatedBaseline));
         tests.Add(("DrawImage encodes source, dest, opacity", DrawImageEncodes));
         tests.Add(("FillTriangle encodes its three corners and color", FillTriangleEncodes));
         tests.Add(("FillTriangle keeps its shape under rotation", FillTriangleSurvivesRotation));
@@ -347,6 +348,19 @@ internal static class CanvasFramePlannerTests
         reflected.FillRect(new BRect(0, 0, 4, 4), BColor.Red);
         reflected.PopTransform();
         AssertEx.IsFalse(Plan(reflected).RequiresCpuFallback);
+    }
+
+    /// <summary>
+    /// A run whose layout stated its baseline is filled on that line rather than 0.8em below its
+    /// top: the alphabetic baseline Canvas draws from is exactly the one the layout computed.
+    /// </summary>
+    private static void DrawTextStatedBaseline()
+    {
+        var list = new BRenderList();
+        list.DrawText(new BTextRun("Hi", new BFontStyle("sans-serif", 100), BColor.Black) { Baseline = 92.8 }, new BPoint(4, 5));
+
+        ReplayOp text = ReplayStream.Parse(Plan(list)).Single(CanvasReplayOp.DrawText);
+        AssertEx.AreClose(97.8, text.Operands[1], message: "Baseline Y = origin.Y + the stated baseline.");
     }
 
     /// <summary>

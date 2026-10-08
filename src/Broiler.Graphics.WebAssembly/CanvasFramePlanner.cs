@@ -264,11 +264,12 @@ public sealed class CanvasFramePlanner
         double fontSize = Math.Max(1.0, run.Font.Size);
         BMatrix3x2 transform = _current * _pixelScale;
 
-        // Match the CPU renderer's baseline assumption (origin.Y + 0.8 * fontSize),
-        // then bake the transform into a device-space baseline point. Route A renders
-        // this through Canvas fillText with textBaseline = "alphabetic"; text is not part
-        // of the CPU/Canvas pixel-checksum gate.
-        BPoint baseline = transform.Transform(new BPoint(command.Origin.X, command.Origin.Y + (fontSize * 0.8)));
+        // The run's own baseline when its layout stated one, else the CPU renderer's assumption
+        // (origin.Y + 0.8 * fontSize); then bake the transform into a device-space baseline point.
+        // Route A renders this through Canvas fillText with textBaseline = "alphabetic"; text is
+        // not part of the CPU/Canvas pixel-checksum gate.
+        double baselineOffset = run.Baseline ?? (fontSize * 0.8);
+        BPoint baseline = transform.Transform(new BPoint(command.Origin.X, command.Origin.Y + baselineOffset));
         if (!double.IsFinite(baseline.X) || !double.IsFinite(baseline.Y))
             return;
 

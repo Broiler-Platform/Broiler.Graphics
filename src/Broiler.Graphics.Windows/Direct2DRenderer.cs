@@ -341,7 +341,10 @@ public sealed class Direct2DRenderer : IBroilerRenderer
             return;
         }
 
-        ComPtr textFormat = _formatCache.GetOrCreate(_device.DWriteFactory.Pointer, c.Text.Font);
+        // A stated baseline is set on the format as uniform line spacing, which puts the first
+        // line's baseline that far below the layout box's top; without one DirectWrite hangs the
+        // text from its face's ascent.
+        ComPtr textFormat = _formatCache.GetOrCreate(_device.DWriteFactory.Pointer, c.Text.Font, c.Text.Baseline);
 
         D2DNative.D2D1_RECT_F layoutRect = ToTextLayoutRect(c.Origin);
         DrawTextProc drawText = ComVtable.Method<DrawTextProc>(context, D2DNative.VtblDrawText);
@@ -369,7 +372,7 @@ public sealed class Direct2DRenderer : IBroilerRenderer
     /// </remarks>
     private static void FillFaceText(IntPtr context, ComPtr brush, BFontFace face, BRenderCommand.DrawText c)
     {
-        List<System.Drawing.PointF[]> outline = face.GetRunOutline(c.Text.Text, c.Text.Font.Size, c.Origin);
+        List<System.Drawing.PointF[]> outline = face.GetRunOutline(c.Text.Text, c.Text.Font.Size, c.Origin, c.Text.Baseline);
         if (outline.Count == 0)
             return;
 

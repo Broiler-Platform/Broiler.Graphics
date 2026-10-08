@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Broiler.Graphics.Text;
 using Broiler.Native.Windows.Direct2D;
@@ -16,7 +17,7 @@ internal sealed class DirectWriteTextFormatCache : IDisposable
 {
     private const int MaxCapacity = 256;
     private readonly object _lock = new();
-    private readonly Dictionary<BFontStyle, ComPtr> _cache = new();
+    private readonly Dictionary<(BFontStyle Font, float? Baseline), ComPtr> _cache = new();
     private long _hits;
     private long _misses;
 
@@ -32,11 +33,17 @@ internal sealed class DirectWriteTextFormatCache : IDisposable
         }
     }
 
-    public ComPtr GetOrCreate(IntPtr factory, BFontStyle font)
+    /// <summary>
+    /// The format for <paramref name="font"/>, with its first line's baseline
+    /// <paramref name="baseline"/> below the layout box's top when that is given
+    /// (<see cref="BTextRun.Baseline"/>).
+    /// </summary>
+    public ComPtr GetOrCreate(IntPtr factory, BFontStyle font, double? baseline = null)
     {
+        var key = (font, baseline is double value ? (float?)(float)value : null);
         lock (_lock)
         {
-            if (_cache.TryGetValue(font, out ComPtr? existing))
+            if (_cache.TryGetValue(key, out ComPtr? existing))
             {
                 Interlocked.Increment(ref _hits);
                 return existing;
@@ -46,11 +53,47 @@ internal sealed class DirectWriteTextFormatCache : IDisposable
                 ClearLocked();
 
             ComPtr format = CreateTextFormat(factory, font);
-            _cache[font] = format;
+            if (key.Item2 is float stated)
+                SetBaseline(format, font, stated);
+
+            _cache[key] = format;
             Interlocked.Increment(ref _misses);
             return format;
         }
     }
+
+    /// <summary>
+    /// IDWriteTextFormat::SetLineSpacing with DWRITE_LINE_SPACING_METHOD_UNIFORM: every line is
+    /// <c>lineSpacing</c> tall with its baseline <c>baseline</c> below the line's top, so the first
+    /// line's baseline lies exactly where the layout put it. The run is one line, so the spacing
+    /// only has to leave room for the descent below that baseline.
+    /// </summary>
+    private static void SetBaseline(ComPtr format, BFontStyle font, float baseline)
+    {
+        float lineSpacing = Math.Max(baseline, 0f) + (float)Math.Max(font.Size, 1.0);
+        try
+        {
+            int hr = ComVtable.Method<SetLineSpacingProc>(format.Pointer, VtblSetLineSpacing)(
+                format.Pointer, DwriteLineSpacingMethodUniform, lineSpacing, Math.Max(baseline, 0f));
+            NativeMethods.ThrowIfFailed(hr, "IDWriteTextFormat::SetLineSpacing");
+        }
+        catch
+        {
+            format.Dispose();
+            throw;
+        }
+    }
+
+    // IDWriteTextFormat (dwrite.h): IUnknown's three slots, then SetTextAlignment, SetParagraphAlignment,
+    // SetWordWrapping, SetReadingDirection, SetFlowDirection, SetIncrementalTabStop, SetTrimming and
+    // SetLineSpacing, the eighth: slot 10. Broiler.Native.Windows does not declare it yet.
+    private const int VtblSetLineSpacing = 10;
+
+    // DWRITE_LINE_SPACING_METHOD_UNIFORM.
+    private const int DwriteLineSpacingMethodUniform = 1;
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int SetLineSpacingProc(IntPtr textFormat, int lineSpacingMethod, float lineSpacing, float baseline);
 
     private static ComPtr CreateTextFormat(IntPtr factory, BFontStyle font)
     {

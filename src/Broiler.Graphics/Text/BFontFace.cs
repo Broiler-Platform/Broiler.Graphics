@@ -27,8 +27,9 @@ namespace Broiler.Graphics.Text;
 /// keep working. Equality is identity: two faces are the same font when they are the same program.
 /// </para>
 /// <para>
-/// <b>How it is laid out.</b> The pen starts at the run's origin, the top of its em box, and the
-/// baseline sits the face's <c>hhea</c> ascender below it; each glyph advances by its <c>hmtx</c>
+/// <b>How it is laid out.</b> The pen starts at the run's origin, and the baseline sits where the
+/// run says (<see cref="BTextRun.Baseline"/>) or else the face's
+/// <c>hhea</c> ascender below it; each glyph advances by its <c>hmtx</c>
 /// width, and right-to-left or cursive text is shaped through <see cref="ComplexTextShaper"/> first.
 /// That is how the managed text measurer of Broiler.HTML places and measures a registered font, so a
 /// run drawn here lands in the space its layout reserved for it.
@@ -74,21 +75,23 @@ public sealed class BFontFace
     }
 
     /// <summary>
-    /// The outlines of <paramref name="text"/> set at <paramref name="size"/> with the top of the em
-    /// box at <paramref name="origin"/>, as closed polygons in the run's own y-down coordinates.
+    /// The outlines of <paramref name="text"/> set at <paramref name="size"/> from
+    /// <paramref name="origin"/>, with the baseline <paramref name="baseline"/> below it — or, when
+    /// that is not given, the face's ascender below it — as closed polygons in the run's own y-down
+    /// coordinates.
     /// </summary>
     /// <remarks>
     /// A backend fills them with the nonzero winding rule, after mapping them through whatever
     /// transform it draws the run with. Glyphs with no outline (spaces) contribute nothing but their
     /// advance.
     /// </remarks>
-    public List<PointF[]> GetRunOutline(string text, double size, BPoint origin)
+    public List<PointF[]> GetRunOutline(string text, double size, BPoint origin, double? baseline = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
         var outline = new List<PointF[]>();
         double scale = size / UnitsPerEm;
-        double baseline = origin.Y + (Font.Ascender * scale);
+        double baselineY = origin.Y + (baseline ?? (Font.Ascender * scale));
         double penX = origin.X;
 
         foreach ((int glyph, int advance, int xOffset, int yOffset) in Glyphs(text))
@@ -96,7 +99,7 @@ public sealed class BFontFace
             if (glyph > 0)
             {
                 double glyphX = penX + (xOffset * scale);
-                double glyphY = baseline - (yOffset * scale);
+                double glyphY = baselineY - (yOffset * scale);
                 foreach (PointF[] contour in Font.GetGlyphContours(glyph))
                 {
                     // The cached contour is shared (TrueTypeFont.GetGlyphContours), so it is copied,
