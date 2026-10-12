@@ -132,6 +132,71 @@ public sealed class BRenderList
     public void PopTransform() => Add(new BRenderCommand.PopTransform());
 
     /// <summary>
+    /// Records a command that was built elsewhere - one replayed out of another list, or out
+    /// of a <see cref="Paging.BPage"/>.
+    /// </summary>
+    /// <remarks>
+    /// The command goes through the same method a caller drawing it directly would use, so it
+    /// is held to the same checks and normalizations: a record constructed by hand with a
+    /// negative stroke cannot enter a list this way, and a zero-radius rounded rectangle is
+    /// recorded as the plain rectangle it draws.
+    /// </remarks>
+    public void Append(BRenderCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        switch (command)
+        {
+            case BRenderCommand.FillRect c:
+                FillRect(c.Rect, c.Color);
+                break;
+            case BRenderCommand.StrokeRect c:
+                StrokeRect(c.Rect, c.Color, c.Thickness);
+                break;
+            case BRenderCommand.FillRoundedRect c:
+                FillRoundedRect(c.Rect, c.Color, c.RadiusX, c.RadiusY);
+                break;
+            case BRenderCommand.StrokeRoundedRect c:
+                StrokeRoundedRect(c.Rect, c.Color, c.RadiusX, c.RadiusY, c.Thickness);
+                break;
+            case BRenderCommand.FillTriangle c:
+                FillTriangle(c.A, c.B, c.C, c.Color);
+                break;
+            case BRenderCommand.DrawText c:
+                DrawText(c.Text, c.Origin);
+                break;
+            case BRenderCommand.DrawImage c:
+                DrawImage(c.Image, c.Source, c.Destination, c.Opacity, c.Sampling);
+                break;
+            case BRenderCommand.PushClip c:
+                PushClip(c.Rect);
+                break;
+            case BRenderCommand.PopClip:
+                PopClip();
+                break;
+            case BRenderCommand.PushTransform c:
+                PushTransform(c.Transform);
+                break;
+            case BRenderCommand.PopTransform:
+                PopTransform();
+                break;
+            default:
+                throw new ArgumentException($"Unknown render command {command.GetType().Name}.", nameof(command));
+        }
+    }
+
+    /// <summary>Records every command of <paramref name="other"/>, in order, through <see cref="Append(BRenderCommand)"/>.</summary>
+    public void Append(BRenderList other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (ReferenceEquals(other, this))
+            throw new ArgumentException("A list cannot be appended to itself.", nameof(other));
+
+        foreach (BRenderCommand command in other.Commands)
+            Append(command);
+    }
+
+    /// <summary>
     /// Verifies that the clip and transform stacks are balanced and never underflow. Throws
     /// <see cref="InvalidOperationException"/> if a Pop has no matching Push, or if any stack is
     /// left non-empty at the end of the list. Successful validation is cached until the
