@@ -1,19 +1,4 @@
 <Solution>
-  <Folder Name="/solution items/">
-    <File Path="Directory.Build.props" />
-    <File Path="LICENSE" />
-    <File Path="README.md" />
-    <File Path="HUMAN_REVIEW.md" />
-    <File Path=".gitignore" />
-    <File Path=".gitmodules" />
-  </Folder>
-  <Folder Name="/solution items/eng/">
-    <File Path="eng/Broiler.Packaging.props" />
-  </Folder>
-  <Folder Name="/solution items/docs/">
-    <File Path="docs/packaging.md" />
-    <File Path="docs/roadmap.md" />
-  </Folder>
   <Folder Name="/src/">
     <!-- Platform-neutral core: builds under every configuration. -->
     <Project Path="src/Broiler.Graphics/Broiler.Graphics.csproj" />
