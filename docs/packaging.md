@@ -1,5 +1,26 @@
 # CI, packages, and releases
 
+## WebAssembly replay assets
+
+`Broiler.Graphics.WebAssembly` now packs the canonical replay JS, a generated
+`replay-manifest.json` containing its package version/protocol/SHA-256, and
+transitive browser asset targets. Browser consumers receive the stable
+`broiler.graphics.webassembly.js` and `broiler.graphics.replay.json` URLs inside
+their own published app/version prefix. No floating global replay URL is needed.
+
+The targets validate the packaged digest and reject an application-owned replay
+copy. Remove that old copy when upgrading to this package generation. Managed
+startup imports `getProtocolVersion()` and requires `broiler.canvas/1` before
+initialization. Bump that protocol on incompatible opcode, arity or interop
+changes. Missing exports also fail startup rather than silently rendering with
+a mismatched replay stream. This is compatibility checking, not release signing.
+
+The Office W1 package probe tests asset presence in an actual SDK publish,
+rejects a corrupt digest and rejects a stale app-owned copy. Its real browser
+contract sample also tests an incompatible protocol. Publish the next legitimate
+Graphics preview through the existing version resolver before upgrading Writer,
+Cell or the future web launcher; local pack defaults are test artifacts only.
+
 The Broiler component repositories use a unified workflow structure and release tooling.
 `Directory.Packages.props` centrally manages external and cross-component dependency versions.
 Release versions are separate: `eng/Broiler.Packaging.props` supplies defaults, with repository

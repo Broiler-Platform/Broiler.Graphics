@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <BroilerCanvasReplayRoot>$(MSBuildThisFileDirectory)../browser/</BroilerCanvasReplayRoot>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <Content Include="$(BroilerCanvasReplayRoot)broiler.graphics.webassembly.js" Link="wwwroot/broiler.graphics.webassembly.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(BroilerCanvasReplayRoot)replay-manifest.json" Link="wwwroot/broiler.graphics.replay.json" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="VerifyBroilerCanvasReplay" BeforeTargets="PrepareForBuild" Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <Error Condition="Exists('$(MSBuildProjectDirectory)/wwwroot/broiler.graphics.webassembly.js')" Text="Remove the app-owned Canvas replay copy. Broiler.Graphics.WebAssembly now supplies the version-bound asset." />
+    <ReadLinesFromFile File="$(BroilerCanvasReplayRoot)replay-manifest.json"><Output TaskParameter="Lines" ItemName="BroilerReplayManifest" /></ReadLinesFromFile>
+    <GetFileHash Files="$(BroilerCanvasReplayRoot)broiler.graphics.webassembly.js" Algorithm="SHA256"><Output TaskParameter="Items" ItemName="BroilerReplayDigest" /></GetFileHash>
+    <PropertyGroup>
+      <BroilerReplayManifestText>@(BroilerReplayManifest)</BroilerReplayManifestText>
+      <BroilerExpectedReplayHash>$([System.Text.RegularExpressions.Regex]::Match('$(BroilerReplayManifestText)', '[A-Fa-f0-9]{64}').Value)</BroilerExpectedReplayHash>
+      <BroilerActualReplayHash>%(BroilerReplayDigest.FileHash)</BroilerActualReplayHash>
+    </PropertyGroup>
+    <Error Condition="'$(BroilerExpectedReplayHash)' == '' Or '$(BroilerActualReplayHash)' != '$(BroilerExpectedReplayHash)'" Text="Canvas replay asset hash does not match its package manifest (expected $(BroilerExpectedReplayHash), actual $(BroilerActualReplayHash))." />
+  </Target>
+</Project>

@@ -35,4 +35,16 @@
        [SupportedOSPlatform("browser")], so the library sits in the default solution while its
        DOM/Canvas code only runs on the browser-wasm runtime. -->
 
+  <ItemGroup>
+    <None Include="wwwroot/broiler.graphics.webassembly.js" Pack="true" PackagePath="browser/" />
+    <None Include="$(IntermediateOutputPath)replay-manifest.json" Pack="true" PackagePath="browser/" />
+    <None Include="buildTransitive/Broiler.Graphics.WebAssembly.targets" Pack="true" PackagePath="buildTransitive/" />
+  </ItemGroup>
+  <Target Name="GenerateCanvasReplayManifest" BeforeTargets="GenerateNuspec">
+    <GetFileHash Files="wwwroot/broiler.graphics.webassembly.js" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="CanvasReplayHash" />
+    </GetFileHash>
+    <WriteLinesToFile File="$(IntermediateOutputPath)replay-manifest.json"
+      Lines="{ &quot;packageVersion&quot;: &quot;$(PackageVersion)&quot;, &quot;protocol&quot;: &quot;broiler.canvas/1&quot;, &quot;sha256&quot;: &quot;%(CanvasReplayHash.FileHash)&quot; }" Overwrite="true" />
+  </Target>
 </Project>

@@ -16,7 +16,15 @@ internal static partial class CanvasInterop
     internal const string ModuleName = "broiler.graphics.webassembly.js";
 
     /// <summary>Imports the replay module from a host-provided URL. Must be awaited before any other call.</summary>
-    internal static Task LoadModuleAsync(string moduleUrl) => JSHost.ImportAsync(ModuleName, moduleUrl);
+    internal static async Task LoadModuleAsync(string moduleUrl)
+    {
+        await JSHost.ImportAsync(ModuleName, moduleUrl);
+        if (GetProtocolVersion() != "broiler.canvas/1")
+            throw new System.InvalidOperationException("Canvas replay protocol mismatch. Publish the replay asset from the same Graphics package as the managed renderer.");
+    }
+
+    [JSImport("getProtocolVersion", ModuleName)]
+    internal static partial string GetProtocolVersion();
 
     /// <summary>Binds the backend to a canvas element (by CSS selector) and acquires its 2D context.</summary>
     [JSImport("initialize", ModuleName)]

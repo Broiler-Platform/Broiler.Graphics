@@ -8,6 +8,9 @@
 //
 // The op codes below mirror CanvasReplayOp.cs exactly. Keep the two in sync.
 
+// Bump whenever op arities, numeric meanings or interop exports change incompatibly.
+export function getProtocolVersion() { return 'broiler.canvas/1'; }
+
 const OP_SET_CLIP = 1;
 const OP_CLEAR_CLIP = 2;
 const OP_FILL_RECT = 3;
