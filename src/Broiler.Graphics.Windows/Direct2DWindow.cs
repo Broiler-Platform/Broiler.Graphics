@@ -43,10 +43,10 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
     private long _frameIndex;
     private int _invalidationCount;
     private TimeSpan _lastRenderDuration;
-    private int _nextControlId = 1000;
     private bool _runStarted;
     private bool _trackingMouse;
     private bool _animationTimerRunning;
+    private double? _pendingAnimationInterval;
     private bool _closing;
     private IntPtr _largeIcon;
     private IntPtr _smallIcon;
@@ -203,7 +203,13 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     protected override void StartAnimationTimerCore(double intervalMilliseconds)
     {
-        EnsureNativeHandle();
+        if (_hwnd == IntPtr.Zero)
+        {
+            _pendingAnimationInterval = intervalMilliseconds;
+            return;
+        }
+
+        _pendingAnimationInterval = null;
         uint interval = (uint)Math.Max(1, Math.Round(intervalMilliseconds));
         if (SetTimer(_hwnd, AnimationTimerId, interval, IntPtr.Zero) == UIntPtr.Zero)
             throw new Win32Exception(Marshal.GetLastWin32Error(), "SetTimer failed.");
@@ -212,6 +218,7 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
 
     protected override void StopAnimationTimerCore()
     {
+        _pendingAnimationInterval = null;
         if (!_animationTimerRunning || _hwnd == IntPtr.Zero)
             return;
 
@@ -549,6 +556,11 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             case WmCreate:
                 CreateRenderHost();
                 CreateGraphicsResources();
+                if (_pendingAnimationInterval is { } pendingInterval)
+                {
+                    _pendingAnimationInterval = null;
+                    StartAnimationTimerCore(pendingInterval);
+                }
                 OnCreated();
                 return IntPtr.Zero;
 
@@ -815,14 +827,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
             return AdjustWindowRectExForDpi(ref rect, style, menu, exStyle, dpi);
 
         return AdjustWindowRectEx(ref rect, style, menu, exStyle);
-    }
-
-    private int AllocateControlId() => _nextControlId++;
-
-    private void EnsureNativeHandle()
-    {
-        if (_hwnd == IntPtr.Zero)
-            throw new InvalidOperationException("Controls can only be created after the native window exists.");
     }
 
     private void CreateRenderHost()

@@ -34,6 +34,7 @@ internal static class BackendExperienceTests
         tests.Add(("Window enforces minimum client size via WM_GETMINMAXINFO", WindowEnforcesMinClientSize));
         tests.Add(("Window applies suggested rectangle on WM_DPICHANGED", WindowAppliesDpiSuggestedRect));
         tests.Add(("Window tracks frame diagnostics and triggers FrameRendered event", WindowTracksFrameDiagnostics));
+        tests.Add(("Window allows animation timer start before realization", WindowAllowsStartAnimationTimerBeforeRealization));
     }
 
     private static void BrushCachingReusesBrushes()
@@ -154,6 +155,15 @@ internal static class BackendExperienceTests
         Assert.True(window.FrameCount > 0, "Window should have rendered at least one frame");
         Assert.True(recordedFrame >= 0, "FrameRendered event should have fired with valid frame index");
         Assert.True(window.LastRenderDuration >= TimeSpan.Zero, "LastRenderDuration should be non-negative");
+    }
+
+    private static void WindowAllowsStartAnimationTimerBeforeRealization()
+    {
+        using var window = new DiagnosticsTestWindow(100, 100);
+        window.StartAnimationTimer(16);
+        window.Show();
+        Assert.True(window.NativeHandle != IntPtr.Zero, "Window should be realized");
+        window.StopAnimationTimer();
     }
 
     private sealed class DiagnosticsTestWindow(int minWidth, int minHeight) : Direct2DWindow(new BWindowOptions
