@@ -2,10 +2,31 @@
   <PropertyGroup>
     <BroilerCanvasReplayRoot>$(MSBuildThisFileDirectory)../browser/</BroilerCanvasReplayRoot>
   </PropertyGroup>
-  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
-    <Content Include="$(BroilerCanvasReplayRoot)broiler.graphics.webassembly.js" Link="wwwroot/broiler.graphics.webassembly.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="$(BroilerCanvasReplayRoot)replay-manifest.json" Link="wwwroot/broiler.graphics.replay.json" CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
+  <Target Name="RegisterBroilerGraphicsBrowserAssets"
+          BeforeTargets="ResolveProjectStaticWebAssets"
+          DependsOnTargets="ResolveStaticWebAssetsConfiguration"
+          Condition="'$(UsingMicrosoftNETSdkWebAssembly)' == 'true' Or '$(RuntimeIdentifier)' == 'browser-wasm'">
+    <ItemGroup>
+      <Content Remove="@(Content)" Condition="'%(Content.Filename)%(Content.Extension)' == 'broiler.graphics.webassembly.js' Or '%(Content.Filename)%(Content.Extension)' == 'replay-manifest.json'" />
+      <_BroilerGraphicsBrowserAsset Include="$(BroilerCanvasReplayRoot)broiler.graphics.webassembly.js"
+                                  RelativePath="broiler.graphics.webassembly.js" />
+      <_BroilerGraphicsBrowserAsset Include="$(BroilerCanvasReplayRoot)replay-manifest.json" RelativePath="broiler.graphics.replay.json" />
+    </ItemGroup>
+    <DefineStaticWebAssets CandidateAssets="@(_BroilerGraphicsBrowserAsset)"
+                          SourceId="$(PackageId)" SourceType="Computed"
+                          ContentRoot="$(BroilerCanvasReplayRoot)" BasePath="$(StaticWebAssetBasePath)"
+                          AssetKind="All" AssetMode="All" AssetRole="Primary"
+                          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+                          FingerprintCandidates="$(StaticWebAssetsFingerprintContent)"
+                          FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_BroilerGraphicsDefinedAsset" />
+    </DefineStaticWebAssets>
+    <DefineStaticWebAssetEndpoints CandidateAssets="@(_BroilerGraphicsDefinedAsset)"
+                                  ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+  </Target>
   <Target Name="VerifyBroilerCanvasReplay" BeforeTargets="PrepareForBuild" Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
     <Error Condition="Exists('$(MSBuildProjectDirectory)/wwwroot/broiler.graphics.webassembly.js')" Text="Remove the app-owned Canvas replay copy. Broiler.Graphics.WebAssembly now supplies the version-bound asset." />
     <ReadLinesFromFile File="$(BroilerCanvasReplayRoot)replay-manifest.json"><Output TaskParameter="Lines" ItemName="BroilerReplayManifest" /></ReadLinesFromFile>
