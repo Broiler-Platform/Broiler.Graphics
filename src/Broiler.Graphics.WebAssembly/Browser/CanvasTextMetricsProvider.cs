@@ -21,8 +21,24 @@ namespace Broiler.Graphics.WebAssembly;
 /// unchanged — only horizontal advances were mismatched.
 /// </summary>
 [SupportedOSPlatform("browser")]
-internal sealed class CanvasTextMetricsProvider : IBTextMetricsProvider
+internal sealed class CanvasTextMetricsProvider : IBTextMetricsProvider, IBTextVerticalMetricsProvider
 {
+    private readonly Dictionary<BFontStyle, BTextVerticalMetrics> _verticalCache = new();
+
+    public BTextVerticalMetrics GetVerticalMetrics(BFontStyle font)
+    {
+        if (_verticalCache.TryGetValue(font, out var cached))
+            return cached;
+        double[] values = CanvasInterop.MeasureVerticalMetrics(font.Size, (int)font.Weight,
+            font.Slant != BFontSlant.Normal ? 1 : 0, font.FamilyName ?? string.Empty);
+        var metrics = values.Length == 2 && double.IsFinite(values[0]) && double.IsFinite(values[1])
+            && values[0] > 0 && values[1] >= 0
+            ? new BTextVerticalMetrics(values[0], values[1])
+            : new BTextVerticalMetrics(font.Size * 0.8, font.Size * 0.2);
+        _verticalCache[font] = metrics;
+        return metrics;
+    }
+
     private readonly Dictionary<CacheKey, double> _advanceCache = new();
 
     public double MeasureAdvance(string text, BFontStyle font)

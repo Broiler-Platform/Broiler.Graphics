@@ -39,7 +39,11 @@ public sealed class BFontFace
 {
     private static readonly ConditionalWeakTable<TrueTypeFont, BFontFace> Faces = new();
 
-    private BFontFace(TrueTypeFont font) => Font = font;
+    private BFontFace(TrueTypeFont font)
+    {
+        Font = font;
+        _referenceMetrics = new Lazy<BTextVerticalMetrics>(MeasureReferenceMetrics);
+    }
 
     /// <summary>The parsed font program whose outlines this face draws.</summary>
     public TrueTypeFont Font { get; }
@@ -58,6 +62,27 @@ public sealed class BFontFace
 
     /// <summary>Parses <paramref name="data"/> (TrueType, OpenType or WOFF) into a face, or <see langword="null"/>.</summary>
     public static BFontFace? Load(byte[] data) => For(TrueTypeFont.Load(data));
+
+    private readonly Lazy<BTextVerticalMetrics> _referenceMetrics;
+
+    /// <summary>Ink extents of Hg, used to center UI text without caption-dependent baseline jumps.</summary>
+    public BTextVerticalMetrics GetVerticalMetrics(double size)
+    {
+        var metrics = _referenceMetrics.Value;
+        return new(metrics.Ascent * size, metrics.Descent * size);
+    }
+
+    private BTextVerticalMetrics MeasureReferenceMetrics()
+    {
+        double top = 0, bottom = 0;
+        foreach (var contour in GetRunOutline("Hg", 1, BPoint.Zero, 0))
+            foreach (var point in contour)
+            {
+                top = Math.Min(top, point.Y);
+                bottom = Math.Max(bottom, point.Y);
+            }
+        return top < bottom ? new BTextVerticalMetrics(-top, bottom) : new(0.8, 0.2);
+    }
 
     private int UnitsPerEm => Font.UnitsPerEm > 0 ? Font.UnitsPerEm : 1000;
 

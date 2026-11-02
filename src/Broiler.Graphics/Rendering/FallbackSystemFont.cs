@@ -140,6 +140,9 @@ internal sealed class FallbackSystemFont
         return advance > 0 ? advance * (sizePixels / upem) : blockAdvance;
     }
 
+    public BTextVerticalMetrics GetVerticalMetrics(double size, bool bold) =>
+        BFontFace.For(bold ? _bold : _regular)!.GetVerticalMetrics(size);
+
     private (int GlyphIndex, int Advance, int UnitsPerEm) Resolve(int codepoint, bool bold)
     {
         TrueTypeFont face = bold ? _bold : _regular;

@@ -17,6 +17,15 @@ public interface IBTextMetricsProvider
     double GetLineHeight(BFontStyle font);
 }
 
+/// <summary>Stable reference ink extents above and below the alphabetic baseline.</summary>
+public readonly record struct BTextVerticalMetrics(double Ascent, double Descent);
+
+/// <summary>Optional host measurement of a fixed reference string (Hg), independent of caption text.</summary>
+public interface IBTextVerticalMetricsProvider
+{
+    BTextVerticalMetrics GetVerticalMetrics(BFontStyle font);
+}
+
 public static class BTextMeasurer
 {
     private static readonly object ProviderLock = new();
@@ -79,6 +88,20 @@ public static class BTextMeasurer
     {
         ArgumentNullException.ThrowIfNull(font);
         return _provider.GetLineHeight(font);
+    }
+
+    /// <summary>Measures a stable reference so changing a caption cannot move its baseline.</summary>
+    public static BTextVerticalMetrics GetVerticalMetrics(BFontStyle font)
+    {
+        ArgumentNullException.ThrowIfNull(font);
+        if (font.Face is { } face)
+            return face.GetVerticalMetrics(font.Size);
+        if (_provider is IBTextVerticalMetricsProvider vertical)
+            return vertical.GetVerticalMetrics(font);
+        bool bold = font.Weight >= BFontWeight.Bold;
+        var system = FallbackSystemFont.For(font.FamilyName, bold, font.Slant != BFontSlant.Normal);
+        return system?.GetVerticalMetrics(font.Size, bold)
+            ?? new BTextVerticalMetrics(font.Size * 0.8, font.Size * 0.2);
     }
 
     private sealed class FallbackTextMetricsProvider : IBTextMetricsProvider

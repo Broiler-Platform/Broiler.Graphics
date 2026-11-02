@@ -64,6 +64,9 @@ internal static partial class CanvasInterop
     [JSImport("measureAdvance", ModuleName)]
     internal static partial double MeasureAdvance(string text, double fontPx, int weight, int italic, string family);
 
+    [JSImport("measureVerticalMetrics", ModuleName)]
+    internal static partial double[] MeasureVerticalMetrics(double fontPx, int weight, int italic, string family);
+
     /// <summary>Uploads a decoded RGBA image as a reusable resource canvas keyed by <paramref name="id"/>.</summary>
     [JSImport("uploadImage", ModuleName)]
     internal static partial void UploadImage(double id, int width, int height, byte[] rgba);

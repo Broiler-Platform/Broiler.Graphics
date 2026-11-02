@@ -275,6 +275,15 @@ export function measureAdvance(text, fontPx, weight, italic, family) {
     return ctx.measureText(text).width;
 }
 
+// Fixed reference ink extents keep labels with and without descenders on the same baseline.
+export function measureVerticalMetrics(fontPx, weight, italic, family) {
+    const ctx = ensureMeasureContext();
+    ctx.font = fontString(fontPx, weight, italic, family);
+    ctx.textBaseline = 'alphabetic';
+    const metrics = ctx.measureText('Hg');
+    return [metrics.actualBoundingBoxAscent, metrics.actualBoundingBoxDescent];
+}
+
 export function dispose() {
     state.resources.clear();
     state.fallbackImageData = null;
