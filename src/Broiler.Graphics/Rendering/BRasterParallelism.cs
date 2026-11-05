@@ -170,6 +170,9 @@ internal static class BRasterParallelism
         if (!string.IsNullOrWhiteSpace(configured) && int.TryParse(configured, out int threads) && threads > 0)
             return threads;
 
+        if (OperatingSystem.IsBrowser())
+            return 1;
+
         return Environment.ProcessorCount;
     }
 
