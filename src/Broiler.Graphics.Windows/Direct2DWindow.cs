@@ -1233,10 +1233,6 @@ public abstract partial class Direct2DWindow(BWindowOptions options) : BWindow(o
         return parent == IntPtr.Zero ? null : FromHwnd(parent);
     }
 
-    [LibraryImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool SetWindowPos(IntPtr hwnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
-
     [StructLayout(LayoutKind.Sequential)]
     private struct MINMAXINFO
     {
