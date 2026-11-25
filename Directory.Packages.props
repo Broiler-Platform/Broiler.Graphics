@@ -3,8 +3,8 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.9" />
-    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.9" />
+    <PackageVersion Include="Broiler.Input.Keyboard.Linux" Version="0.1.0-preview.11" />
+    <PackageVersion Include="Broiler.Input.Mouse.Linux" Version="0.1.0-preview.11" />
     <PackageVersion Include="Broiler.Media.Image" Version="0.1.0-preview.19" />
     <PackageVersion Include="Broiler.Media.Image.Managed" Version="0.1.0-preview.19" />
     <PackageVersion Include="Broiler.Media.Video" Version="0.1.0-preview.19" />
